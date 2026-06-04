@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Environment variables — API keys go here, never commit these
+.env
+.env.local
+.env.*.local
+
+# Vite build output
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.cursor/
