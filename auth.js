@@ -1,5 +1,5 @@
 // ── auth.js — Supabase auth scaffold ─────────────────────
-const SUPABASE_URL = '[dswnkbokytqqjxpziyql.supabase.co](https://dswnkbokytqqjxpziyql.supabase.co)';
+const SUPABASE_URL = 'https://dswnkbokytqqjxpziyql.supabase.co';
 
 const SUPABASE_ANON_KEY = 'sb_publishable_d2K57XUYcz1-rnPewZnvQQ_xBp71fqE';
 
