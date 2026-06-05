@@ -569,7 +569,7 @@ function showWallHandles(wallObj) {
   clearWallHandles();
   [wallObj.start, wallObj.end].forEach((pt, i) => {
     const sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(0.15, 16, 16),
+      new THREE.SphereGeometry(IS_TOUCH ? 0.22 : 0.15, 16, 16),
       new THREE.MeshBasicMaterial({ color: 0xffffff })
     );
     sphere.position.set(pt.x, 0.08, pt.z);
