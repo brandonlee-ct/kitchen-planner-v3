@@ -1,9 +1,8 @@
-
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { initAuth, signInWithGoogle, signOut } from './auth.js';
-
+const IS_TOUCH = navigator.maxTouchPoints > 0;
 const mm = v => v / 1000;
 const settings = { ceilingHeight: 2400, wallThickness: 110, gridSize: 100 };
 
@@ -2241,8 +2240,7 @@ drawPresetThumbnails();
 // Shopify Storefront API config
 const SHOPIFY_DOMAIN = '3gxvcz-k1.myshopify.com';
 const SHOPIFY_API_VERSION = '2025-01';
-const SHOPIFY_STOREFRONT_TOKEN =
-  window.SHOPIFY_STOREFRONT_TOKEN || '8f60ecff0fa31849feea742394c42139';
+const SHOPIFY_STOREFRONT_TOKEN = '8f60ecff0fa31849feea742394c42139';
 const SHOPIFY_ENDPOINT = 'https://' + SHOPIFY_DOMAIN + '/api/' + SHOPIFY_API_VERSION + '/graphql.json';
 
 async function shopifyFetch(query, variables) {
@@ -3145,7 +3143,6 @@ initAuth();
 
 animate();  // ← this was already here, keep it as the last line
 // ─── iPad Touch Controls ──────────────────────────────────────────────────────
-const IS_TOUCH = navigator.maxTouchPoints > 0;
 const isTouchDevice = () => IS_TOUCH; // keep for backwards compat
 
 
