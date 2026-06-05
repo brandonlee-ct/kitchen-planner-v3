@@ -13,6 +13,8 @@
           ? "%SHOPIFY_STOREFRONT_TOKEN%"
           : "8f60ecff0fa31849feea742394c42139";
     </script>  
+      <!-- Supabase SDK -->
+  <script src="[cdn.jsdelivr.net](https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2)"></script>
 </head>
 <body>
 
@@ -31,6 +33,7 @@
     <button id="btn-import-glb">Import GLB</button>
     <input id="glb-file-input" type="file" accept=".glb,.gltf" multiple style="display:none"/>
     <button id="btn-total-pill">$0.00</button>
+    <button id="btn-auth" class="tb-icon" title="Sign in">👤</button>
   </div>
 </div>
 
@@ -300,6 +303,38 @@
     </div>
   </div>
 
+</div>
+
+<!-- ── Auth Modal ──────────────────────────────────────── -->
+<div id="auth-modal" style="display:none;position:fixed;inset:0;
+  z-index:2000;background:rgba(0,0,0,0.85);align-items:center;
+  justify-content:center;font-family:Arial;">
+  <div style="background:#1e1e1e;border:2px solid #ff9500;border-radius:12px;
+    width:min(340px,92vw);padding:28px 24px;color:#fff;box-sizing:border-box;">
+    <div style="color:#ff9500;font-weight:bold;font-size:18px;
+      margin-bottom:6px">Brown Box Kit</div>
+    <div id="auth-status" style="color:#888;font-size:13px;
+      margin-bottom:24px">Sign in to save your projects</div>
+    <button id="btn-google-signin" style="width:100%;background:#fff;
+      color:#333;border:none;border-radius:8px;padding:12px;
+      font-size:14px;font-weight:bold;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      margin-bottom:12px">
+      <img src="[gstatic.com](https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg)"
+        width="20" height="20"/>
+      Continue with Google
+    </button>
+    <button id="btn-auth-signout" style="display:none;width:100%;
+      background:#333;color:#aaa;border:1px solid #444;border-radius:8px;
+      padding:10px;font-size:13px;cursor:pointer;margin-bottom:12px">
+      Sign out
+    </button>
+    <button id="btn-auth-close" style="width:100%;background:none;
+      border:1px solid #444;color:#aaa;border-radius:8px;
+      padding:10px;font-size:13px;cursor:pointer">
+      Close
+    </button>
+  </div>
 </div>
 
 <script type="module" src="main.js"></script>

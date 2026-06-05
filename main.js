@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { initAuth, signInWithGoogle, signOut } from './auth.js';
 
 const mm = v => v / 1000;
 const settings = { ceilingHeight: 2400, wallThickness: 110, gridSize: 100 };
@@ -2240,7 +2241,8 @@ drawPresetThumbnails();
 // Shopify Storefront API config
 const SHOPIFY_DOMAIN = '3gxvcz-k1.myshopify.com';
 const SHOPIFY_API_VERSION = '2025-01';
-const SHOPIFY_STOREFRONT_TOKEN = '8f60ecff0fa31849feea742394c42139';
+const SHOPIFY_STOREFRONT_TOKEN =
+  window.SHOPIFY_STOREFRONT_TOKEN || '8f60ecff0fa31849feea742394c42139';
 const SHOPIFY_ENDPOINT = 'https://' + SHOPIFY_DOMAIN + '/api/' + SHOPIFY_API_VERSION + '/graphql.json';
 
 async function shopifyFetch(query, variables) {
@@ -3114,6 +3116,33 @@ document.getElementById('btn-export').addEventListener('click', () => {
     }, 100);
   }, 0);
 });
+// ── Auth modal wiring ─────────────────────────────────────
+
+
+const authModal    = document.getElementById('auth-modal');
+const btnAuth      = document.getElementById('btn-auth');
+const btnAuthClose = document.getElementById('btn-auth-close');
+
+btnAuth.addEventListener('click', () => {
+  authModal.style.display = 'flex';
+});
+btnAuthClose.addEventListener('click', () => {
+  authModal.style.display = 'none';
+});
+authModal.addEventListener('click', (e) => {
+  if (e.target === authModal) authModal.style.display = 'none';
+});
+
+document.getElementById('btn-google-signin').addEventListener('click', () => {
+  signInWithGoogle();
+});
+document.getElementById('btn-auth-signout').addEventListener('click', async () => {
+  await signOut();
+  authModal.style.display = 'none';
+});
+
+initAuth();
+
 animate();  // ← this was already here, keep it as the last line
 // ─── iPad Touch Controls ──────────────────────────────────────────────────────
 const IS_TOUCH = navigator.maxTouchPoints > 0;
