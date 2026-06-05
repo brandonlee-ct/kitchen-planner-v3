@@ -1,6 +1,7 @@
 // ── auth.js — Supabase auth scaffold ─────────────────────
-const SUPABASE_URL   = '[your-project.supabase.co](https://your-project.supabase.co)';
-const SUPABASE_ANON  = 'your-anon-key';
+const SUPABASE_URL = '[dswnkbokytqqjxpziyql.supabase.co](https://dswnkbokytqqjxpziyql.supabase.co)';
+
+const SUPABASE_ANON_KEY = 'sb_publishable_d2K57XUYcz1-rnPewZnvQQ_xBp71fqE';
 
 let _client = null;
 let _user   = null;
@@ -10,10 +11,12 @@ export function initAuth() {
     console.warn('Supabase SDK not loaded');
     return;
   }
-  _client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  _client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  console.log('[auth] Supabase client initialised, listening for session…');
 
   _client.auth.onAuthStateChange((_event, session) => {
     _user = session?.user ?? null;
+    console.log('[auth] state change:', _event, _user?.email || 'no user');
     updateAuthUI();
   });
 
@@ -25,6 +28,7 @@ export function initAuth() {
 
 export async function signInWithGoogle() {
   if (!_client) return;
+  console.log('[auth] starting Google OAuth, redirect:', window.location.origin);
   const { error } = await _client.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.origin }
