@@ -2,250 +2,298 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
   <title>Kitchen Planner</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <div id="toolbar">
-    <button id="btn-draw-wall">Draw Wall</button>
-    <!-- Draw mode menu (touch only) -->
-<div id="draw-mode-menu" style="
-display:none; position:fixed; top:70px; left:50%; transform:translateX(-50%);
-background:#2a2a2a; border:1px solid #ff9500; border-radius:10px;
-padding:10px; z-index:300; flex-direction:column; gap:8px;
-min-width:260px; box-shadow:0 4px 20px rgba(0,0,0,0.6);
-">
-<div style="color:#ff9500;font-size:11px;font-weight:bold;padding:2px 4px;letter-spacing:.5px">
-  WALL DRAWING MODE
-</div>
-<button id="dmm-quick"    class="dmm-btn">⚡ Quick Draw <span style="color:#888;font-size:11px">— tap to place walls directly</span></button>
-<button id="dmm-preset"   class="dmm-btn">⬜ Preset Room <span style="color:#888;font-size:11px">— rect or L-shape</span></button>
-<button id="dmm-freehand" class="dmm-btn">✏️ Freehand <span style="color:#888;font-size:11px">— tap corners, snap on finish</span></button>
-<button id="dmm-twopoint" class="dmm-btn">📐 Two-Point <span style="color:#888;font-size:11px">— tap two opposite corners</span></button>
-<button id="dmm-cancel"   class="dmm-btn" style="border-color:#c0392b;color:#c0392b;margin-top:4px;">✕ Cancel</button>
-</div>
-
-<!-- Confirm bar — shown during preview phase -->
-<div id="draw-confirm-bar" style="
-display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
-background:#2a2a2a; border:2px solid #ff9500; border-radius:10px;
-padding:8px 16px; z-index:400; flex-direction:row; gap:10px; align-items:center;
-box-shadow:0 4px 20px rgba(0,0,0,0.6);
-">
-<span id="draw-confirm-hint" style="color:#aaa;font-size:12px;font-family:Arial">
-  Drag corners · ✓ to confirm
-</span>
-<button id="draw-confirm-tick" style="
-  background:#2ecc71; color:#fff; border:none; border-radius:8px;
-  padding:8px 20px; font-size:18px; cursor:pointer; font-weight:bold;
-">✓</button>
-<button id="draw-confirm-cancel" style="
-  background:#c0392b; color:#fff; border:none; border-radius:8px;
-  padding:8px 14px; font-size:14px; cursor:pointer;
-">✕</button>
-</div>
-
-<!-- Preset shape picker -->
-<div id="draw-preset-picker" style="
-display:none; position:fixed; top:70px; left:50%; transform:translateX(-50%);
-background:#2a2a2a; border:1px solid #ff9500; border-radius:10px;
-padding:16px 16px 12px; z-index:310; flex-direction:row; gap:16px;
-align-items:flex-start; box-shadow:0 4px 20px rgba(0,0,0,0.6);
-position:relative;
-">
-<div id="dpp-rect" class="dpp-card">
-  <canvas id="dpp-rect-cvs" width="80" height="80"></canvas>
-  <div style="color:#aaa;font-size:11px;text-align:center;margin-top:4px">Rectangle</div>
-</div>
-<div id="dpp-lshape" class="dpp-card">
-  <canvas id="dpp-lshape-cvs" width="80" height="80"></canvas>
-  <div style="color:#aaa;font-size:11px;text-align:center;margin-top:4px">L-Shape</div>
-</div>
-<button id="dpp-back" style="
-  position:absolute; top:8px; right:8px;
-  background:none; border:none; color:#aaa; font-size:18px; cursor:pointer;
-">✕</button>
-</div>
-
-    <button id="btn-toggle-view">Switch to 2D</button>
-    <button id="btn-undo" disabled title="Undo (Ctrl+Z)">←</button>
-    <button id="btn-redo" disabled title="Redo (Ctrl+Y)">→</button>
-    <button id="btn-import-glb" style="background:#2a2a2a;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;">Import GLB</button>
-    <input id="glb-file-input" type="file" accept=".glb,.gltf" multiple style="display:none"/>
-    <div id="room-area" style="color:#aaa;font-size:12px;padding:4px 8px;min-width:100px;"></div>
-
+<!-- ── Top Bar ─────────────────────────────────────────── -->
+<div id="toolbar">
+  <div class="bar-left">
+    <button id="btn-products-toggle" class="tb-icon" title="Products">⊞</button>
   </div>
+  <div class="bar-centre">
+    <button id="btn-draw-wall">Draw Wall</button>
+    <button id="btn-toggle-view">Switch to 2D</button>
+    <button id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
+    <button id="btn-redo" disabled title="Redo (Ctrl+Y)">↪</button>
+  </div>
+  <div class="bar-right">
+    <button id="btn-import-glb">Import GLB</button>
+    <input id="glb-file-input" type="file" accept=".glb,.gltf" multiple style="display:none"/>
+    <button id="btn-total-pill">$0.00</button>
+  </div>
+</div>
 
+<!-- ── Main canvas area ────────────────────────────────── -->
+<div id="main-area">
+
+  <!-- Products drawer -->
   <div id="product-panel">
     <h3>Products</h3>
     <div id="product-list"></div>
   </div>
 
-  <div id="pricing-panel">
-    <h3>Quote</h3>
-    <div id="item-list"></div>
-    <hr>
-    <strong>Total: <span id="total-price">$0.00</span></strong>
-    <br><br>
-    <button id="btn-export">Download Quote</button>
-  </div>
-
+  <!-- Canvas fills remaining space -->
   <canvas id="canvas"></canvas>
 
+  <!-- Room area chip -->
+  <div id="room-area"></div>
 
-  <div id="glb-setup-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;font-family:Arial;padding:8px;box-sizing:border-box;overflow-y:auto;">
-
-
-    <!-- STEP 1: Configure -->
-    <div id="glb-step-1" style="background:#1e1e1e;border:2px solid #ff9500;border-radius:12px;width:min(520px,96vw);max-height:90vh;overflow-y:auto;padding:16px;color:#fff;box-sizing:border-box;">
-      <div style="color:#ff9500;font-weight:bold;font-size:16px;margin-bottom:4px">Configure Model</div>
-      <div id="glb-modal-name" style="color:#888;font-size:12px;margin-bottom:20px"></div>
-  
-      <div style="margin-bottom:20px">
-        <div style="color:#aaa;font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">1 · Dimensions</div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <div>
-            <label style="color:#666;font-size:10px">Width mm</label>
-            <input id="glb-w" type="number" step="10" style="display:block;width:90px;background:#2a2a2a;border:1px solid #555;border-radius:6px;color:#fff;padding:7px 9px;font-size:13px;margin-top:3px"/>
-          </div>
-          <div>
-            <label style="color:#666;font-size:10px">Height mm</label>
-            <input id="glb-h" type="number" step="10" style="display:block;width:90px;background:#2a2a2a;border:1px solid #555;border-radius:6px;color:#fff;padding:7px 9px;font-size:13px;margin-top:3px"/>
-          </div>
-          <div>
-            <label style="color:#666;font-size:10px">Depth mm</label>
-            <input id="glb-d" type="number" step="10" style="display:block;width:90px;background:#2a2a2a;border:1px solid #555;border-radius:6px;color:#fff;padding:7px 9px;font-size:13px;margin-top:3px"/>
-          </div>
-          <div style="padding-top:18px">
-            <button id="glb-apply-scale" style="background:#ff9500;color:#fff;border:none;border-radius:6px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:bold">Apply</button>
-          </div>
-        </div>
-        <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#aaa;font-size:12px">
-            <input id="glb-measure-lock" type="checkbox" style="accent-color:#ff9500"/>
-            Lock proportions
-          </label>
-          <span id="glb-detected-size" style="color:#555;font-size:11px"></span>
-        </div>
-      </div>
-  
-      <div style="margin-bottom:20px">
-        <div style="color:#aaa;font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">2 · Rotate</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="glb-rot-btn" data-axis="x" data-deg="90" style="background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 12px;cursor:pointer;font-size:12px">Rotate X</button>
-          <button class="glb-rot-btn" data-axis="y" data-deg="90" style="background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 12px;cursor:pointer;font-size:12px">Rotate Y</button>
-          <button class="glb-rot-btn" data-axis="z" data-deg="90" style="background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 12px;cursor:pointer;font-size:12px">Rotate Z</button>
-
-        </div>
-      </div>
-  
-      <div style="margin-bottom:20px">
-        <div style="color:#aaa;font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">3 · Flip</div>
-        <div style="display:flex;gap:8px">
-          <button class="glb-flip-btn" data-axis="x" style="background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:12px">Flip X</button>
-          <button class="glb-flip-btn" data-axis="y" style="background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:12px">Flip Y</button>
-          <button class="glb-flip-btn" data-axis="z" style="background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:12px">Flip Z</button>
-        </div>
-      </div>
-  
-      <div style="margin-bottom:24px">
-        <div style="color:#aaa;font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">4 · Back Plane</div>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#ccc;font-size:13px">
-          <input id="glb-backplane" type="checkbox" style="accent-color:#ff9500;width:16px;height:16px"/>
-          Show back plane (snap to wall face)
-        </label>
-        <div style="color:#555;font-size:11px;margin-top:4px">Draws a reference plane on the rear face used for wall snapping</div>
-      </div>
-  
-      <div style="margin-bottom:20px">
-        <div style="color:#aaa;font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Preview</div>
-        <canvas id="glb-preview-canvas" width="468" height="260" style="width:100%;border-radius:8px;background:#111;border:1px solid #333"></canvas>
-      </div>
-  
-      <div style="display:flex;justify-content:flex-end;gap:10px">
-        <button id="glb-step1-cancel" style="background:none;border:1px solid #444;color:#aaa;border-radius:6px;padding:9px 18px;cursor:pointer;font-size:13px">Cancel</button>
-        <button id="glb-step1-next" style="background:#ff9500;color:#fff;border:none;border-radius:6px;padding:9px 22px;cursor:pointer;font-size:14px;font-weight:bold">Next →</button>
-      </div>
-    </div>
-  
-    <!-- STEP 2: Profile photo -->
-    <div id="glb-step-2" style="display:none;background:#1e1e1e;border:2px solid #ff9500;border-radius:12px;width:520px;padding:24px;color:#fff;">
-      <div style="color:#ff9500;font-weight:bold;font-size:16px;margin-bottom:4px">Product Photo</div>
-      <div style="color:#888;font-size:12px;margin-bottom:16px">Orbit to frame your shot, then click Upload</div>
-  
-      <canvas id="glb-photo-canvas" width="468" height="340" style="width:100%;border-radius:8px;background:#111;border:1px solid #333;cursor:grab"></canvas>
-  
-      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-        <button id="glb-iso-view"   style="background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:12px">⬡ Isometric</button>
-        <button id="glb-front-view" style="background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:12px">Front</button>
-        <button id="glb-side-view"  style="background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:12px">Side</button>
-        <button id="glb-top-view"   style="background:#2a2a2a;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:12px">Top</button>
-      </div>
-  
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px">
-        <button id="glb-step2-back"  style="background:none;border:1px solid #444;color:#aaa;border-radius:6px;padding:9px 18px;cursor:pointer;font-size:13px">← Back</button>
-        <button id="glb-upload-btn"  style="background:#2ecc71;color:#fff;border:none;border-radius:6px;padding:9px 28px;cursor:pointer;font-size:14px;font-weight:bold">✓ Upload</button>
-      </div>
-    </div>
-  
-  </div><!-- Touch model controls overlay -->
-  <div id="touch-model-overlay" style="display:none;">
-    <div id="touch-overlay-inner">
-      <button id="touch-rotate-btn">🔄 Rotate</button>
-      <button id="touch-drag-btn">✋ Hold & Drag</button>
-      <button id="touch-deselect-btn">✕</button>
-    </div>
-  </div>
-  
-  <!-- Touch floating model panel -->
-  <div id="touch-float-panel" style="display:none;">
-    <div id="touch-float-handle">
-      <span>Cabinet Options</span>
-      <span id="touch-float-close">✕</span>
-    </div>
-    <div id="touch-float-body">
-      <button id="tfp-duplicate">⧉ Duplicate</button>
-      <button id="tfp-ruler">📏 Ruler</button>
-      <button id="tfp-delete">🗑 Delete</button>
-      <button id="tfp-hide">👁 Hide</button>
-    </div>
-    <div id="tfp-ruler-readout" style="display:none;">
-      <span id="tfp-ruler-text">Measuring...</span>
-    </div>
-  </div>
-  
-  <div id="wall-dim-input" style="
-  display:none;
-  position:fixed;
-  z-index:500;
-  background:#1a1a1a;
-  border:2px solid #ff9500;
-  border-radius:8px;
-  padding:6px 10px;
-  display:none;
-  flex-direction:row;
-  align-items:center;
-  gap:6px;
-  pointer-events:all;
-  box-shadow:0 2px 12px rgba(0,0,0,0.6);
-">
-  <input id="wall-dim-value" type="number" step="100" min="100"
-    style="
-      width:90px;
-      background:#333;
-      border:1px solid #ff9500;
-      border-radius:6px;
-      color:#fff;
-      padding:6px 8px;
-      font-size:15px;
-      font-weight:bold;
-      box-sizing:border-box;
-    "
-  />
-  <span style="color:#aaa;font-size:12px">mm</span>
-  <span style="color:#555;font-size:11px">↵ Enter</span>
 </div>
-  <script type="module" src="main.js"></script>
-  </body>
+
+<!-- Drawer backdrop (mobile) -->
+<div id="drawer-backdrop"></div>
+
+<!-- ── Quote Panel ──────────────────────────────────────── -->
+<div id="pricing-panel">
+  <div id="quote-header">
+    <span>Quote</span>
+    <button id="btn-quote-close">✕</button>
+  </div>
+  <div id="item-list"></div>
+  <div id="quote-footer">
+    <div class="total-line">
+      <span>Total</span>
+      <span id="total-price">$0.00</span>
+    </div>
+    <button id="btn-export">⬇ Download Quote</button>
+  </div>
+</div>
+
+<!-- ── Wall dim input ───────────────────────────────────── -->
+<div id="wall-dim-input">
+  <input id="wall-dim-value" type="number" step="100" min="100"/>
+  <span style="color:#aaa;font-size:12px">mm</span>
+  <span style="color:#555;font-size:11px">↵</span>
+</div>
+
+<!-- ── Draw mode menu ───────────────────────────────────── -->
+<div id="draw-mode-menu" style="display:none">
+  <div style="color:#ff9500;font-size:11px;font-weight:bold;
+    padding:2px 4px;letter-spacing:.5px">WALL DRAWING MODE</div>
+  <button id="dmm-quick" class="dmm-btn">⚡ Quick Draw
+    <span style="color:#888;font-size:11px">— tap to place walls</span></button>
+  <button id="dmm-preset" class="dmm-btn">⬜ Preset Room
+    <span style="color:#888;font-size:11px">— rect or L-shape</span></button>
+  <button id="dmm-freehand" class="dmm-btn">✏️ Freehand
+    <span style="color:#888;font-size:11px">— tap corners</span></button>
+  <button id="dmm-twopoint" class="dmm-btn">📐 Two-Point
+    <span style="color:#888;font-size:11px">— two opposite corners</span></button>
+  <button id="dmm-cancel" class="dmm-btn"
+    style="border-color:#c0392b;color:#c0392b;margin-top:4px">✕ Cancel</button>
+</div>
+
+<!-- ── Draw confirm bar ─────────────────────────────────── -->
+<div id="draw-confirm-bar" style="display:none">
+  <span id="draw-confirm-hint">Drag corners · ✓ to confirm</span>
+  <button id="draw-confirm-tick">✓</button>
+  <button id="draw-confirm-cancel">✕</button>
+</div>
+
+<!-- ── Draw preset picker ───────────────────────────────── -->
+<div id="draw-preset-picker" style="display:none">
+  <div id="dpp-rect" class="dpp-card">
+    <canvas id="dpp-rect-cvs" width="80" height="80"></canvas>
+    <div style="color:#aaa;font-size:11px;text-align:center;margin-top:4px">Rectangle</div>
+  </div>
+  <div id="dpp-lshape" class="dpp-card">
+    <canvas id="dpp-lshape-cvs" width="80" height="80"></canvas>
+    <div style="color:#aaa;font-size:11px;text-align:center;margin-top:4px">L-Shape</div>
+  </div>
+  <button id="dpp-back" style="position:absolute;top:8px;right:8px;
+    background:none;border:none;color:#aaa;font-size:18px;cursor:pointer">✕</button>
+</div>
+
+<!-- ── Touch model overlay ──────────────────────────────── -->
+<div id="touch-model-overlay" style="display:none">
+  <div id="touch-overlay-inner">
+    <button id="touch-rotate-btn">🔄 Rotate</button>
+    <button id="touch-drag-btn">✋ Hold & Drag</button>
+    <button id="touch-deselect-btn">✕</button>
+  </div>
+</div>
+
+<!-- ── Touch floating panel ─────────────────────────────── -->
+<div id="touch-float-panel" style="display:none">
+  <div id="touch-float-handle">
+    <span>Cabinet Options</span>
+    <span id="touch-float-close">✕</span>
+  </div>
+  <div id="touch-float-body">
+    <button id="tfp-duplicate">⧉ Duplicate</button>
+    <button id="tfp-ruler">📏 Ruler</button>
+    <button id="tfp-delete">🗑 Delete</button>
+    <button id="tfp-hide">👁 Hide</button>
+  </div>
+  <div id="tfp-ruler-readout" style="display:none">
+    <span id="tfp-ruler-text">Measuring...</span>
+  </div>
+</div>
+
+<!-- ── GLB Setup Modal ──────────────────────────────────── -->
+<div id="glb-setup-modal" style="display:none;position:fixed;inset:0;
+  z-index:1000;background:rgba(0,0,0,0.85);align-items:center;
+  justify-content:center;font-family:Arial;padding:8px;
+  box-sizing:border-box;overflow-y:auto;">
+
+  <!-- Step 1 -->
+  <div id="glb-step-1" style="background:#1e1e1e;border:2px solid #ff9500;
+    border-radius:12px;width:min(520px,96vw);max-height:90vh;
+    overflow-y:auto;padding:16px;color:#fff;box-sizing:border-box;">
+    <div style="color:#ff9500;font-weight:bold;font-size:16px;
+      margin-bottom:4px">Configure Model</div>
+    <div id="glb-modal-name" style="color:#888;font-size:12px;
+      margin-bottom:20px"></div>
+
+    <div style="margin-bottom:20px">
+      <div style="color:#aaa;font-size:11px;text-transform:uppercase;
+        letter-spacing:.5px;margin-bottom:8px">1 · Dimensions</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div>
+          <label style="color:#666;font-size:10px">Width mm</label>
+          <input id="glb-w" type="number" step="10" style="display:block;
+            width:90px;background:#2a2a2a;border:1px solid #555;
+            border-radius:6px;color:#fff;padding:7px 9px;font-size:13px;
+            margin-top:3px"/>
+        </div>
+        <div>
+          <label style="color:#666;font-size:10px">Height mm</label>
+          <input id="glb-h" type="number" step="10" style="display:block;
+            width:90px;background:#2a2a2a;border:1px solid #555;
+            border-radius:6px;color:#fff;padding:7px 9px;font-size:13px;
+            margin-top:3px"/>
+        </div>
+        <div>
+          <label style="color:#666;font-size:10px">Depth mm</label>
+          <input id="glb-d" type="number" step="10" style="display:block;
+            width:90px;background:#2a2a2a;border:1px solid #555;
+            border-radius:6px;color:#fff;padding:7px 9px;font-size:13px;
+            margin-top:3px"/>
+        </div>
+        <div style="padding-top:18px">
+          <button id="glb-apply-scale" style="background:#ff9500;color:#fff;
+            border:none;border-radius:6px;padding:8px 14px;cursor:pointer;
+            font-size:13px;font-weight:bold">Apply</button>
+        </div>
+      </div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;
+          color:#aaa;font-size:12px">
+          <input id="glb-measure-lock" type="checkbox"
+            style="accent-color:#ff9500"/>
+          Lock proportions
+        </label>
+        <span id="glb-detected-size" style="color:#555;font-size:11px"></span>
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="color:#aaa;font-size:11px;text-transform:uppercase;
+        letter-spacing:.5px;margin-bottom:8px">2 · Rotate</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="glb-rot-btn" data-axis="x" data-deg="90"
+          style="background:#2a2a2a;color:#fff;border:1px solid #444;
+          border-radius:6px;padding:7px 12px;cursor:pointer;
+          font-size:12px">Rotate X</button>
+        <button class="glb-rot-btn" data-axis="y" data-deg="90"
+          style="background:#2a2a2a;color:#fff;border:1px solid #444;
+          border-radius:6px;padding:7px 12px;cursor:pointer;
+          font-size:12px">Rotate Y</button>
+        <button class="glb-rot-btn" data-axis="z" data-deg="90"
+          style="background:#2a2a2a;color:#fff;border:1px solid #444;
+          border-radius:6px;padding:7px 12px;cursor:pointer;
+          font-size:12px">Rotate Z</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="color:#aaa;font-size:11px;text-transform:uppercase;
+        letter-spacing:.5px;margin-bottom:8px">3 · Flip</div>
+      <div style="display:flex;gap:8px">
+        <button class="glb-flip-btn" data-axis="x"
+          style="background:#2a2a2a;color:#fff;border:1px solid #444;
+          border-radius:6px;padding:7px 14px;cursor:pointer;
+          font-size:12px">Flip X</button>
+        <button class="glb-flip-btn" data-axis="y"
+          style="background:#2a2a2a;color:#fff;border:1px solid #444;
+          border-radius:6px;padding:7px 14px;cursor:pointer;
+          font-size:12px">Flip Y</button>
+        <button class="glb-flip-btn" data-axis="z"
+          style="background:#2a2a2a;color:#fff;border:1px solid #444;
+          border-radius:6px;padding:7px 14px;cursor:pointer;
+          font-size:12px">Flip Z</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:24px">
+      <div style="color:#aaa;font-size:11px;text-transform:uppercase;
+        letter-spacing:.5px;margin-bottom:8px">4 · Back Plane</div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;
+        color:#ccc;font-size:13px">
+        <input id="glb-backplane" type="checkbox"
+          style="accent-color:#ff9500;width:16px;height:16px"/>
+        Show back plane
+      </label>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="color:#aaa;font-size:11px;text-transform:uppercase;
+        letter-spacing:.5px;margin-bottom:8px">Preview</div>
+      <canvas id="glb-preview-canvas" width="468" height="260"
+        style="width:100%;border-radius:8px;background:#111;
+        border:1px solid #333"></canvas>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button id="glb-step1-cancel" style="background:none;
+        border:1px solid #444;color:#aaa;border-radius:6px;
+        padding:9px 18px;cursor:pointer;font-size:13px">Cancel</button>
+      <button id="glb-step1-next" style="background:#ff9500;color:#fff;
+        border:none;border-radius:6px;padding:9px 22px;cursor:pointer;
+        font-size:14px;font-weight:bold">Next →</button>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div id="glb-step-2" style="display:none;background:#1e1e1e;
+    border:2px solid #ff9500;border-radius:12px;
+    width:min(520px,96vw);padding:24px;color:#fff;">
+    <div style="color:#ff9500;font-weight:bold;font-size:16px;
+      margin-bottom:4px">Product Photo</div>
+    <div style="color:#888;font-size:12px;margin-bottom:16px">
+      Orbit to frame your shot, then click Upload</div>
+    <canvas id="glb-photo-canvas" width="468" height="340"
+      style="width:100%;border-radius:8px;background:#111;
+      border:1px solid #333;cursor:grab"></canvas>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button id="glb-iso-view"   style="background:#2a2a2a;color:#fff;
+        border:1px solid #444;border-radius:6px;padding:7px 14px;
+        cursor:pointer;font-size:12px">⬡ Isometric</button>
+      <button id="glb-front-view" style="background:#2a2a2a;color:#fff;
+        border:1px solid #444;border-radius:6px;padding:7px 14px;
+        cursor:pointer;font-size:12px">Front</button>
+      <button id="glb-side-view"  style="background:#2a2a2a;color:#fff;
+        border:1px solid #444;border-radius:6px;padding:7px 14px;
+        cursor:pointer;font-size:12px">Side</button>
+      <button id="glb-top-view"   style="background:#2a2a2a;color:#fff;
+        border:1px solid #444;border-radius:6px;padding:7px 14px;
+        cursor:pointer;font-size:12px">Top</button>
+    </div>
+    <div style="display:flex;justify-content:space-between;
+      align-items:center;margin-top:20px">
+      <button id="glb-step2-back" style="background:none;
+        border:1px solid #444;color:#aaa;border-radius:6px;
+        padding:9px 18px;cursor:pointer;font-size:13px">← Back</button>
+      <button id="glb-upload-btn" style="background:#2ecc71;color:#fff;
+        border:none;border-radius:6px;padding:9px 28px;cursor:pointer;
+        font-size:14px;font-weight:bold">✓ Upload</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
 </html>

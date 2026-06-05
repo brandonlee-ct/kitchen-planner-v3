@@ -72,6 +72,7 @@ let activeTouches = new Map();
 let lastPinchDist = null;
 
 canvas.addEventListener('touchstart', (e) => {
+  if (mode === 'draw-glide') return;
     // Check for wall handle tap on iPad
     if (e.touches.length === 1) {
       const t = e.touches[0];
@@ -112,6 +113,7 @@ canvas.addEventListener('touchstart', (e) => {
 }, { passive: false });
 
 canvas.addEventListener('touchmove', (e) => {
+  if (mode === 'draw-glide') return;
   e.preventDefault();
   Array.from(e.changedTouches).forEach(t => activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY }));
   if (activeTouches.size === 2) {
@@ -250,6 +252,16 @@ function executeUndo(entry) {
     });
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
     updateRoomArea();
+  } else if (entry.type === 'add-wall-batch') {
+    entry.data.walls.forEach(w => {
+      scene.remove(w.mesh);
+      if (w.capMeshes) w.capMeshes.forEach(c => scene.remove(c));
+      if (w.label2D) wall2DLabelGroup.remove(w.label2D);
+      walls = walls.filter(x => x !== w);
+    });
+    rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
+    updateRoomArea();
+
   }  
 }
 function executeRedo(entry) {
@@ -290,6 +302,14 @@ function executeRedo(entry) {
     });
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
     updateRoomArea();
+  } else if (entry.type === 'add-wall-batch') {
+    entry.data.walls.forEach(w => {
+      scene.add(w.mesh);
+      if (!walls.includes(w)) walls.push(w);
+    });
+    rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays();
+    updateRoomArea();
+
   }  
 }
 
@@ -364,8 +384,9 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
 function updateMouse(e) {
-  mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
-  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  const rect = canvas.getBoundingClientRect();
+  mouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+  mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
 }
 function getFloorPos(e) {
   updateMouse(e);
@@ -1956,6 +1977,81 @@ function drawPreviewPolygon(pts) {
     previewMeshGroup.add(sphere);
   });
 }
+function makeCleanRect(pts) {
+  let minX = Infinity, maxX = -Infinity;
+  let minZ = Infinity, maxZ = -Infinity;
+  pts.forEach(p => {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+  });
+  const g = mm(settings.gridSize);
+  minX = Math.round(minX / g) * g;
+  maxX = Math.round(maxX / g) * g;
+  minZ = Math.round(minZ / g) * g;
+  maxZ = Math.round(maxZ / g) * g;
+  return [
+    new THREE.Vector3(minX, 0, minZ),
+    new THREE.Vector3(maxX, 0, minZ),
+    new THREE.Vector3(maxX, 0, maxZ),
+    new THREE.Vector3(minX, 0, maxZ),
+  ];
+}
+
+function isRoughlyRectangular(pts, tolerance) {
+  if (tolerance === undefined) tolerance = mm(600);
+  if (pts.length < 3 || pts.length > 8) return false;
+  let minX = Infinity, maxX = -Infinity;
+  let minZ = Infinity, maxZ = -Infinity;
+  pts.forEach(p => {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+  });
+  const corners = [
+    new THREE.Vector3(minX, 0, minZ),
+    new THREE.Vector3(maxX, 0, minZ),
+    new THREE.Vector3(maxX, 0, maxZ),
+    new THREE.Vector3(minX, 0, maxZ),
+  ];
+  return pts.every(p => corners.some(c => p.distanceTo(c) < tolerance));
+}
+
+
+function weldCorners(pts, tolerance) {
+  if (tolerance === undefined) tolerance = mm(200);
+  const out = pts.map(p => p.clone());
+
+  // First pass — snap every point to grid
+  for (let i = 0; i < out.length; i++) {
+    out[i] = snapToGrid(out[i]);
+  }
+
+  // Second pass — weld X coordinates
+  for (let i = 0; i < out.length; i++) {
+    for (let j = 0; j < out.length; j++) {
+      if (i === j) continue;
+      if (Math.abs(out[i].x - out[j].x) < tolerance) {
+        const avg = Math.round((out[i].x + out[j].x) / 2 / mm(100)) * mm(100);
+        out[i].x = avg;
+        out[j].x = avg;
+      }
+    }
+  }
+
+  // Third pass — weld Z coordinates
+  for (let i = 0; i < out.length; i++) {
+    for (let j = 0; j < out.length; j++) {
+      if (i === j) continue;
+      if (Math.abs(out[i].z - out[j].z) < tolerance) {
+        const avg = Math.round((out[i].z + out[j].z) / 2 / mm(100)) * mm(100);
+        out[i].z = avg;
+        out[j].z = avg;
+      }
+    }
+  }
+
+  return out;
+}
+
 
 function orthogonalisePoints(rawPts) {
   if (rawPts.length < 2) return rawPts;
@@ -2140,6 +2236,29 @@ drawPresetThumbnails();
       // ✅ FIX: room-area display element — add <div id="room-area"> to your index.html
       // e.g. inside your toolbar: <div id="room-area" style="color:#aaa;font-size:12px;padding:4px 8px;"></div>
       
+// Shopify Storefront API config
+const SHOPIFY_DOMAIN = '3gxvcz-k1.myshopify.com';
+const SHOPIFY_API_VERSION = '2025-01';
+const SHOPIFY_STOREFRONT_TOKEN = '8f60ecff0fa31849feea742394c42139';
+const SHOPIFY_ENDPOINT = 'https://' + SHOPIFY_DOMAIN + '/api/' + SHOPIFY_API_VERSION + '/graphql.json';
+
+async function shopifyFetch(query, variables) {
+  if (!variables) variables = {};
+  const res = await fetch(SHOPIFY_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_TOKEN
+    },
+    body: JSON.stringify({ query: query, variables: variables })
+  });
+  if (!res.ok) throw new Error('Shopify ' + res.status);
+  const json = await res.json();
+  if (json.errors) throw new Error(json.errors.map(function(e){return e.message;}).join('; '));
+  return json.data;
+}
+
+   
       const products = [
         { id:'base-600', name:'Base Cabinet 600mm', modelPath:'models/base-600.glb', width:600, height:900, depth:600,
           skus:[{id:'BC600-WHT',label:'White',price:450},{id:'BC600-OAK',label:'Oak',price:520}] },
@@ -3199,14 +3318,7 @@ document.getElementById('dmm-preset').addEventListener('click', () => {
 
 document.getElementById('dmm-freehand').addEventListener('click', () => {
   hideDrawModeMenu();
-  drawModeActive = 'freehand';
-  mode = 'draw-freehand';
-  freehandRawPoints = [];
-  canvas.style.cursor = 'crosshair';
-  controls.enabled = false;
-  document.getElementById('btn-draw-wall').style.background = '#ff9500';
-  document.getElementById('btn-draw-wall').style.color = '#fff';
-  showConfirmBar('Tap corners · ✓ to snap and preview');
+  startGlideDraw();
 });
 
 document.getElementById('dmm-twopoint').addEventListener('click', () => {
@@ -3462,3 +3574,436 @@ canvas.addEventListener('touchend', () => {
     controls.enabled = true;
   }
 });
+
+// ── Product panel toggle ──────────────────────────────────────────────────────
+const productPanel      = document.getElementById('product-panel');
+const drawerBackdrop    = document.getElementById('drawer-backdrop');
+const btnProductsToggle = document.getElementById('btn-products-toggle');
+
+function openProductPanel() {
+  productPanel.classList.add('open');
+  drawerBackdrop.classList.add('visible');
+}
+function closeProductPanel() {
+  productPanel.classList.remove('open');
+  drawerBackdrop.classList.remove('visible');
+}
+
+btnProductsToggle.addEventListener('click', () => {
+  if (productPanel.classList.contains('open')) {
+    closeProductPanel();
+  } else {
+    openProductPanel();
+  }
+});
+
+drawerBackdrop.addEventListener('click', closeProductPanel);
+
+document.getElementById('product-list').addEventListener('click', () => {
+  if (window.innerWidth <= 768) closeProductPanel();
+});
+
+
+// ── Pricing panel open/close ──────────────────────────────────────────────────
+const pricingPanel  = document.getElementById('pricing-panel');
+const btnTotalPill  = document.getElementById('btn-total-pill');
+const btnQuoteClose = document.getElementById('btn-quote-close');
+
+function openPricingPanel() {
+  pricingPanel.classList.add('open');
+}
+function closePricingPanel() {
+  pricingPanel.classList.remove('open');
+}
+
+btnTotalPill.addEventListener('click', () => {
+  if (pricingPanel.classList.contains('open')) {
+    closePricingPanel();
+  } else {
+    openPricingPanel();
+  }
+});
+
+btnQuoteClose.addEventListener('click', closePricingPanel);
+
+
+// ── Sync total pill with quote total ──────────────────────────────────────────
+const _originalUpdateQuote = updateQuote;
+updateQuote = function () {
+  _originalUpdateQuote();
+  const totalText = document.getElementById('total-price').textContent;
+  document.getElementById('btn-total-pill').textContent = totalText;
+};
+
+updateQuote();
+
+// ══════════════════════════════════════════════════════════════════
+//  GLIDE DRAW — drag/glide to trace walls with mouse or touch
+// ══════════════════════════════════════════════════════════════════
+
+let glideActive       = false;   // currently recording a glide
+let glideWasPinching = false;
+const glidePointers = new Map();
+let glidePoints       = [];      // raw Vector3 sampled during drag
+let glidePointerDown  = false;
+let glideAnimId       = null;
+let glidePreviewLines = [];      // live THREE.Line objects shown while dragging
+let glideCursorLine   = null;
+
+// Minimum distance (metres) between sampled points — prevents too many
+// points on slow drags while still capturing corners accurately
+const GLIDE_SAMPLE_DIST = mm(150);
+
+// Minimum wall segment length to bother building
+const GLIDE_MIN_SEG = mm(100);
+
+// How close the end must be to the start to auto-close the room (metres)
+const GLIDE_CLOSE_THRESH = mm(400);
+
+
+function startGlideDraw() {
+  // ── Force 2D view ──────────────────────────────────────
+  if (is3D) {
+    is3D = false;
+    if (!camera2D.userData.initialised) {
+      camera2D.position.set(0, 50, 0);
+      camera2D.up.set(0, 0, -1);
+      camera2D.lookAt(0, 0, 0);
+      camera2D.userData.initialised = true;
+    }
+    updateOrtho();
+    activeCamera = camera2D;
+    controls.enabled = false;
+    document.getElementById('btn-toggle-view').textContent = 'Switch to 3D';
+    update2DLabelVisibility();
+    rebuild2DWallOverlays();
+  }
+
+  drawModeActive   = 'glide';
+  mode             = 'draw-glide';
+  glideActive      = false;
+  glidePoints      = [];
+  controls.enabled = false;   // lock orbit/pan — no view movement during glide
+  isPanning2D      = false;   // kill any active 2D pan
+  activeTouches.clear();
+  lastPinchDist    = null;
+  canvas.style.touchAction = 'none';
+  canvas.style.cursor = 'crosshair';
+  document.getElementById('btn-draw-wall').style.background = '#ff9500';
+  document.getElementById('btn-draw-wall').style.color      = '#fff';
+  showConfirmBar('Hold & drag to draw walls · release to finish');
+}
+
+
+function stopGlideDraw() {
+  glideActive      = false;
+  glidePointerDown = false;
+  glideWasPinching = false;
+  glidePointers.clear();
+
+  canvas.style.touchAction = '';
+  controls.enabled = false;
+
+  canvas.style.cursor = 'default';
+  clearGlidePreview();
+  document.getElementById('btn-draw-wall').style.background = '';
+  document.getElementById('btn-draw-wall').style.color      = '';
+  hideConfirmBar();
+  mode           = 'select';
+  drawModeActive = null;
+}
+
+
+// ── Sampling helper ───────────────────────────────────────────────
+
+function glideAddPoint(clientX, clientY) {
+  const pt = getFloorPos({ clientX, clientY });
+  if (!pt) return;
+  const snapped = snapToGrid(pt);
+
+  if (glidePoints.length === 0) {
+    glidePoints.push(snapped.clone());
+    return;
+  }
+
+  const last = glidePoints[glidePoints.length - 1];
+  if (last.distanceTo(snapped) >= GLIDE_SAMPLE_DIST) {
+    glidePoints.push(snapped.clone());
+    updateGlidePreview();
+  }
+}
+
+// ── Live preview while dragging ───────────────────────────────────
+
+function clearGlidePreview() {
+  glidePreviewLines.forEach(l => scene.remove(l));
+  glidePreviewLines = [];
+  if (glideCursorLine) { scene.remove(glideCursorLine); glideCursorLine = null; }
+}
+
+
+function updateGlidePreview() {
+  clearGlidePreview();
+  if (glidePoints.length < 2) return;
+
+  for (let i = 0; i < glidePoints.length - 1; i++) {
+    const a = glidePoints[i];
+    const b = glidePoints[i + 1];
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(a.x, 0.03, a.z),
+        new THREE.Vector3(b.x, 0.03, b.z)
+      ]),
+      new THREE.LineBasicMaterial({ color: 0xff9500, opacity: 0.7, transparent: true })
+    );
+    scene.add(line);
+    glidePreviewLines.push(line);
+  }
+
+  // Show close-room hint dot when near start
+  const first = glidePoints[0];
+  const last  = glidePoints[glidePoints.length - 1];
+  if (glidePoints.length > 3 && last.distanceTo(first) < GLIDE_CLOSE_THRESH) {
+    const dot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0x00ff88 })
+    );
+    dot.position.set(first.x, 0.06, first.z);
+    dot.name = '__glideCloseDot__';
+    scene.add(dot);
+    glidePreviewLines.push(dot);
+  }
+}
+
+// ── Douglas-Peucker simplification ───────────────────────────────
+// Reduces noisy glide points to clean corner points
+
+function perpendicularDist(pt, lineA, lineB) {
+  const dx = lineB.x - lineA.x;
+  const dz = lineB.z - lineA.z;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  if (len < 0.0001) return pt.distanceTo(lineA);
+  return Math.abs(dx * (lineA.z - pt.z) - (lineA.x - pt.x) * dz) / len;
+}
+
+function douglasPeucker(pts, epsilon) {
+  if (pts.length < 3) return pts;
+  let maxDist  = 0;
+  let maxIndex = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = perpendicularDist(pts[i], pts[0], pts[pts.length - 1]);
+    if (d > maxDist) { maxDist = d; maxIndex = i; }
+  }
+  if (maxDist > epsilon) {
+    const left  = douglasPeucker(pts.slice(0, maxIndex + 1), epsilon);
+    const right = douglasPeucker(pts.slice(maxIndex), epsilon);
+    return [...left.slice(0, -1), ...right];
+  }
+  return [pts[0], pts[pts.length - 1]];
+}
+
+// ── Commit glide to actual walls ──────────────────────────────────
+
+function commitGlideDraw() {
+  clearGlidePreview();
+
+  if (glidePoints.length < 2) {
+    stopGlideDraw();
+    return;
+  }
+
+  const epsilon    = mm(300);
+  const simplified  = douglasPeucker(glidePoints, epsilon);
+  const ortho       = orthogonalisePoints(simplified);
+  const welded      = weldCorners(ortho);
+  const reortho     = orthogonalisePoints(welded);
+  const isRect      = isRoughlyRectangular(reortho);
+  const clean       = isRect ? makeCleanRect(reortho) : reortho;
+  const first = clean[0];
+  let last  = clean[clean.length - 1];
+
+  // Rectangles are always closed loops — skip snap logic entirely
+  let shouldClose;
+  if (isRect) {
+    shouldClose = true;
+  } else {
+    shouldClose = clean.length >= 3 &&
+      first.distanceTo(last) < GLIDE_CLOSE_THRESH * 2;
+
+    if (shouldClose) {
+      // Orthogonal approach into first
+      const prev = clean[clean.length - 2] || clean[0];
+      const adx = Math.abs(prev.x - first.x);
+      const adz = Math.abs(prev.z - first.z);
+      if (adx >= adz) {
+        clean[clean.length - 1] = new THREE.Vector3(last.x, last.y, first.z);
+      } else {
+        clean[clean.length - 1] = new THREE.Vector3(first.x, last.y, last.z);
+      }
+      last = clean[clean.length - 1];
+    }
+  }
+
+  const builtWalls = [];
+
+  if (shouldClose) {
+    // For rectangles, use all 4 points as-is
+    // For freehand close, drop last if it collided with first during snap
+    const pts = (!isRect && clean[clean.length - 1].distanceTo(clean[0]) < mm(150))
+      ? clean.slice(0, -1)
+      : clean;
+
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i];
+      const b = pts[(i + 1) % pts.length];
+      if (a.distanceTo(b) > mm(50)) {
+        const w = buildWall(a.clone(), b.clone(), true);
+        if (w) builtWalls.push(w);
+      }
+    }
+    lockRoom();
+
+  } else {
+    for (let i = 0; i < clean.length - 1; i++) {
+      const w = buildWall(clean[i].clone(), clean[i + 1].clone(), true);
+      if (w) builtWalls.push(w);
+    }
+  }
+
+
+  if (builtWalls.length > 0) {
+    undoStack.push({ type: 'add-wall-batch', data: { walls: builtWalls } });
+    if (undoStack.length > MAX_HISTORY) undoStack.shift();
+    redoStack = [];
+    updateUndoRedoButtons();
+  }
+
+  glidePoints = [];
+  stopGlideDraw();
+}
+
+
+// ── Pointer events (works for both mouse and touch) ───────────────
+
+// ── Glide Draw — clean pointer listeners ─────────────────────────────────────
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (mode !== 'draw-glide') return;
+  e.preventDefault();
+  e.stopPropagation();
+  canvas.setPointerCapture(e.pointerId);
+  glidePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  isPanning2D = false;
+
+  if (glidePointers.size === 2) {
+    // Second finger arrived — pause drawing, enter pinch mode
+    glideWasPinching = true;
+    glideActive = false;
+  }
+
+  if (glidePointers.size === 1 && !glideWasPinching) {
+    // Fresh first finger, no prior pinch
+    glideActive = true;
+    glidePoints = [];
+    glideAddPoint(e.clientX, e.clientY);
+  }
+}, { passive: false });
+
+canvas.addEventListener('pointermove', (e) => {
+  if (mode !== 'draw-glide') return;
+  e.preventDefault();
+  e.stopPropagation();
+  glidePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (glidePointers.size === 2) {
+    // Two-finger pinch: zoom only, no drawing
+    const pts = Array.from(glidePointers.values());
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    if (lastPinchDist !== null) {
+      const delta = lastPinchDist - dist;
+      orthoSize = Math.max(0.5, Math.min(30, orthoSize + delta * 0.01));
+      updateOrtho();
+    }
+    lastPinchDist = dist;
+    if (glideCursorLine) { scene.remove(glideCursorLine); glideCursorLine = null; }
+    return;
+  }
+
+  // Single finger: draw
+  if (glidePointers.size === 1 && glideActive) {
+    glideAddPoint(e.clientX, e.clientY);
+
+    if (glidePoints.length >= 1) {
+      const pt = getFloorPos({ clientX: e.clientX, clientY: e.clientY });
+      if (pt) {
+        let last  = glidePoints[glidePoints.length - 1];
+        const first = glidePoints[0];
+
+        // Snap tail to first point when close enough to close room
+        let snapped = false;
+        if (first && pt.distanceTo(first) < GLIDE_CLOSE_THRESH) {
+          snapped = true;
+          const adx = Math.abs(last.x - first.x);
+          const adz = Math.abs(last.z - first.z);
+          if (adx >= adz) {
+            last = new THREE.Vector3(last.x, last.y, first.z);
+          } else {
+            last = new THREE.Vector3(first.x, last.y, last.z);
+          }
+          pt.set(first.x, first.y, first.z);
+        }
+
+        const tailColor = snapped ? 0x00ff88 : 0xffdd44;
+
+        if (glideCursorLine) scene.remove(glideCursorLine);
+        glideCursorLine = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(last.x, 0.035, last.z),
+            new THREE.Vector3(pt.x,   0.035, pt.z)
+          ]),
+          new THREE.LineBasicMaterial({ color: tailColor, opacity: 0.75, transparent: true })
+        );
+        scene.add(glideCursorLine);
+      }
+    }
+  }
+}, { passive: false });
+
+
+canvas.addEventListener('pointerup', (e) => {
+  if (mode !== 'draw-glide') return
+  e.preventDefault();
+  e.stopPropagation();
+  glidePointers.delete(e.pointerId);
+
+  if (glidePointers.size < 2) lastPinchDist = null;
+
+  if (glidePointers.size === 1 && glideWasPinching) {
+    // One finger left after pinch — resume drawing
+    glideWasPinching = false;
+    glideActive = true;
+    return;
+  }
+
+  if (glidePointers.size === 0 && !glideWasPinching) {
+    // All fingers up, no pinch — commit
+    glideAddPoint(e.clientX, e.clientY);
+    commitGlideDraw();
+  }
+
+  if (glidePointers.size === 0 && glideWasPinching) {
+    // Both fingers lifted from pinch — wait for new touch
+    glideWasPinching = false;
+    glideActive = false;
+  }
+}, { passive: false });
+
+canvas.addEventListener('pointercancel', (e) => {
+  if (mode !== 'draw-glide') return;
+  glidePointers.delete(e.pointerId);
+  if (glidePointers.size === 0) commitGlideDraw();
+});
+
+
+
+
