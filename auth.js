@@ -1,18 +1,16 @@
 // ── auth.js — Supabase auth scaffold ─────────────────────
-const SUPABASE_URL = 'https://dswnkbokytqqjxpziyql.supabase.co';
+import { createClient } from '[cdn.jsdelivr.net](https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm)';
 
+const SUPABASE_URL = '[dswnkbokytqqjxpziyql.supabase.co](https://dswnkbokytqqjxpziyql.supabase.co)';
 const SUPABASE_ANON_KEY = 'sb_publishable_d2K57XUYcz1-rnPewZnvQQ_xBp71fqE';
 
 let _client = null;
 let _user   = null;
 
 export function initAuth() {
-  if (typeof supabase === 'undefined') {
-    console.warn('Supabase SDK not loaded');
-    return;
-  }
-  _client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  _client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   console.log('[auth] Supabase client initialised, listening for session…');
+
 
   _client.auth.onAuthStateChange((_event, session) => {
     _user = session?.user ?? null;
