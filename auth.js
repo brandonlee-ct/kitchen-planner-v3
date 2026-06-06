@@ -1,7 +1,7 @@
 // ── auth.js — Supabase auth scaffold ─────────────────────
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = '[dswnkbokytqqjxpziyql.supabase.co](https://dswnkbokytqqjxpziyql.supabase.co)';
+const SUPABASE_URL = 'https://dswnkbokytqqjxpziyql.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_d2K57XUYcz1-rnPewZnvQQ_xBp71fqE';
 
 let _client = null;
