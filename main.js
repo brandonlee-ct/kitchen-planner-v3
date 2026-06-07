@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { initAuth, signInWithGoogle, signOut } from './auth.js';
+import { initAuth, signInWithGoogle, signOut, saveProject, listProjects, loadProject, deleteProject } from './auth.js';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
 const mm = v => v / 1000;
 const settings = { ceilingHeight: 2400, wallThickness: 110, gridSize: 100 };
@@ -3114,36 +3114,6 @@ document.getElementById('btn-export').addEventListener('click', () => {
     }, 100);
   }, 0);
 });
-// ── Auth modal wiring ─────────────────────────────────────
-
-
-const authModal    = document.getElementById('auth-modal');
-const btnAuth      = document.getElementById('btn-auth');
-const btnAuthClose = document.getElementById('btn-auth-close');
-
-btnAuth.addEventListener('click', () => {
-  authModal.style.display = 'flex';
-});
-btnAuthClose.addEventListener('click', () => {
-  authModal.style.display = 'none';
-});
-authModal.addEventListener('click', (e) => {
-  if (e.target === authModal) authModal.style.display = 'none';
-});
-
-document.getElementById('btn-google-signin').addEventListener('click', () => {
-  signInWithGoogle();
-});
-document.getElementById('btn-auth-signout').addEventListener('click', async () => {
-  await signOut();
-  authModal.style.display = 'none';
-});
-
-initAuth();
-
-animate();  // ← this was already here, keep it as the last line
-// ─── iPad Touch Controls ──────────────────────────────────────────────────────
-const isTouchDevice = () => IS_TOUCH; // keep for backwards compat
 
 
 // ── Bottom overlay bar ──
@@ -4163,3 +4133,429 @@ canvas.addEventListener('pointercancel', (e) => {
 
 
 // redeploy trigger
+
+// ── Save / Load helpers ──────────────────────────────
+// ── Save / Load helpers ───────────────────────────────────────────────────────
+
+function serialiseScene() {
+  let skippedImportedCount = 0;
+
+  const wallsData = walls.map(w => ({
+    start: { x: w.start.x, z: w.start.z },
+    end:   { x: w.end.x,   z: w.end.z   },
+    openings: (w.openings || []).map(op => ({
+      type:        op.type,
+      width:       op.width,
+      height:      op.height,
+      distFromLeft: op.distFromLeft,
+      floorDist:   op.floorDist,
+    })),
+  }));
+
+  const itemsData = [];
+  placedItems.forEach(mesh => {
+    const product = mesh.userData?.product;
+    if (!product) return;
+    // Skip imported GLBs (Phase 0)
+    if (product.id && product.id.startsWith('imported-')) {
+      skippedImportedCount++;
+      return;
+    }
+    // Skip opening meshes (doors/windows — they're reconstructed from wall data)
+    if (mesh.userData.type === 'door' || mesh.userData.type === 'window') return;
+    // Skip items with no variantId (can't round-trip to Shopify)
+    const sku = product.skus?.[mesh.userData.skuIndex ?? 0];
+    if (!sku?.variantId) return;
+
+    itemsData.push({
+      productHandle: product.id,
+      variantId:     sku.variantId,
+      position: {
+        x: mesh.position.x,
+        y: mesh.position.y,
+        z: mesh.position.z,
+      },
+      rotationY: mesh.rotation.y,
+      skuIndex:  mesh.userData.skuIndex ?? 0,
+    });
+  });
+
+  const sceneJson = {
+    version: 1,
+    settings: {
+      ceilingHeight: settings.ceilingHeight,
+      wallThickness: settings.wallThickness,
+      gridSize:      settings.gridSize,
+    },
+    walls: wallsData,
+    items: itemsData,
+    camera: {
+      is3D:       is3D,
+      position3D: { x: camera3D.position.x, y: camera3D.position.y, z: camera3D.position.z },
+      target3D:   { x: controls.target.x,   y: controls.target.y,   z: controls.target.z   },
+      orthoSize:  orthoSize,
+    },
+  };
+
+  // Generate thumbnail — one render, then capture
+  renderer.render(scene, activeCamera);
+  const thumbnail = renderer.domElement.toDataURL('image/png');
+
+  return { sceneJson, thumbnail, skippedImportedCount };
+}
+
+
+function clearScene() {
+  // Dispose and remove all walls
+  [...walls].forEach(w => {
+    scene.remove(w.mesh);
+    if (w.mesh.geometry) w.mesh.geometry.dispose();
+    if (w.mesh.material) w.mesh.material.dispose();
+    if (w.capMeshes) w.capMeshes.forEach(c => {
+      scene.remove(c);
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) c.material.dispose();
+    });
+    if (w.label2D) wall2DLabelGroup.remove(w.label2D);
+  });
+  walls = [];
+
+  // Dispose and remove all placed items
+  [...placedItems].forEach(mesh => {
+    scene.remove(mesh);
+    disposeModel(mesh);
+  });
+  placedItems = [];
+
+  // Clear 2D labels array
+  label2DObjects = [];
+  while (wall2DLabelGroup.children.length > 0)
+    wall2DLabelGroup.remove(wall2DLabelGroup.children[0]);
+
+  // Clear overlays
+  while (wall2DOverlayGroup.children.length > 0)
+    wall2DOverlayGroup.remove(wall2DOverlayGroup.children[0]);
+
+  // Clear history
+  undoStack = [];
+  redoStack = [];
+  updateUndoRedoButtons();
+
+  // Hide any open popups
+  hideWallPopup();
+  if (labelEditor) labelEditor.style.display = 'none';
+
+  // Reset room lock
+  roomLocked = false;
+  roomCorners = [];
+
+  updateRoomArea();
+  updateQuote();
+}
+
+
+function loadScene(sceneJson) {
+  if (!sceneJson || sceneJson.version !== 1) {
+    console.warn('[loadScene] unrecognised scene version', sceneJson?.version);
+    return;
+  }
+
+  clearScene();
+
+  // Restore settings
+  if (sceneJson.settings) {
+    settings.ceilingHeight = sceneJson.settings.ceilingHeight ?? settings.ceilingHeight;
+    settings.wallThickness = sceneJson.settings.wallThickness ?? settings.wallThickness;
+    settings.gridSize      = sceneJson.settings.gridSize      ?? settings.gridSize;
+  }
+
+  // Rebuild walls (skipHistory = true so undo stack stays clean)
+  (sceneJson.walls || []).forEach(wd => {
+    const start = new THREE.Vector3(wd.start.x, 0, wd.start.z);
+    const end   = new THREE.Vector3(wd.end.x,   0, wd.end.z);
+    const wallObj = buildWall(start, end, true);
+    if (!wallObj) return;
+
+    // Attach openings and sync to 3D
+    if (wd.openings && wd.openings.length > 0) {
+      wallObj.openings = wd.openings.map(op => ({ ...op }));
+      syncOpeningsTo3D(wallObj);
+    }
+  });
+
+  // Rebuild items
+  (sceneJson.items || []).forEach(item => {
+    const product = products.find(p => p.id === item.productHandle);
+    if (!product) {
+      console.warn('[loadScene] product not found, skipping:', item.productHandle);
+      return;
+    }
+
+    // placeProduct creates the mesh and adds it to scene + placedItems
+    placeProduct(product);
+
+    // Grab the mesh that was just pushed onto placedItems
+    const mesh = placedItems[placedItems.length - 1];
+    if (!mesh) return;
+
+    // Restore transform
+    mesh.position.set(item.position.x, item.position.y, item.position.z);
+    mesh.rotation.y = item.rotationY;
+    mesh.userData.skuIndex = item.skuIndex ?? 0;
+  });
+
+  // Restore camera
+  if (sceneJson.camera) {
+    const cam = sceneJson.camera;
+
+    // Switch 2D / 3D
+    if (cam.is3D !== undefined && cam.is3D !== is3D) {
+      is3D = cam.is3D;
+      if (is3D) {
+        activeCamera = camera3D;
+        controls.enabled = true;
+      } else {
+        if (!camera2D.userData.initialised) {
+          camera2D.position.set(0, 50, 0);
+          camera2D.up.set(0, 0, -1);
+          camera2D.lookAt(0, 0, 0);
+          camera2D.userData.initialised = true;
+        }
+        activeCamera = camera2D;
+        controls.enabled = false;
+      }
+      document.getElementById('btn-toggle-view').textContent =
+        is3D ? 'Switch to 2D' : 'Switch to 3D';
+      update2DLabelVisibility();
+      rebuild2DWallOverlays();
+    }
+
+    // Restore 3D camera position + orbit target
+    if (cam.position3D) {
+      camera3D.position.set(cam.position3D.x, cam.position3D.y, cam.position3D.z);
+    }
+    if (cam.target3D) {
+      controls.target.set(cam.target3D.x, cam.target3D.y, cam.target3D.z);
+      controls.update();
+    }
+
+    // Restore 2D zoom
+    if (cam.orthoSize) {
+      orthoSize = cam.orthoSize;
+      updateOrtho();
+    }
+  }
+
+  // Rebuild derived scene state
+  rebuildAllCaps();
+  refreshAll2DLabels();
+  rebuild2DWallOverlays();
+  updateRoomArea();
+  updateQuote();
+  updateUndoRedoButtons();
+}
+
+window._debug = { serialiseScene, clearScene, loadScene };
+
+// ── Auth modal open/close ─────────────────────────────────────────────────────
+
+
+const authModal = document.getElementById('auth-modal');
+
+document.getElementById('btn-auth').addEventListener('click', () => {
+  authModal.style.display = 'flex';
+});
+
+document.getElementById('btn-auth-close').addEventListener('click', () => {
+  authModal.style.display = 'none';
+});
+
+document.getElementById('btn-google-signin').addEventListener('click', () => {
+  signInWithGoogle();
+});
+
+document.getElementById('btn-auth-signout').addEventListener('click', async () => {
+  await signOut();
+  authModal.style.display = 'none';
+});
+
+initAuth();
+animate();
+// ── Save Project button wiring ────────────────────────────────────────────────
+document.getElementById('btn-save-project').addEventListener('click', async () => {
+  const defaultName = 'Kitchen - ' + new Date().toLocaleDateString('en-NZ');
+  const name = prompt('Project name:', defaultName);
+  if (!name || !name.trim()) return;
+  const { sceneJson, thumbnail, skippedImportedCount } = serialiseScene();
+  // Close the auth modal so the toast is visible
+  document.getElementById('auth-modal').style.display = 'none';
+  const { id, error } = await saveProject(name.trim(), sceneJson, thumbnail);
+  if (error) {
+    showImportToast('Save failed: ' + error, true);
+    return;
+  }
+  showImportToast('Saved ✓');
+  if (skippedImportedCount > 0) {
+    setTimeout(() => {
+      showImportToast(skippedImportedCount + ' imported GLBs not saved (Phase 1)', true);
+    }, 600);
+  }
+});
+// ── My Projects modal wiring ──────────────────────────────────────────────────
+const projectsModal     = document.getElementById('projects-modal');
+const projectsList      = document.getElementById('projects-list');
+const btnMyProjects     = document.getElementById('btn-my-projects');
+const btnProjectsClose  = document.getElementById('btn-projects-close');
+
+function relativeTime(iso) {
+  const then = new Date(iso).getTime();
+  const now  = Date.now();
+  const sec  = Math.max(1, Math.round((now - then) / 1000));
+  if (sec < 60)        return sec + ' second' + (sec === 1 ? '' : 's') + ' ago';
+  const min = Math.round(sec / 60);
+  if (min < 60)        return min + ' minute' + (min === 1 ? '' : 's') + ' ago';
+  const hr  = Math.round(min / 60);
+  if (hr  < 24)        return hr  + ' hour'   + (hr  === 1 ? '' : 's') + ' ago';
+  const day = Math.round(hr / 24);
+  if (day < 7)         return day + ' day'    + (day === 1 ? '' : 's') + ' ago';
+  const wk  = Math.round(day / 7);
+  if (wk  < 5)         return wk  + ' week'   + (wk  === 1 ? '' : 's') + ' ago';
+  const mo  = Math.round(day / 30);
+  if (mo  < 12)        return mo  + ' month'  + (mo  === 1 ? '' : 's') + ' ago';
+  const yr  = Math.round(day / 365);
+  return yr + ' year' + (yr === 1 ? '' : 's') + ' ago';
+}
+
+function renderProjectsList(rows) {
+  projectsList.innerHTML = '';
+
+  if (!rows || rows.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding:48px 20px;color:#888;font-size:13px;text-align:center;';
+    empty.innerHTML = '<div style="font-size:32px;margin-bottom:8px">📁</div>No saved projects yet.<br><span style="font-size:11px;color:#666">Save your first kitchen to see it here.</span>';
+    projectsList.appendChild(empty);
+    return;
+  }
+
+  rows.forEach(row => {
+    const div = document.createElement('div');
+    div.className = 'proj-row';
+
+    // Thumbnail (or grey fallback)
+    const thumb = document.createElement(row.thumbnail ? 'img' : 'div');
+    thumb.className = 'proj-thumb';
+    if (row.thumbnail) thumb.src = row.thumbnail;
+
+    // Info
+    const info = document.createElement('div');
+    info.className = 'proj-info';
+    const name = document.createElement('div');
+    name.className = 'proj-name';
+    name.textContent = row.name;
+    const time = document.createElement('div');
+    time.className = 'proj-time';
+    time.textContent = relativeTime(row.updated_at);
+    info.appendChild(name);
+    info.appendChild(time);
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'proj-actions';
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'proj-btn-load';
+    loadBtn.textContent = 'Load';
+    loadBtn.addEventListener('click', () => handleLoadProject(row.id));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'proj-btn-delete';
+    delBtn.textContent = '🗑';
+    delBtn.title = 'Delete';
+    delBtn.addEventListener('click', () => handleDeleteProject(row.id, row.name));
+
+    actions.appendChild(loadBtn);
+    actions.appendChild(delBtn);
+
+    div.appendChild(thumb);
+    div.appendChild(info);
+    div.appendChild(actions);
+    projectsList.appendChild(div);
+  });
+}
+
+async function openProjectsModal() {
+  // Close auth modal first so the projects modal is the focused surface
+  document.getElementById('auth-modal').style.display = 'none';
+
+  projectsModal.style.display = 'flex';
+  projectsList.innerHTML =
+    '<div style="padding:48px 20px;color:#888;font-size:13px;text-align:center;">Loading…</div>';
+
+  const { data, error } = await listProjects();
+  if (error) {
+    projectsList.innerHTML =
+      '<div style="padding:48px 20px;color:#c0392b;font-size:13px;text-align:center;">' +
+      'Failed to load projects.<br><span style="font-size:11px;color:#888">' + error + '</span></div>';
+    return;
+  }
+  renderProjectsList(data);
+}
+
+function closeProjectsModal() {
+  projectsModal.style.display = 'none';
+}
+
+async function handleLoadProject(id) {
+  const hasScene = walls.length > 0 || placedItems.length > 0;
+  if (hasScene && !confirm('Discard current scene and load this project?')) return;
+
+  const { data, error } = await loadProject(id);
+  if (error) {
+    showImportToast('Load failed: ' + error, true);
+    return;
+  }
+  if (!data?.scene_json) {
+    showImportToast('Project has no scene data', true);
+    return;
+  }
+
+  loadScene(data.scene_json);
+  closeProjectsModal();
+  showImportToast('Loaded ✓');
+}
+
+async function handleDeleteProject(id, name) {
+  if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+
+  const { error } = await deleteProject(id);
+  if (error) {
+    showImportToast('Delete failed: ' + error, true);
+    return;
+  }
+  showImportToast('Deleted');
+
+  // Re-fetch and re-render
+  const { data, error: listErr } = await listProjects();
+  if (listErr) {
+    projectsList.innerHTML =
+      '<div style="padding:48px 20px;color:#c0392b;font-size:13px;text-align:center;">' +
+      listErr + '</div>';
+    return;
+  }
+  renderProjectsList(data);
+}
+
+btnMyProjects.addEventListener('click', openProjectsModal);
+btnProjectsClose.addEventListener('click', closeProjectsModal);
+
+// Close on backdrop tap
+projectsModal.addEventListener('click', (e) => {
+  if (e.target === projectsModal) closeProjectsModal();
+});
+
+// Close on Escape
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && projectsModal.style.display === 'flex') {
+    closeProjectsModal();
+  }
+});

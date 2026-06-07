@@ -865,3 +865,94 @@ canvas#canvas {
   body > div[style*="min-width:100px"] {
     font-size: 14px !important;
     padding: 8px 14
+
+    /* ── My Projects Modal — iPhone bottom sheet ───────────── */
+@media (max-width: 430px) {
+  #projects-modal {
+    align-items: flex-end !important;
+  }
+  #projects-modal-inner {
+    width: 100% !important;
+    max-height: 92dvh !important;
+    border-radius: 16px 16px 0 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+  }
+}
+
+/* ── Project row ───────────────────────────────────────── */
+.proj-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #2a2a2a;
+  min-height: 76px;
+}
+.proj-row:last-child { border-bottom: none; }
+
+.proj-thumb {
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  background: #2a2a2a;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid #333;
+}
+
+.proj-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.proj-name {
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.proj-time {
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+
+.proj-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.proj-btn-load {
+  background: #ff9500;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.proj-btn-load:active { background: #e08000; }
+
+.proj-btn-delete {
+  background: #2a2a2a;
+  color: #c0392b;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 15px;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.proj-btn-delete:active { background: #3a2020; }

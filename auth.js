@@ -11,7 +11,6 @@ export function initAuth() {
   _client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   console.log('[auth] Supabase client initialised, listening for session…');
 
-
   _client.auth.onAuthStateChange((_event, session) => {
     _user = session?.user ?? null;
     console.log('[auth] state change:', _event, _user?.email || 'no user');
@@ -49,6 +48,8 @@ function updateAuthUI() {
   const authStatus  = document.getElementById('auth-status');
   const btnSignin   = document.getElementById('btn-google-signin');
   const btnSignout  = document.getElementById('btn-auth-signout');
+  const btnSave     = document.getElementById('btn-save-project');
+  const btnProjects = document.getElementById('btn-my-projects');
 
   if (!btnAuth) return;
 
@@ -56,14 +57,113 @@ function updateAuthUI() {
     const name = _user.user_metadata?.full_name || _user.email || 'Signed in';
     btnAuth.title       = name;
     btnAuth.style.color = '#ff9500';
-    if (authStatus) authStatus.textContent  = '✅ Signed in as ' + name;
-    if (btnSignin)  btnSignin.style.display  = 'none';
-    if (btnSignout) btnSignout.style.display = 'block';
+    if (authStatus)  authStatus.textContent  = '✅ Signed in as ' + name;
+    if (btnSignin)   btnSignin.style.display  = 'none';
+    if (btnSignout)  btnSignout.style.display = 'block';
+    if (btnSave)     btnSave.style.display    = 'block';
+    if (btnProjects) btnProjects.style.display = 'block';
   } else {
     btnAuth.title       = 'Sign in';
     btnAuth.style.color = '';
-    if (authStatus) authStatus.textContent  = 'Sign in to save your projects';
-    if (btnSignin)  btnSignin.style.display  = 'block';
-    if (btnSignout) btnSignout.style.display = 'none';
+    if (authStatus)  authStatus.textContent  = 'Sign in to save your projects';
+    if (btnSignin)   btnSignin.style.display  = 'block';
+    if (btnSignout)  btnSignout.style.display = 'none';
+    if (btnSave)     btnSave.style.display    = 'none';
+    if (btnProjects) btnProjects.style.display = 'none';
   }
+}
+
+// ── Project helpers ───────────────────────────────────────
+
+/**
+ * Insert a new project row.
+ * @param {string} name
+ * @param {object} sceneJson   — plain JS object (will be stored as jsonb)
+ * @param {string} thumbnail   — base64 data URL or null
+ * @returns {{ id: string|null, error: string|null }}
+ */
+export async function saveProject(name, sceneJson, thumbnail) {
+  if (!_user) return { id: null, error: 'Not signed in' };
+  const { data, error } = await _client
+    .from('projects')
+    .insert({
+      user_id:    _user.id,
+      name,
+      scene_json: sceneJson,
+      thumbnail:  thumbnail ?? null,
+    })
+    .select('id')
+    .single();
+  if (error) return { id: null, error: error.message };
+  return { id: data.id, error: null };
+}
+
+/**
+ * Update an existing project row by id.
+ * @param {string} id
+ * @param {string} name
+ * @param {object} sceneJson
+ * @param {string} thumbnail
+ * @returns {{ error: string|null }}
+ */
+export async function updateProject(id, name, sceneJson, thumbnail) {
+  if (!_user) return { error: 'Not signed in' };
+  const { error } = await _client
+    .from('projects')
+    .update({
+      name,
+      scene_json: sceneJson,
+      thumbnail:  thumbnail ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('user_id', _user.id);   // RLS belt-and-braces
+  return { error: error ? error.message : null };
+}
+
+/**
+ * List all projects for the signed-in user, newest first.
+ * @returns {{ data: Array|null, error: string|null }}
+ */
+export async function listProjects() {
+  if (!_user) return { data: null, error: 'Not signed in' };
+  const { data, error } = await _client
+    .from('projects')
+    .select('id, name, thumbnail, updated_at')
+    .eq('user_id', _user.id)
+    .order('updated_at', { ascending: false });
+  if (error) return { data: null, error: error.message };
+  return { data, error: null };
+}
+
+/**
+ * Load a single project row (including scene_json).
+ * @param {string} id
+ * @returns {{ data: object|null, error: string|null }}
+ */
+export async function loadProject(id) {
+  if (!_user) return { data: null, error: 'Not signed in' };
+  const { data, error } = await _client
+    .from('projects')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', _user.id)
+    .single();
+  if (error) return { data: null, error: error.message };
+  return { data, error: null };
+}
+
+/**
+ * Delete a project row by id.
+ * @param {string} id
+ * @returns {{ error: string|null }}
+ */
+export async function deleteProject(id) {
+  if (!_user) return { error: 'Not signed in' };
+  const { error } = await _client
+    .from('projects')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', _user.id);
+  return { error: error ? error.message : null };
 }
