@@ -13,7 +13,13 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Editor
-.cursor/
+# Editor — ignore local Cursor state, but keep shared project config
+# (Cloud Agents read environment.json + subagents/rules from the repo)
+.cursor/*
+!.cursor/environment.json
+!.cursor/agents
+!.cursor/agents/**
+!.cursor/rules
+!.cursor/rules/**
 .vercel
 .env*
