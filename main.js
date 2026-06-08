@@ -1748,6 +1748,10 @@ lastMouseY = e.clientY;
       }
     }
   
+    // Align to the chain's starting corner: snap to its X/Z axis + green guide
+    s = snapToStartLine(s, firstPoint);
+    showStartAxisGuides(firstPoint, s);
+
     // Close-room proximity check
     if (firstPoint && s.distanceTo(firstPoint) < 0.2) {
       s = firstPoint.clone();
@@ -1837,6 +1841,7 @@ lastMouseY = e.clientY;
             s = _qdx >= _qdz
               ? new THREE.Vector3(s.x, 0, wallStart.z)
               : new THREE.Vector3(wallStart.x, 0, s.z);
+            s = snapToStartLine(s, firstPoint);   // align to chain start corner
           }
         
 
@@ -3532,6 +3537,38 @@ document.getElementById('dmm-twopoint').addEventListener('click', () => {
 // Wall selection / resize / slide editing is added in later steps.
 let freeStart = null, freeFirst = null;
 
+// Shared "align to the chain's starting corner" helper (used by Quick Draw + Free Draw).
+// When the cursor lines up with the start corner's X or Z axis, snap onto it.
+function snapToStartLine(s, startPt) {
+  if (!startPt) return s;
+  const th = mm(150);
+  let x = s.x, z = s.z;
+  if (Math.abs(s.x - startPt.x) < th) x = startPt.x;
+  if (Math.abs(s.z - startPt.z) < th) z = startPt.z;
+  return new THREE.Vector3(x, 0, z);
+}
+// Green guide line(s) through the start corner when the cursor is aligned with it.
+function showStartAxisGuides(startPt, currentPt) {
+  clearAxisGuides();
+  if (!startPt || !currentPt) return;
+  const th = mm(150), guideLen = 20;
+  const mk = () => new THREE.LineBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.7 });
+  if (Math.abs(currentPt.z - startPt.z) < th) {
+    axisGuideZ = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-guideLen, 0.035, startPt.z),
+      new THREE.Vector3( guideLen, 0.035, startPt.z),
+    ]), mk());
+    scene.add(axisGuideZ);
+  }
+  if (Math.abs(currentPt.x - startPt.x) < th) {
+    axisGuideX = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(startPt.x, 0.035, -guideLen),
+      new THREE.Vector3(startPt.x, 0.035,  guideLen),
+    ]), mk());
+    scene.add(axisGuideX);
+  }
+}
+
 function startFreeDraw() {
   if (['draw-preset','draw-freehand','draw-twopoint'].includes(mode)) abortPreviewWalls();
   hideWallPopup();
@@ -3551,6 +3588,7 @@ function cancelFreeDraw() {
   drawModeActive = null;
   canvas.style.cursor = 'default';
   if (previewLine) { scene.remove(previewLine); previewLine = null; }
+  clearAxisGuides();
   closeHint.style.display = 'none';
   dimLabel.style.display  = 'none';
   if (is3D) controls.enabled = true;        // restore camera on exit
@@ -3589,6 +3627,10 @@ canvas.addEventListener('mousemove', (e) => {
   const { point, snapMode } = freeDrawSnap(s);
   s = point;
 
+  // Align to the chain's starting corner: snap to its X/Z axis + green guide
+  s = snapToStartLine(s, freeFirst);
+  showStartAxisGuides(freeFirst, s);
+
   if (freeFirst && s.distanceTo(freeFirst) < 0.2) {
     s = freeFirst.clone();
     closeHint.style.left = (e.clientX + 15) + 'px';
@@ -3620,7 +3662,7 @@ canvas.addEventListener('click', (e) => {
   if (mode !== 'draw-free') return;
   const pt = getFloorPos(e); if (!pt) return;
   let s = snapToCorner(snapToGrid(pt));
-  if (freeStart) s = freeDrawSnap(s).point;
+  if (freeStart) { s = freeDrawSnap(s).point; s = snapToStartLine(s, freeFirst); }
 
   if (!freeStart) {
     freeStart = s.clone(); freeFirst = s.clone();
