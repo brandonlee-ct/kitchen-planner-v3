@@ -76,6 +76,39 @@ function updateAuthUI() {
 
 // ── Project helpers ───────────────────────────────────────
 
+// ── Thumbnail Storage ─────────────────────────────────────
+/**
+ * Upload a PNG data URL to the `thumbnails` Storage bucket and return
+ * the public URL.  Returns null on any error so callers can fall back to
+ * the data URL — saving must never break due to a storage hiccup.
+ * @param {string} dataUrl  — e.g. "data:image/png;base64,…"
+ * @returns {Promise<string|null>}
+ */
+export async function uploadThumbnail(dataUrl) {
+  if (!_client || !_user) return null;
+  try {
+    // Convert base64 data URL → Uint8Array
+    const base64 = dataUrl.split(',')[1];
+    if (!base64) return null;
+    const binary  = atob(base64);
+    const bytes   = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+    const path = `${_user.id}/${crypto.randomUUID()}.png`;
+    const { error } = await _client.storage
+      .from('thumbnails')
+      .upload(path, bytes, { upsert: true, contentType: 'image/png' });
+    if (error) {
+      console.warn('[auth] thumbnail upload failed:', error.message);
+      return null;
+    }
+    return _client.storage.from('thumbnails').getPublicUrl(path).data.publicUrl;
+  } catch (err) {
+    console.warn('[auth] thumbnail upload exception:', err);
+    return null;
+  }
+}
+
 /**
  * Insert a new project row.
  * @param {string} name
