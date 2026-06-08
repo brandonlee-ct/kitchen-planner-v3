@@ -35,8 +35,11 @@ canvas#canvas {
   flex-shrink: 0;
   z-index: 100;
   position: relative;
-  overflow: hidden;
+  overflow-x: auto;          /* scroll instead of clipping when crowded */
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
+#toolbar::-webkit-scrollbar { display: none; }   /* hide scrollbar (looks identical when it fits) */
 
 .bar-left,
 .bar-centre,
