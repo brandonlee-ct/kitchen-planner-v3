@@ -1851,26 +1851,48 @@ lastMouseY = e.clientY;
           }
           return;
         }
-        if (mode === 'select') {
-          updateMouse(e);
-          raycaster.setFromCamera(mouse, activeCamera);
-          if (!is3D) {
-            const labelHits = raycaster.intersectObjects(label2DObjects.map(l => l.mesh));
-            if (labelHits.length > 0) {
-              showLabelEditor(labelHits[0].object.userData.wallObj, e.clientX, e.clientY);
+          if (mode === 'select') {
+            updateMouse(e);
+            raycaster.setFromCamera(mouse, activeCamera);
+            if (!is3D) {
+              const labelHits = raycaster.intersectObjects(label2DObjects.map(l => l.mesh));
+              if (labelHits.length > 0) {
+                showLabelEditor(labelHits[0].object.userData.wallObj, e.clientX, e.clientY);
+                return;
+              }
+            }
+            const wallHits = raycaster.intersectObjects(walls.map(w => w.mesh))
+            .filter(h => walls.includes(h.object.userData.wallObj));        
+            if (wallHits.length > 0) {
+              showWallPopup(wallHits[0].object.userData.wallObj, e.clientX, e.clientY);
               return;
             }
+          
+            // Desktop cabinet selection
+            const targets = [];
+            placedItems.forEach(item => {
+              if (item.userData?.type === 'door' || item.userData?.type === 'window') return;
+              item.traverse(child => { if (child.isMesh) targets.push(child); });
+            });
+            const itemHits = raycaster.intersectObjects(targets, false);
+            if (itemHits.length > 0) {
+              let obj = itemHits[0].object;
+              while (obj.parent && !placedItems.includes(obj)) obj = obj.parent;
+              selectedItem = obj;
+              if (IS_TOUCH) {
+                showTouchOverlayAndPanel(obj);
+              } else {
+                showDesktopItemPanel(obj);
+              }
+              return;
+            }
+          
+            hideWallPopup();
+            hideDesktopItemPanel();
+            selectedItem = null;
           }
-          const wallHits = raycaster.intersectObjects(walls.map(w => w.mesh))
-          .filter(h => walls.includes(h.object.userData.wallObj));        
-          if (wallHits.length > 0) {
-            showWallPopup(wallHits[0].object.userData.wallObj, e.clientX, e.clientY);
-            return;
-          }
-          hideWallPopup();
-          selectedItem = null;
-        }
-      });
+        });
+
       
       canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); cancelWallDraw(); });
       
@@ -1886,19 +1908,21 @@ lastMouseY = e.clientY;
         clearSnapGuides(); clearAxisGuides();
         mode = 'select';
         canvas.style.cursor = 'default';
-          // Touch-only cleanup
-  if (IS_TOUCH) {
-    clearPreview();
-    previewWallPoints = [];
-    freehandRawPoints = [];
-    twoPtPhase     = 0;
-    twoPtStart     = null;
-    drawModeActive = null;
-    hideConfirmBar();
-    hideDrawModeMenu();
-    hidePresetPicker();
-  }
+        canvas.style.cursor = 'default';
+        // Touch-only cleanup
+        if (IS_TOUCH) {
+          clearPreview();
+          previewWallPoints = [];
+          freehandRawPoints = [];
+          twoPtPhase     = 0;
+          twoPtStart     = null;
+          drawModeActive = null;
+          hideConfirmBar();
+          hideDrawModeMenu();
+          hidePresetPicker();
+        }
       }
+      
 // ── Draw Mode Helpers ────────────────────────────────────
 
 function showDrawModeMenu() {
@@ -2185,29 +2209,16 @@ drawPresetThumbnails();
         });
         return best || pos;
       }
-      document.getElementById('btn-draw-wall').addEventListener('click', () => {
-        if (IS_TOUCH) {
-          // Touch: show draw mode menu
-          const inDrawMode = ['draw-wall','draw-preset','draw-freehand','draw-twopoint'].includes(mode);
-          if (inDrawMode) {
-            abortPreviewWalls();
-          } else {
-            hideWallPopup();
-            showDrawModeMenu();
-          }
-        } else {
-          // Desktop: original behaviour unchanged
-          if (mode === 'draw-wall') {
-            cancelWallDraw();
-          } else {
-            mode = 'draw-wall';
-            canvas.style.cursor = 'crosshair';
-            hideWallPopup();
-            document.getElementById('btn-draw-wall').style.background = '#ff9500';
-            document.getElementById('btn-draw-wall').style.color = '#fff';
-          }
-        }
-      });
+document.getElementById('btn-draw-wall').addEventListener('click', () => {
+  const inDrawMode = ['draw-wall','draw-preset','draw-freehand','draw-twopoint','draw-glide'].includes(mode);
+  if (inDrawMode) {
+    abortPreviewWalls();
+  } else {
+    hideWallPopup();
+    showDrawModeMenu();
+  }
+});
+
       
       
       
@@ -2450,6 +2461,7 @@ loadShopifyProducts();
         if (elevationPanel.style.display !== 'none') { resizeElevCanvas(); drawElevation(); }
       });
       
+    
       function animate() {
         requestAnimationFrame(animate);
         controls.update();
@@ -3194,26 +3206,47 @@ function getFloorPosFromTouch(touch) {
 function measureToNearestWall(model) {
   if (!walls || walls.length === 0) return 'No walls found';
   const pos = model.position;
-  let minDist = Infinity;
+  const results = [];
 
-  walls.forEach(wall => {
+  walls.forEach((wall, i) => {
     if (!wall.mesh) return;
-    const box    = new THREE.Box3().setFromObject(wall.mesh);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    const toModel  = new THREE.Vector3().subVectors(pos, center);
-    const wallDir  = new THREE.Vector3(0, 0, 1)
-                       .applyQuaternion(wall.mesh.quaternion);
-    const dist     = Math.abs(toModel.dot(wallDir));
-    const wallSize = new THREE.Vector3();
-    box.getSize(wallSize);
-    const halfThick  = Math.min(wallSize.x, wallSize.z) / 2;
-    const insideDist = Math.max(0, dist - halfThick);
-    if (insideDist < minDist) minDist = insideDist;
+
+    // Get wall direction and perpendicular
+    const dx = wall.end.x - wall.start.x;
+    const dz = wall.end.z - wall.start.z;
+    const len = Math.sqrt(dx * dx + dz * dz);
+    if (len < 0.001) return;
+
+    const nx = dx / len, nz = dz / len;   // along wall
+    const px = -nz, pz = nx;              // perpendicular to wall
+
+    // Vector from wall start to cabinet
+    const tx = pos.x - wall.start.x;
+    const tz = pos.z - wall.start.z;
+
+    // How far along the wall is the cabinet?
+    const along = tx * nx + tz * nz;
+    if (along < 0 || along > len) return;  // cabinet not within wall's span
+
+    // Perpendicular distance from wall centre line
+    const perpDist = Math.abs(tx * px + tz * pz);
+    const halfThick = (settings.wallThickness / 1000) / 2;
+    const clearance = Math.max(0, perpDist - halfThick);
+
+    results.push({
+      index: i + 1,
+      dist: Math.round(clearance * 1000)
+    });
   });
 
-  const mm = Math.round(minDist * 1000);
-  return `Distance to nearest wall: ${mm}mm`;
+  if (results.length === 0) return 'No walls alongside cabinet';
+
+  // Sort nearest first
+  results.sort((a, b) => a.dist - b.dist);
+
+  return results
+    .map(r => `Wall ${r.index}: ${r.dist}mm`)
+    .join('\n');
 }
 
 // ─── Button actions ───────────────────────────────────────────────────────────
@@ -3253,6 +3286,7 @@ tfpRuler.addEventListener('click', () => {
   if (rulerActive) {
     tfpRuler.classList.add('tfp-btn-active');
     tfpRulerReadout.style.display = 'block';
+    tfpRulerText.style.whiteSpace = 'pre-line';
     tfpRulerText.textContent = measureToNearestWall(touchSelectedModel);
   } else {
     tfpRuler.classList.remove('tfp-btn-active');
@@ -4400,8 +4434,100 @@ document.getElementById('btn-auth-signout').addEventListener('click', async () =
   authModal.style.display = 'none';
 });
 
+// ── Desktop item panel ────────────────────────────────────────────────────────
+const desktopItemPanel = document.createElement('div');
+desktopItemPanel.style.cssText = [
+  'display:none;position:fixed;top:60px;right:12px;',
+  'width:200px;background:#1e1e1e;border:1px solid #ff9500;',
+  'border-radius:12px;z-index:400;overflow:hidden;',
+  'box-shadow:0 4px 20px rgba(0,0,0,0.5);font-family:Arial;'
+].join('');
+desktopItemPanel.innerHTML = [
+  '<div style="background:#2a2a2a;padding:10px 14px;border-bottom:1px solid #333;',
+  'color:#ff9500;font-weight:bold;font-size:13px;display:flex;',
+  'justify-content:space-between;align-items:center;">',
+  '<span id="dip-title">Cabinet</span>',
+  '<span id="dip-close" style="cursor:pointer;color:#aaa;font-size:16px;',
+  'padding:2px 6px;">✕</span></div>',
+  '<div style="display:flex;flex-direction:column;padding:8px;gap:6px;">',
+  '<button id="dip-rotate" style="background:#2a2a2a;color:#fff;border:1px solid #333;',
+  'border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;text-align:left;">',
+  '🔄 Rotate 90°</button>',
+  '<button id="dip-duplicate" style="background:#2a2a2a;color:#fff;border:1px solid #333;',
+  'border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;text-align:left;">',
+  '⧉ Duplicate</button>',
+  '<button id="dip-ruler" style="background:#2a2a2a;color:#fff;border:1px solid #333;',
+  'border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;text-align:left;">',
+  '📏 Measure</button>',
+  '<div id="dip-ruler-readout" style="display:none;padding:6px 8px;background:#111;',
+  'border-radius:6px;font-size:11px;color:#aaa;white-space:pre-line;"></div>',
+  '<button id="dip-delete" style="background:#2a2a2a;color:#c0392b;border:1px solid #444;',
+  'border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px;text-align:left;">',
+  '🗑 Delete</button>',
+  '</div>'
+].join('');
+document.body.appendChild(desktopItemPanel);
+
+let desktopSelectedModel = null;
+
+function showDesktopItemPanel(model) {
+  desktopSelectedModel = model;
+  const name = model.userData?.product?.name || 'Cabinet';
+  document.getElementById('dip-title').textContent = name;
+  document.getElementById('dip-ruler-readout').style.display = 'none';
+  desktopItemPanel.style.display = 'block';
+}
+
+function hideDesktopItemPanel() {
+  desktopItemPanel.style.display = 'none';
+  desktopSelectedModel = null;
+}
+
+document.getElementById('dip-close').addEventListener('click', hideDesktopItemPanel);
+
+document.getElementById('dip-rotate').addEventListener('click', () => {
+  if (!desktopSelectedModel) return;
+  desktopSelectedModel.rotation.y += Math.PI / 2;
+});
+
+document.getElementById('dip-duplicate').addEventListener('click', () => {
+  if (!desktopSelectedModel) return;
+  const clone = desktopSelectedModel.clone();
+  clone.position.set(
+    desktopSelectedModel.position.x + 0.2,
+    desktopSelectedModel.position.y,
+    desktopSelectedModel.position.z + 0.2
+  );
+  clone.userData = { ...desktopSelectedModel.userData };
+  scene.add(clone);
+  placedItems.push(clone);
+  pushHistory({ type: 'add-item', data: { mesh: clone } });
+  updateQuote();
+});
+
+document.getElementById('dip-ruler').addEventListener('click', () => {
+  if (!desktopSelectedModel) return;
+  const readout = document.getElementById('dip-ruler-readout');
+  if (readout.style.display === 'block') {
+    readout.style.display = 'none';
+    return;
+  }
+  readout.textContent = measureToNearestWall(desktopSelectedModel);
+  readout.style.display = 'block';
+});
+
+document.getElementById('dip-delete').addEventListener('click', () => {
+  if (!desktopSelectedModel) return;
+  pushHistory({ type: 'delete-item', data: { mesh: desktopSelectedModel } });
+  scene.remove(desktopSelectedModel);
+  placedItems = placedItems.filter(x => x !== desktopSelectedModel);
+  updateQuote();
+  hideDesktopItemPanel();
+});
+
 initAuth();
 animate();
+
 // ── Save Project button wiring ────────────────────────────────────────────────
 document.getElementById('btn-save-project').addEventListener('click', async () => {
   const defaultName = 'Kitchen - ' + new Date().toLocaleDateString('en-NZ');
