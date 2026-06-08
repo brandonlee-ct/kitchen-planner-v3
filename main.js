@@ -251,6 +251,7 @@ function executeUndo(entry) {
       if (!walls.includes(w)) walls.push(w);
     });
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
+    if (mode === 'draw-free') fdDeselect();   // drop stale Free Draw selection/handles
     updateRoomArea();
   } else if (entry.type === 'add-wall-batch') {
     entry.data.walls.forEach(w => {
@@ -301,6 +302,7 @@ function executeRedo(entry) {
       if (!walls.includes(w)) walls.push(w);
     });
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
+    if (mode === 'draw-free') fdDeselect();   // drop stale Free Draw selection/handles
     updateRoomArea();
   } else if (entry.type === 'add-wall-batch') {
     entry.data.walls.forEach(w => {
