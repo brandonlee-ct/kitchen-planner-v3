@@ -3389,6 +3389,8 @@ canvas.addEventListener('touchend', (e) => {
 
   const targets = [];
   placedItems.forEach(item => {
+    // Skip door/window opening meshes — they belong to walls, not products
+    if (item.userData?.type === 'door' || item.userData?.type === 'window') return;
     item.traverse(child => { if (child.isMesh) targets.push(child); });
   });
 
@@ -4249,10 +4251,13 @@ function clearScene() {
   roomLocked = false;
   roomCorners = [];
 
+  // Force back to select mode so taps work after clearing
+  mode = 'select';
+  canvas.style.cursor = 'default';
+
   updateRoomArea();
   updateQuote();
 }
-
 
 function loadScene(sceneJson) {
   if (!sceneJson || sceneJson.version !== 1) {
@@ -4353,6 +4358,10 @@ function loadScene(sceneJson) {
   updateRoomArea();
   updateQuote();
   updateUndoRedoButtons();
+
+  // Force back to select mode so taps work immediately after load
+  mode = 'select';
+  canvas.style.cursor = 'default';
 }
 
 window._debug = { serialiseScene, clearScene, loadScene };
