@@ -10,8 +10,10 @@ Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 - [ ] ⏳ Security: SQL written (`supabase/security.sql`). 👤 **Next: paste it into Supabase SQL Editor + run, then promote yourself to admin.**
 
 ## Milestone B — Shopify MVP Launch (Phase 1 remaining)
-- [ ] ⬜ 1.2 Drawing UX overhaul (Shift 90° lock, green/blue guides, mm inputs, preset on desktop, live dims + angles, freehand weld fix, auto-floor)
-- [ ] ⬜ 1.3 Mobile toolbar (44px icons, ☰ hamburger, 📷 camera capture)
+- [x] ✅ 1.2 Free Draw (desktop): new mode, camera lock, free-angle + 90° snap, select wall, pick locked anchor, resize (angle preserved), slide parallel; undo/redo + save/load verified
+- [x] ✅ Quick Draw: camera lock during drawing (touch-friendly), keeps 90° snap + tap-to-place
+- [ ] ⬜ 1.2b Drawing UX polish (green/blue parallel guides, custom mm ceiling/thickness inputs, Preset Room on desktop, live dims + angles, freehand weld fix, auto-floor) — brief ready (`briefs/task-H-drawing-ux.md`), candidate for Cloud Agent
+- [ ] ⬜ 1.3 Mobile toolbar (44px icons, ☰ hamburger, 📷 camera capture) — brief ready (`briefs/1.3-mobile-toolbar.md`)
 - [ ] ⬜ Send-to-Cart (Shopify `cartCreate` → `checkoutUrl`) — not yet in code
 - [ ] ⬜ 1.6 Embed planner in Shopify storefront (iframe for test → App Block) 👤
 - [ ] ⬜ 1.8 Quote PDF (SKU, photos, qty, prices, total) 🧠→build

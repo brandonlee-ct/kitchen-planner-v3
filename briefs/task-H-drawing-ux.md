@@ -1,30 +1,30 @@
-# Cloud Agent Brief — Task H: Drawing UX Overhaul (autonomous overnight run)
+# Cloud Agent Brief — 1.2b Drawing UX Polish (autonomous overnight run)
 
 > Paste this whole file as the task for a Cloud Agent. It is self-contained.
 > Also read `AGENTS.md` and use the `reviewer` subagent before finishing.
 
 ## Execution model (IMPORTANT — read first)
-- Complete **all 9 steps in a single autonomous run.** Do NOT wait for a human "done"
-  between steps — there is nobody available to confirm.
-- **After EACH step: commit AND push** that commit to your working branch before starting
-  the next step. There will be ~9 commits pushed incrementally (e.g.
-  `Task H step 1: shift-lock 90° in Quick Draw`). This makes progress crash-safe and lets a
-  human review the PR step by step.
-- **Push only to your own feature branch — never to `main`.** Open the PR early (after
-  step 1) so the remaining pushes update it. Do not merge; a human reviews and merges.
-- Do NOT paste full file contents in your messages — edit files in the repo directly;
-  the reviewer will read the PR diff.
-- **You cannot test on physical iPhone/iPad/Android.** Do your best with code reasoning
-  and desktop checks; leave a clear "Manual device testing required" checklist in the PR
-  description (see Test Plan). Real-device testing is done by a human afterward.
-- Open ONE Pull Request titled "Task H: Drawing UX overhaul" early (after step 1) and let
-  the per-step pushes update it. When all steps are done, run the `reviewer` subagent
-  checklist and finalise the PR description with a step-by-step summary.
+- **Branch off the latest `main`** (it already contains Free Draw FD-1..5 and the Quick Draw
+  camera-lock work — see "Do NOT touch" below). Work on a feature branch named
+  `feat/1.2b-drawing-ux-polish`.
+- Complete **all steps in a single autonomous run.** Do NOT wait for a human "done" between
+  steps — there is nobody available to confirm.
+- **After EACH step: commit AND push** that commit to your feature branch before starting the
+  next step (e.g. `1.2b step 1: custom mm ceiling/thickness inputs`). Incremental pushes make
+  progress crash-safe and let a human review the PR step by step.
+- **Push only to your own feature branch — never to `main`.** Open ONE Pull Request titled
+  "1.2b: Drawing UX polish" early (after step 1) and let the per-step pushes update it. Do not
+  merge; a human reviews and merges.
+- Do NOT paste full file contents in your messages — edit files in the repo directly; the
+  reviewer reads the PR diff.
+- **You cannot test on physical iPhone/iPad/Android.** Reason carefully + do desktop checks;
+  leave a "Manual device testing required" checklist in the PR description (see Test Plan).
 
 ## Context
-Brown Box Kit 3D kitchen planner (vanilla JS + three.js, no framework). Task G complete.
-The planner has Quick Draw, Preset Room, Freehand, Two-Point, and Glide Draw modes — they
-work but need UX improvements. **ADD to existing functions; do not replace them.**
+Brown Box Kit 3D kitchen planner (vanilla JS + three.js, no framework). The planner has
+Quick Draw, Free Draw, Preset Room, Freehand, Two-Point, and Glide Draw modes. They work but
+the Preset/Freehand flows and the wall popup need the polish below.
+**ADD to existing functions; do not replace them.**
 
 ## Hard rules (from AGENTS.md)
 - Do not refactor working code — add or patch only.
@@ -34,73 +34,73 @@ work but need UX improvements. **ADD to existing functions; do not replace them.
 - Measurements: internal **metres**, UI shows **mm** via the `mm()` helper.
 - Dispose three.js geometry/materials/textures for any mesh you remove.
 
-## Verified hooks you will use (these already exist in main.js)
-`shiftDown`, `snapTo90()`, `snapWithGuides()`, `drawSnapGuide()`, `clearSnapGuides()`,
+## ⛔ Do NOT touch (recently shipped — changing these will cause conflicts/regressions)
+- **Quick Draw camera lock**: `mode === 'draw-wall'` sets `controls.enabled = false` while
+  drawing and restores it in `cancelWallDraw()`. Leave the lock/restore and Quick Draw's
+  existing 90° commit snap as-is.
+- **Free Draw** (entire feature): `mode === 'draw-free'`, `startFreeDraw()`, `cancelFreeDraw()`,
+  `freeDrawSnap()`, `snapToStartLine()`, `showStartAxisGuides()`, the `btn-free-draw` button,
+  and the FD edit code (`fdSel`, `fdAnchor`, `fdSelectWall()`, `fdReplaceWall()`, `fdApplyLength()`,
+  `fdEditEl`, the FD mousedown/mousemove/mouseup slide handlers). Do not modify or "improve" these.
+- The `resize-wall` history entry shape `{ removed:[...], restored:[...] }` — reuse it if you
+  need undoable wall edits; do not change its shape.
+
+## Verified hooks you will use (already exist in main.js)
 `previewWallPoints`, `drawPreviewPolygon()`, `clearPreview()`, `commitGlideDraw()`,
-`weldCorners()`, `orthogonalisePoints()`, `lockRoom()`, `make2DLabel()`,
-`rebuildAllCaps()`, `minorGrid`, `wallPopup` / `showWallPopup()`.
-`floorMesh` does NOT exist yet — create it as a new global (Step 8).
+`weldCorners()`, `orthogonalisePoints()`, `lockRoom()`, `make2DLabel()`, `rebuildAllCaps()`,
+`refreshAll2DLabels()`, `rebuild2DWallOverlays()`, `minorGrid`, `settings.ceilingHeight`,
+`settings.wallThickness`, `settings.gridSize`, `wallPopup` (built via innerHTML; ids
+`wp-height`, `wp-thickness`, `wp-type`, `wp-confirm`), `serialiseScene()`, `loadScene()`.
+`floorMesh` does NOT exist yet — create it as a new global (Step 5).
 
 ## Steps
 
-**Step 1 — Shift-lock to 90° in Quick Draw.**
-Quick Draw currently force-locks every wall to 90° from `wallStart`. Change it so walls
-follow the cursor freely, BUT snap to 90° if `shiftDown` is true OR the cursor is within 5°
-of a 90° axis (use `snapTo90()`). Keep close-room snap and locked-length snap working.
-Set `dimLabel` colour: green when 90°-snapped, blue when parallel-snapped, orange otherwise.
-
-**Step 2 — Wire snap guide lines into Quick Draw.**
-`drawSnapGuide()` and `snapWithGuides()` exist but aren't called from Quick Draw's
-mousemove. Wire them: green dashed line when 90° to an existing wall, blue dashed when
-parallel. Clear with `clearSnapGuides()` when no snap is active.
-
-**Step 3 — Custom mm input for ceiling height + wall thickness.**
+**Step 1 — Custom mm input for ceiling height + wall thickness.**
 In `wallPopup`, ceiling height is a `<select>` of 2400/2700. Add a "Custom..." option that
-reveals a number input (min 1000, max 5000 mm). Same for wall thickness: keep 110/150
-presets, add "Custom..." revealing a number input (min 50, max 500 mm). Both update
-`settings.ceilingHeight` / `settings.wallThickness` and call `rebuildAllCaps()` after Apply.
+reveals a number input (min 1000, max 5000 mm). Wall type/thickness: keep 110/150 presets, add
+"Custom..." revealing a number input (min 50, max 500 mm). On Apply (`wp-confirm`), update
+`settings.ceilingHeight` / `settings.wallThickness` and call `rebuildAllCaps()`. Custom values
+must round-trip through `serialiseScene()` / `loadScene()` (they already save `settings`).
 
-**Step 4 — Preset Room on desktop.**
-The draw mode menu currently opens only on touch (`IS_TOUCH`). Also open it on desktop when
-the user **long-presses (400ms)** OR **right-clicks** the "Draw Wall" button. Keep desktop
-single-click launching Quick Draw. Touch behaviour unchanged.
-
-**Step 5 — Preset Room: lock pan + live dimensions during preview.**
+**Step 2 — Preset Room: lock pan + live dimensions + angles during preview.**
 When `mode === 'draw-preset'` and `previewWallPoints.length > 0`:
-- Disable OrbitControls pan, 2D pan, and pinch zoom.
-- For each edge, render a midpoint dimension label (mm) using the `make2DLabel` canvas
-  texture pattern. For each corner, render the interior angle in degrees.
-- All labels orange, always face camera, always visible (also in 3D).
-- Rebuild these labels every time `drawPreviewPolygon()` runs; clear them in `clearPreview()`.
+- Disable OrbitControls pan, 2D pan, and pinch zoom (mirror how `draw-free` locks the camera).
+- For each edge, render a midpoint dimension label (mm) using the `make2DLabel` canvas-texture
+  pattern. For each corner, render the interior angle in degrees.
+- Labels orange, always face camera, visible in 2D and 3D.
+- Rebuild labels every time `drawPreviewPolygon()` runs; clear them in `clearPreview()`.
 
-**Step 6 — Preset Room: drag whole wall edge.**
+**Step 3 — Preset Room: drag a whole wall edge.**
 In `mode === 'draw-preset'`, clicking/touching the MIDDLE of an edge (not a corner handle)
 lets the user drag that edge perpendicular to its direction, moving both endpoint corners
-together while preserving adjacent wall angles. Snap to grid. Live-update Step 5 labels.
+together while preserving adjacent wall angles. Snap to grid. Live-update the Step 2 labels.
 
-**Step 7 — Freehand/Glide weld bug fix.**
-In `commitGlideDraw()`, straight walls sometimes commit as 2 segments. After `weldCorners()`
+**Step 4 — Freehand/Glide weld bug fix.**
+In `commitGlideDraw()`, straight runs sometimes commit as 2 segments. After `weldCorners()`
 and `orthogonalisePoints()`, add a pass merging collinear consecutive segments: if A→B→C are
 collinear (within ~3°) AND B is not a corner of another wall, drop B. Repeat until stable.
 A perfect rectangle must commit as exactly 4 walls.
 
-**Step 8 — Auto floor on closed room.**
+**Step 5 — Auto floor on closed room.**
 When `lockRoom()` fires (closed loop exists), add a `THREE.Shape`-based floor covering the
 interior: colour #3a3530, `MeshStandardMaterial`, inset from walls by half wall thickness.
-Remove/rebuild when walls change. Store in a new global `floorMesh` so save/load can recreate
-it. Skip if floor already covered by `minorGrid`.
+Remove/rebuild when walls change (add/delete/resize/slide). Store in a new global `floorMesh`
+and regenerate it inside `loadScene()` after walls are rebuilt (no new save field needed).
 
-**Step 9 — Verify save/load still works.**
-Walls and items must serialise/restore correctly. Auto floor regenerates from walls (no save
-change needed). Custom ceiling/thickness values must save in `settings`.
+**Step 6 — Verify save/load + undo/redo still work.**
+Walls, items, custom ceiling/thickness, and the auto floor must serialise/restore correctly.
+Confirm undo/redo is intact for every new action you add.
+
+**Step 7 (OPTIONAL, only if low-risk) — Parallel snap guide lines.**
+Visual only: while previewing in Preset/Freehand, show a blue guide line when an edge is
+parallel to an existing wall. Skip this step entirely if it risks the working draw paths.
 
 ## Test Plan (put as a checklist in the PR for a HUMAN to run on real devices)
-- [ ] Desktop: long-press Draw Wall → Preset Room opens → Rectangle → drag corner shows live
-      dims+angles → drag edge moves corners together → ✓ commits walls.
-- [ ] iPad: same via the draw mode menu.
-- [ ] Quick Draw: hold Shift → 90° snap; near existing wall axis → green guide + green label;
-      parallel → blue.
+- [ ] Wall popup → ceiling height "Custom" → 2550 → Apply → walls rebuild at 2550mm; save+reload keeps 2550.
+- [ ] Wall popup → thickness "Custom" → e.g. 90 → Apply → caps rebuild correctly.
+- [ ] Desktop + iPad: Preset Room → Rectangle → drag a corner shows live dims + angles → drag an edge moves both corners together → ✓ commits walls.
 - [ ] Freehand/Glide on a rectangle → exactly 4 walls.
-- [ ] Close a room any way → floor appears.
-- [ ] Wall popup → ceiling height "Custom" → 2550 → Apply → walls rebuild at 2550mm.
-- [ ] Save project, reload → everything restores.
+- [ ] Close a room any way → grey floor appears; delete/resize a wall → floor updates.
+- [ ] Save project, reload → walls, items, floor, custom settings all restore.
+- [ ] Undo/redo after each new action behaves correctly.
+- [ ] Regression: Quick Draw camera stays locked while drawing; Free Draw select/resize/slide still work.
