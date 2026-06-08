@@ -87,3 +87,22 @@ is to **implement tasks cleanly without re-architecting**.
 - Commit-message style: short imperative, phase/bug prefixed —
   e.g. `Task F: save/load projects via Supabase`, `Bug 1: fix wall taps on touch`, `Checkpoint: ...`.
 - Checkpoint (commit + push) before risky changes; that's the safety net.
+
+## Cursor Cloud specific instructions
+
+Single-service frontend — no Docker, local DB, or `.env` files. Startup dependency refresh is `npm install` only (see `.cursor/environment.json`).
+
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Vite dev server on **http://localhost:5173** (`vite --host`) |
+| `npm run build` | Production bundle to `dist/` |
+| `npm run preview` | Serve the production build locally |
+
+**Lint / tests:** none configured (`package.json` has no `lint` or `test` scripts). Verify changes by running `npm run dev` and exercising the UI (walls, catalog, 2D/3D toggle, quote panel).
+
+**External services (outbound HTTPS required):**
+- **Shopify Storefront API** — product catalog on load (`main.js`). Without network, the sidebar shows an error and no products load.
+- **Supabase** — auth + project save/load (`auth.js`). Client initialises without login; Google sign-in needs `http://localhost:5173` in Supabase allowed redirect URLs.
+- **GLB URLs** from Shopify metafields — 3D models; missing URLs fall back to box placeholders.
+
+**Dev server:** run `npm run dev` in a tmux session (e.g. `vite-dev-server`) so it stays alive across agent turns. The planner works unsigned-in for core layout work; auth/save flows need a Google account via Supabase OAuth.
