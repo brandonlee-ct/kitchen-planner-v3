@@ -3575,6 +3575,7 @@ function startFreeDraw() {
   drawModeActive = 'free';
   mode = 'draw-free';
   freeStart = freeFirst = null;
+  fdDeselect();                             // start with a clean selection
   canvas.style.cursor = 'crosshair';
   controls.enabled = false;                 // camera lock — no orbit/pan
   const b = document.getElementById('btn-free-draw');
@@ -3583,6 +3584,7 @@ function startFreeDraw() {
 
 function cancelFreeDraw() {
   hideWallDimInput();
+  fdDeselect();                             // clear any selected-wall edit state
   freeStart = freeFirst = null;
   mode = 'select';
   drawModeActive = null;
@@ -3657,9 +3659,19 @@ canvas.addEventListener('mousemove', (e) => {
   dimLabel.style.display = 'block';
 });
 
-// Free Draw — place corners on click
+// Free Draw — place corners on click (or select an existing wall to edit)
 canvas.addEventListener('click', (e) => {
   if (mode !== 'draw-free') return;
+  if (fdSuppressClick) { fdSuppressClick = false; return; }  // swallow the click that ended a slide-drag / anchor pick
+
+  // FD-2: when NOT mid-chain, a click on an existing wall selects it for editing
+  // (rather than starting a new line). Non-selected walls are never touched.
+  if (!freeStart) {
+    const hitWall = fdRaycastWall(e);
+    if (hitWall) { fdSelectWall(hitWall); return; }
+    if (fdSel)   { fdDeselect(); return; }   // click empty space to dismiss the current selection
+  }
+
   const pt = getFloorPos(e); if (!pt) return;
   let s = snapToCorner(snapToGrid(pt));
   if (freeStart) { s = freeDrawSnap(s).point; s = snapToStartLine(s, freeFirst); }
@@ -3679,6 +3691,173 @@ canvas.addEventListener('click', (e) => {
 // Free Draw — Escape exits the mode cleanly
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && mode === 'draw-free') cancelFreeDraw();
+});
+
+// ── Free Draw: select + edit an existing wall (FD-2 / FD-3 / FD-4) ────────────
+// Only active while mode === 'draw-free'. Editing one wall NEVER moves the others.
+let fdSel          = null;       // wallObj currently selected for editing
+let fdAnchor       = 'start';    // which END stays locked: 'start' | 'end'
+let fdSuppressClick = false;     // swallow the click that ends a slide-drag / anchor pick
+let fdDragging     = false;
+let fdOrigStart    = null, fdOrigEnd = null, fdDragRef = null, fdLastNs = null, fdLastNe = null;
+
+function fdRaycastWall(e) {
+  updateMouse(e);
+  raycaster.setFromCamera(mouse, activeCamera);
+  const hits = raycaster.intersectObjects(walls.map(w => w.mesh))
+    .filter(h => walls.includes(h.object.userData.wallObj));
+  return hits.length ? hits[0].object.userData.wallObj : null;
+}
+
+// Colour the two end handles: green = locked anchor, white = the end that moves.
+function fdHandleColors() {
+  wallHandleGroup.children.forEach(h => {
+    const isAnchor = (h.userData.handleIndex === 0 && fdAnchor === 'start') ||
+                     (h.userData.handleIndex === 1 && fdAnchor === 'end');
+    h.material.color.set(isAnchor ? 0x00ff88 : 0xffffff);
+  });
+}
+
+function fdSelectWall(w) {
+  fdDeselect();
+  fdSel = w;
+  fdAnchor = 'start';
+  walls.forEach(x => x.mesh.material.color.set(0xddd5c8));
+  w.mesh.material.color.set(0xff9500);
+  showWallHandles(w);
+  fdHandleColors();
+  fdShowEditor(w);
+}
+
+function fdDeselect() {
+  fdSel = null;
+  fdDragging = false;
+  fdLastNs = fdLastNe = null;
+  clearWallHandles();
+  walls.forEach(x => x.mesh.material.color.set(0xddd5c8));
+  if (fdEditEl) fdEditEl.style.display = 'none';
+}
+
+// Replace one wall's geometry (anchor preserved by caller) and record undoable history.
+function fdReplaceWall(oldWall, ns, ne) {
+  scene.remove(oldWall.mesh);
+  if (oldWall.capMeshes) oldWall.capMeshes.forEach(c => scene.remove(c));
+  if (oldWall.label2D)   wall2DLabelGroup.remove(oldWall.label2D);
+  walls = walls.filter(w => w !== oldWall);
+  const nw = buildWall(ns, ne, true);
+  if (!nw) {                                  // too short — keep the original
+    scene.add(oldWall.mesh); walls.push(oldWall);
+    rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); updateRoomArea();
+    return oldWall;
+  }
+  nw.mesh.material.color.set(0xff9500);
+  pushHistory({ type: 'resize-wall', data: { removed: [oldWall], restored: [nw] } });
+  rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); updateRoomArea();
+  return nw;
+}
+
+// ── Floating length editor (FD-3) ─────────────────────────────────────────────
+const fdEditEl = document.createElement('div');
+fdEditEl.style.cssText = 'display:none;position:fixed;z-index:200;background:#2a2a2a;border:1px solid #ff9500;border-radius:8px;padding:8px 10px;align-items:center;gap:6px;font-family:Arial;font-size:12px;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.5);';
+fdEditEl.innerHTML = [
+  '<input id="fd-len" type="number" step="10" min="100" style="width:78px;background:#333;border:1px solid #ff9500;border-radius:6px;color:#fff;padding:6px 8px;font-size:14px;box-sizing:border-box"/>',
+  '<span style="color:#aaa">mm</span>',
+  '<button id="fd-ok" style="background:#ff9500;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:bold">OK</button>',
+  '<button id="fd-flip" title="Switch which end stays locked" style="background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 8px;cursor:pointer;font-size:12px">⇄ anchor</button>',
+].join('');
+document.body.appendChild(fdEditEl);
+['click','mousedown','touchstart','pointerdown'].forEach(ev =>
+  fdEditEl.addEventListener(ev, (e) => e.stopPropagation()));
+
+function fdShowEditor(w) {
+  document.getElementById('fd-len').value = Math.round(w.start.distanceTo(w.end) * 1000);
+  const mid = new THREE.Vector3((w.start.x + w.end.x) / 2, 0, (w.start.z + w.end.z) / 2).project(activeCamera);
+  const sx = (mid.x *  0.5 + 0.5) * window.innerWidth;
+  const sy = (mid.y * -0.5 + 0.5) * window.innerHeight;
+  fdEditEl.style.left = Math.round(sx - 90) + 'px';
+  fdEditEl.style.top  = Math.round(sy - 60) + 'px';
+  fdEditEl.style.display = 'flex';
+}
+
+function fdApplyLength() {
+  if (!fdSel) return;
+  const v = parseFloat(document.getElementById('fd-len').value);
+  if (!(v > 0)) return;
+  const anchor = (fdAnchor === 'start' ? fdSel.start : fdSel.end).clone();
+  const moving = (fdAnchor === 'start' ? fdSel.end   : fdSel.start).clone();
+  const dir    = new THREE.Vector3().subVectors(moving, anchor).normalize();
+  const newMov = anchor.clone().addScaledVector(dir, mm(v));   // angle preserved
+  const ns = fdAnchor === 'start' ? anchor : newMov;
+  const ne = fdAnchor === 'start' ? newMov : anchor;
+  fdSel = fdReplaceWall(fdSel, ns, ne);
+  showWallHandles(fdSel); fdHandleColors(); fdShowEditor(fdSel);
+}
+
+document.getElementById('fd-ok').addEventListener('click', fdApplyLength);
+document.getElementById('fd-len').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); fdApplyLength(); }
+});
+document.getElementById('fd-flip').addEventListener('click', () => {
+  if (!fdSel) return;
+  fdAnchor = fdAnchor === 'start' ? 'end' : 'start';
+  fdHandleColors();
+});
+
+// ── Slide a selected wall (FD-4): drag the body, angle locked, grid-snapped ────
+canvas.addEventListener('mousedown', (e) => {
+  if (mode !== 'draw-free' || freeStart || !fdSel) return;
+  updateMouse(e);
+  raycaster.setFromCamera(mouse, activeCamera);
+
+  // Clicking an end handle sets that end as the locked anchor.
+  const hHits = raycaster.intersectObjects(wallHandleGroup.children);
+  if (hHits.length) {
+    fdAnchor = hHits[0].object.userData.handleIndex === 0 ? 'start' : 'end';
+    fdHandleColors();
+    fdSuppressClick = true;
+    return;
+  }
+
+  // Clicking the wall body starts a parallel slide.
+  if (raycaster.intersectObject(fdSel.mesh).length) {
+    const fp = getFloorPos(e); if (!fp) return;
+    fdDragging  = true;
+    fdDragRef   = fp.clone();
+    fdOrigStart = fdSel.start.clone();
+    fdOrigEnd   = fdSel.end.clone();
+    fdLastNs = fdLastNe = null;
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (mode !== 'draw-free' || !fdDragging || !fdSel) return;
+  const fp = getFloorPos(e); if (!fp) return;
+  const dir  = new THREE.Vector3().subVectors(fdOrigEnd, fdOrigStart).normalize();
+  const perp = new THREE.Vector3(-dir.z, 0, dir.x);          // slide perpendicular → parallel move
+  const grid = mm(settings.gridSize) || mm(50);
+  let amt = new THREE.Vector3().subVectors(fp, fdDragRef).dot(perp);
+  amt = Math.round(amt / grid) * grid;                       // grid snap
+  const off = perp.clone().multiplyScalar(amt);
+  fdLastNs = fdOrigStart.clone().add(off);
+  fdLastNe = fdOrigEnd.clone().add(off);
+
+  const h = fdSel.mesh.geometry.parameters.height;           // live mesh reposition (rotation unchanged)
+  fdSel.mesh.position.set((fdLastNs.x + fdLastNe.x) / 2, h / 2, (fdLastNs.z + fdLastNe.z) / 2);
+  wallHandleGroup.children.forEach(hd => {
+    const pt = hd.userData.handleIndex === 0 ? fdLastNs : fdLastNe;
+    hd.position.set(pt.x, 0.08, pt.z);
+  });
+});
+
+window.addEventListener('mouseup', () => {
+  if (mode !== 'draw-free' || !fdDragging) return;
+  fdDragging = false;
+  fdSuppressClick = true;                                    // don't let this mouseup's click deselect
+  if (fdLastNs && fdLastNe && fdLastNs.distanceTo(fdSel.start) > 1e-4) {
+    fdSel = fdReplaceWall(fdSel, fdLastNs.clone(), fdLastNe.clone());
+    showWallHandles(fdSel); fdHandleColors(); fdShowEditor(fdSel);
+  }
+  fdLastNs = fdLastNe = null;
 });
 
 // ── Preset picker handlers ───────────────────────────────
