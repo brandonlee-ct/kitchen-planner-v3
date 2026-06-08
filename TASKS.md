@@ -7,7 +7,7 @@ Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 
 ## Milestone A — Harden the live prototype
 - [x] ✅ 1.1 Bug-fix sweep (wall selection on Android/iOS, save/load toasts, 2D labels after load)
-- [ ] ⏳ Security: SQL written (`supabase/security.sql`). 👤 **Next: paste it into Supabase SQL Editor + run, then promote yourself to admin.**
+- [x] ✅ Security: RLS enabled on `projects` + `profiles`, roles live, `thumbnails` bucket created, share-link columns added. Admins: brandonlee.ct@gmail.com, brownboxkit@gmail.com.
 
 ## Milestone B — Shopify MVP Launch (Phase 1 remaining)
 - [x] ✅ 1.2 Free Draw (desktop): new mode, camera lock, free-angle + 90° snap, select wall, pick locked anchor, resize (angle preserved), slide parallel; undo/redo + save/load verified
