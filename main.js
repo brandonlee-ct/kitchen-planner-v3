@@ -4357,10 +4357,12 @@ function loadScene(sceneJson) {
     }
   }
 
+  // REPLACE WITH:
   // Rebuild derived scene state
   rebuildAllCaps();
   refreshAll2DLabels();
   rebuild2DWallOverlays();
+  update2DLabelVisibility();
   updateRoomArea();
   updateQuote();
   updateUndoRedoButtons();
@@ -4369,6 +4371,7 @@ function loadScene(sceneJson) {
   mode = 'select';
   canvas.style.cursor = 'default';
 }
+
 
 window._debug = { serialiseScene, clearScene, loadScene };
 
