@@ -76,7 +76,6 @@ function updateAuthUI() {
 
 // ── Project helpers ───────────────────────────────────────
 
-// ── Thumbnail Storage ─────────────────────────────────────
 /**
  * Upload a PNG data URL to the `thumbnails` Storage bucket and return
  * the public URL.  Returns null on any error so callers can fall back to
@@ -113,7 +112,7 @@ export async function uploadThumbnail(dataUrl) {
  * Insert a new project row.
  * @param {string} name
  * @param {object} sceneJson   — plain JS object (will be stored as jsonb)
- * @param {string} thumbnail   — base64 data URL or null
+ * @param {string} thumbnail   — base64 data URL or public Storage URL or null
  * @returns {{ id: string|null, error: string|null }}
  */
 export async function saveProject(name, sceneJson, thumbnail) {
@@ -137,7 +136,7 @@ export async function saveProject(name, sceneJson, thumbnail) {
  * @param {string} id
  * @param {string} name
  * @param {object} sceneJson
- * @param {string} thumbnail
+ * @param {string} thumbnail  — base64 data URL or public Storage URL or null
  * @returns {{ error: string|null }}
  */
 export async function updateProject(id, name, sceneJson, thumbnail) {
