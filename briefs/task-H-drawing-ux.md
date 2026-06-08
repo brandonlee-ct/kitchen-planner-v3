@@ -6,15 +6,20 @@
 ## Execution model (IMPORTANT — read first)
 - Complete **all 9 steps in a single autonomous run.** Do NOT wait for a human "done"
   between steps — there is nobody available to confirm.
-- Make **one git commit per step** (e.g. `Task H step 1: shift-lock 90° in Quick Draw`)
-  so each step can be reviewed and reverted independently.
+- **After EACH step: commit AND push** that commit to your working branch before starting
+  the next step. There will be ~9 commits pushed incrementally (e.g.
+  `Task H step 1: shift-lock 90° in Quick Draw`). This makes progress crash-safe and lets a
+  human review the PR step by step.
+- **Push only to your own feature branch — never to `main`.** Open the PR early (after
+  step 1) so the remaining pushes update it. Do not merge; a human reviews and merges.
 - Do NOT paste full file contents in your messages — edit files in the repo directly;
   the reviewer will read the PR diff.
 - **You cannot test on physical iPhone/iPad/Android.** Do your best with code reasoning
   and desktop checks; leave a clear "Manual device testing required" checklist in the PR
   description (see Test Plan). Real-device testing is done by a human afterward.
-- When all steps are done, run the `reviewer` subagent checklist, then open ONE Pull
-  Request titled "Task H: Drawing UX overhaul" with a step-by-step summary.
+- Open ONE Pull Request titled "Task H: Drawing UX overhaul" early (after step 1) and let
+  the per-step pushes update it. When all steps are done, run the `reviewer` subagent
+  checklist and finalise the PR description with a step-by-step summary.
 
 ## Context
 Brown Box Kit 3D kitchen planner (vanilla JS + three.js, no framework). Task G complete.
