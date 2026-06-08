@@ -2,7 +2,7 @@
   "name": "kitchen-planner-v3",
   "version": "1.0.0",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview"
   },
