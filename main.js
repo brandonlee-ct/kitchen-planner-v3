@@ -825,12 +825,15 @@ function buildWall(start, end, skipHistory = false) {
   scene.add(mesh);
   const wallObj = { mesh, start: start.clone(), end: end.clone(), capMeshes: [], label2D: null };
   mesh.userData.wallObj = wallObj;
+ // REPLACE WITH:
   walls.push(wallObj);
   make2DLabel(wallObj);
   rebuildAllCaps();
   // ✅ FIX: rebuild 2D overlay whenever a wall is added, not just on view toggle
   rebuild2DWallOverlays();
+  update2DLabelVisibility();
   updateRoomArea();
+
   if (!skipHistory) pushHistory({ type: 'add-wall', data: { wallObj } });
   return wallObj;
 }
