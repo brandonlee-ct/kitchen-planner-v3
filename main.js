@@ -3526,6 +3526,119 @@ document.getElementById('dmm-twopoint').addEventListener('click', () => {
   showConfirmBar('Tap your first corner');
 });
 
+// ── Free Draw (desktop mouse mode) ───────────────────────
+// New, self-contained mode: free-angle drawing with 90° snap and a LOCKED camera
+// (no orbit/pan while drawing). Quick Draw is intentionally left untouched.
+// Wall selection / resize / slide editing is added in later steps.
+let freeStart = null, freeFirst = null;
+
+function startFreeDraw() {
+  if (['draw-preset','draw-freehand','draw-twopoint'].includes(mode)) abortPreviewWalls();
+  hideWallPopup();
+  drawModeActive = 'free';
+  mode = 'draw-free';
+  freeStart = freeFirst = null;
+  canvas.style.cursor = 'crosshair';
+  controls.enabled = false;                 // camera lock — no orbit/pan
+  const b = document.getElementById('btn-free-draw');
+  if (b) { b.style.background = '#ff9500'; b.style.color = '#fff'; }
+}
+
+function cancelFreeDraw() {
+  hideWallDimInput();
+  freeStart = freeFirst = null;
+  mode = 'select';
+  drawModeActive = null;
+  canvas.style.cursor = 'default';
+  if (previewLine) { scene.remove(previewLine); previewLine = null; }
+  closeHint.style.display = 'none';
+  dimLabel.style.display  = 'none';
+  if (is3D) controls.enabled = true;        // restore camera on exit
+  const b = document.getElementById('btn-free-draw');
+  if (b) { b.style.background = ''; b.style.color = ''; }
+}
+
+// Snap helper shared by Free Draw preview + click: free angle, 90° on Shift / within 5°
+function freeDrawSnap(s) {
+  let snapMode = 'free';
+  const rdx = s.x - freeStart.x, rdz = s.z - freeStart.z;
+  const len = Math.hypot(rdx, rdz);
+  if (len > 1e-4) {
+    const ang    = Math.atan2(Math.abs(rdz), Math.abs(rdx)) * 180 / Math.PI;
+    const toAxis = Math.min(ang, 90 - ang);
+    if (shiftDown || toAxis <= 5) {
+      s = Math.abs(rdx) >= Math.abs(rdz)
+        ? new THREE.Vector3(s.x, 0, freeStart.z)
+        : new THREE.Vector3(freeStart.x, 0, s.z);
+      snapMode = '90deg';
+    }
+  }
+  return { point: s, snapMode };
+}
+
+document.getElementById('btn-free-draw')?.addEventListener('click', () => {
+  if (mode === 'draw-free') cancelFreeDraw();
+  else startFreeDraw();
+});
+
+// Free Draw — live preview
+canvas.addEventListener('mousemove', (e) => {
+  if (mode !== 'draw-free' || !freeStart) return;
+  const pt = getFloorPos(e); if (!pt) return;
+  let s = snapToCorner(snapToGrid(pt));
+  const { point, snapMode } = freeDrawSnap(s);
+  s = point;
+
+  if (freeFirst && s.distanceTo(freeFirst) < 0.2) {
+    s = freeFirst.clone();
+    closeHint.style.left = (e.clientX + 15) + 'px';
+    closeHint.style.top  = (e.clientY + 10) + 'px';
+    closeHint.style.display = 'block';
+  } else {
+    closeHint.style.display = 'none';
+  }
+
+  if (previewLine) scene.remove(previewLine);
+  previewLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(freeStart.x, 0.02, freeStart.z),
+      new THREE.Vector3(s.x, 0.02, s.z),
+    ]),
+    new THREE.LineBasicMaterial({ color: snapMode === '90deg' ? 0x00ff88 : 0xff9500 })
+  );
+  scene.add(previewLine);
+
+  dimLabel.textContent   = Math.round(freeStart.distanceTo(s) * 1000) + ' mm';
+  dimLabel.style.left    = (e.clientX + 15) + 'px';
+  dimLabel.style.top     = (e.clientY - 10) + 'px';
+  dimLabel.style.color   = snapMode === '90deg' ? '#00aa55' : '#ff9500';
+  dimLabel.style.display = 'block';
+});
+
+// Free Draw — place corners on click
+canvas.addEventListener('click', (e) => {
+  if (mode !== 'draw-free') return;
+  const pt = getFloorPos(e); if (!pt) return;
+  let s = snapToCorner(snapToGrid(pt));
+  if (freeStart) s = freeDrawSnap(s).point;
+
+  if (!freeStart) {
+    freeStart = s.clone(); freeFirst = s.clone();
+  } else if (freeFirst && s.distanceTo(freeFirst) < 0.2) {
+    buildWall(freeStart, freeFirst);
+    lockRoom();
+    cancelFreeDraw();
+  } else {
+    buildWall(freeStart, s);
+    freeStart = s.clone();
+  }
+});
+
+// Free Draw — Escape exits the mode cleanly
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && mode === 'draw-free') cancelFreeDraw();
+});
+
 // ── Preset picker handlers ───────────────────────────────
 
 document.getElementById('dpp-back').addEventListener('click', () => {
