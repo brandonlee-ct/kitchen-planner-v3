@@ -1937,6 +1937,7 @@ lastMouseY = e.clientY;
         closeHint.style.display = 'none';
         clearSnapGuides(); clearAxisGuides();
         mode = 'select';
+        if (is3D) controls.enabled = true;   // restore camera that draw-wall locked (2D view toggle sets its own state)
         canvas.style.cursor = 'default';
         canvas.style.cursor = 'default';
         // Touch-only cleanup
@@ -3504,6 +3505,7 @@ document.getElementById('dmm-quick').addEventListener('click', () => {
   mode = 'draw-wall';
   canvas.style.cursor = 'crosshair';
   hideWallPopup();
+  controls.enabled = false;            // lock camera while drawing — no orbit/pan/zoom (touch + mouse)
   document.getElementById('btn-draw-wall').style.background = '#ff9500';
   document.getElementById('btn-draw-wall').style.color = '#fff';
 });
