@@ -511,6 +511,7 @@ function showWallDimInput(midScreenX, midScreenY, currentLenMm) {
 
 function hideWallDimInput() {
   wallDimInput.style.display = 'none';
+  wallDimInput.style.boxShadow = '';
   wallDimLocked      = false;
   wallDimLockedLen   = 0;
   wallDimValue.value = '';
@@ -1709,12 +1710,24 @@ lastMouseY = e.clientY;
     const pt = getFloorPos(e); if (!pt) return;
     let s = snapToCorner(snapToGrid(pt));
   
-    // Quick Draw: always force 90° from wallStart
-    const _dx = Math.abs(s.x - wallStart.x);
-    const _dz = Math.abs(s.z - wallStart.z);
-    s = _dx >= _dz
-      ? new THREE.Vector3(s.x, 0, wallStart.z)
-      : new THREE.Vector3(wallStart.x, 0, s.z);
+    // Quick Draw: follow cursor freely; snap to 90° axis when Shift is held
+    // OR when within 5° of an axis. (parallel snap is wired in step 2)
+    let _snapMode = 'free';   // 'free' | '90deg' | 'parallel'
+    {
+      const _rdx = s.x - wallStart.x;
+      const _rdz = s.z - wallStart.z;
+      const _len = Math.hypot(_rdx, _rdz);
+      if (_len > 1e-4) {
+        const _ang    = Math.atan2(Math.abs(_rdz), Math.abs(_rdx)) * 180 / Math.PI; // 0..90
+        const _toAxis = Math.min(_ang, 90 - _ang);                                   // 0 = on-axis
+        if (shiftDown || _toAxis <= 5) {
+          s = Math.abs(_rdx) >= Math.abs(_rdz)
+            ? new THREE.Vector3(s.x, 0, wallStart.z)
+            : new THREE.Vector3(wallStart.x, 0, s.z);
+          _snapMode = '90deg';
+        }
+      }
+    }
   
     // Apply locked length BEFORE preview
     if (wallDimLocked && wallDimLockedLen > 0) {
@@ -1744,7 +1757,17 @@ lastMouseY = e.clientY;
     }
   
     updatePreview(s);
-  
+
+    // Snap-mode colour feedback: green = 90°, blue = parallel, orange = free
+    const _snapColor = _snapMode === '90deg'    ? 0x00ff88
+                     : _snapMode === 'parallel' ? 0x4488ff
+                     :                            0xff9500;
+    if (previewLine) previewLine.material.color.setHex(_snapColor);
+    const _snapCss = _snapMode === '90deg'    ? '#00ff88'
+                   : _snapMode === 'parallel' ? '#4488ff'
+                   :                            '#ff9500';
+    wallDimInput.style.boxShadow = '0 0 0 2px ' + _snapCss;
+
     const _midWorld = new THREE.Vector3(
       (wallStart.x + s.x) / 2,
       0,
