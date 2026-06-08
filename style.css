@@ -73,6 +73,11 @@ canvas#canvas {
   min-width: 36px;
 }
 
+#toolbar button.signed-in {
+  color: #ff9500;
+}
+
+
 #toolbar button:hover  { background: #444; }
 #toolbar button.active { background: #ff9500; border-color: #ff9500; }
 

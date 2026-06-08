@@ -90,12 +90,11 @@ canvas.addEventListener('touchstart', (e) => {
   
   e.preventDefault();
   Array.from(e.changedTouches).forEach(t => activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY }));
-  if (activeTouches.size === 1 && !is3D && mode !== 'draw-wall' && mode !== 'draw-freehand' && mode !== 'draw-twopoint') {
+  if (activeTouches.size === 1 && !is3D && !touchDragActive && mode !== 'draw-wall' && mode !== 'draw-freehand' && mode !== 'draw-twopoint') {
     const t = e.changedTouches[0];
     panStart.set(t.clientX, t.clientY);
     isPanning2D = true;
-  }
-  if (activeTouches.size === 2) {
+  }  if (activeTouches.size === 2) {
     isPanning2D = false;
     const pts = Array.from(activeTouches.values());
     lastPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -3286,9 +3285,12 @@ touchDragBtn.addEventListener('touchstart', (e) => {
   e.preventDefault();
   if (!touchSelectedModel) return;
   touchDragActive = true;
+  controls.enabled = false;
+  isPanning2D = false;
   touchDragBtn.textContent = '✋ Dragging...';
   touchDragBtn.style.background = 'rgba(80,200,100,0.3)';
 }, { passive: false });
+
 
 canvas.addEventListener('touchmove', (e) => {
   if (!touchDragActive || !touchSelectedModel) return;
@@ -3340,6 +3342,7 @@ canvas.addEventListener('touchmove', (e) => {
 canvas.addEventListener('touchend', () => {
   if (touchDragActive) {
     touchDragActive = false;
+    controls.enabled = true;
     touchDragBtn.textContent = '✋ Hold & Drag';
     touchDragBtn.style.background = 'rgba(255,255,255,0.1)';
   }
@@ -3372,7 +3375,10 @@ document.addEventListener('touchend', () => {
 // ─── Tap canvas to select model ───────────────────────────────────────────────
 
 canvas.addEventListener('touchend', (e) => {
-  if (!isTouchDevice()) return;
+  console.log('[tap] touchend fired, mode=', mode, 'dragActive=', touchDragActive);
+  if (typeof isTouchDevice === 'function' && !isTouchDevice()) return;
+  console.log('[tap] passed isTouchDevice check');
+
   if (touchDragActive) return;
   if (mode !== 'select') return;
 

@@ -52,19 +52,20 @@ function updateAuthUI() {
   const btnProjects = document.getElementById('btn-my-projects');
 
   if (!btnAuth) return;
+  console.log('[auth ui]', { user: !!_user, classes: btnAuth.className });  
 
   if (_user) {
     const name = _user.user_metadata?.full_name || _user.email || 'Signed in';
-    btnAuth.title       = name;
-    btnAuth.style.color = '#ff9500';
+    btnAuth.title = name;
+    btnAuth.classList.add('signed-in');    
     if (authStatus)  authStatus.textContent  = '✅ Signed in as ' + name;
     if (btnSignin)   btnSignin.style.display  = 'none';
     if (btnSignout)  btnSignout.style.display = 'block';
     if (btnSave)     btnSave.style.display    = 'block';
     if (btnProjects) btnProjects.style.display = 'block';
   } else {
-    btnAuth.title       = 'Sign in';
-    btnAuth.style.color = '';
+    btnAuth.title = 'Sign in';
+    btnAuth.classList.remove('signed-in');
     if (authStatus)  authStatus.textContent  = 'Sign in to save your projects';
     if (btnSignin)   btnSignin.style.display  = 'block';
     if (btnSignout)  btnSignout.style.display = 'none';
