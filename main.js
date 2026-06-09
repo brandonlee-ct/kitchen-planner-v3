@@ -1078,13 +1078,22 @@ function updateWallPopupTouchUI() {
     secSec.style.display  = '';
     moreSec.style.display = '';
     wallPopup.classList.remove('wep-tq', 'wep-peeked');
-    wallPopup.style.background = '#2a2a2a';
+    if (IS_TOUCH) {
+      // Touch bottom-sheet: 50% opacity glass so the scene stays visible
+      wallPopup.style.background = 'rgba(42,42,42,0.5)';
+      wallPopup.style.backdropFilter = 'blur(14px)';
+      wallPopup.style.webkitBackdropFilter = 'blur(14px)';
+    } else {
+      wallPopup.style.background = '#2a2a2a';
+      wallPopup.style.backdropFilter = '';
+      wallPopup.style.webkitBackdropFilter = '';
+    }
     return;
   }
 
   // Touch Quick Draw mode
   wallPopup.classList.add('wep-tq');
-  wallPopup.style.background = 'rgba(15,15,15,0.52)';
+  wallPopup.style.background = 'rgba(20,20,20,0.5)';
   handle.style.display  = 'flex';
   peekBtn.style.display = '';
   moreBtn.style.display = '';
@@ -1270,6 +1279,8 @@ function hideWallPopup() {
   wallPopup.style.display = 'none';
   wallPopup.classList.remove('wep-tq', 'wep-peeked');
   wallPopup.style.background = '#2a2a2a';
+  wallPopup.style.backdropFilter = '';
+  wallPopup.style.webkitBackdropFilter = '';
   wallPopup.style.padding = '';  // reset compact-mode padding
   _wpTQPeeked = false;
   clearWallHandles();
@@ -1649,21 +1660,62 @@ let _elevPinchCx0 = 0, _elevPinchCy0 = 0, _elevPinchJustEnded = false;
 const elevCanvas = document.getElementById('elev-canvas');
 const elevCtx = elevCanvas.getContext('2d');
 
-// ── Zoom-reset button (shows when zoomed) ─────────────────
+// ── Zoom controls (− / + always visible, reset shows when zoomed) ─────────
+function elevZoomBy(f) {
+  const z0 = elevZoom;
+  const z1 = Math.max(0.4, Math.min(6, z0 * f));
+  if (z1 === z0) return;
+  // Anchor zoom at the canvas centre so content stays in view
+  const ax = elevCanvas.width / 2, ay = elevCanvas.height / 2;
+  elevPanX = ax - ((ax - elevPanX) / z0) * z1;
+  elevPanY = ay - ((ay - elevPanY) / z0) * z1;
+  elevZoom = z1;
+  if (elevWall) drawElevation();
+}
+
 {
+  const _zbCss = 'background:none;border:1px solid #555;color:#aaa;border-radius:5px;' +
+    'padding:3px 9px;font-size:13px;cursor:pointer;' +
+    'touch-action:manipulation;min-height:36px;min-width:36px';
+  const header = elevationPanel.querySelector('#elev-wall-info').parentElement;
+
+  const _zOut = document.createElement('button');
+  _zOut.id = 'elev-zoom-out'; _zOut.title = 'Zoom out';
+  _zOut.style.cssText = _zbCss; _zOut.textContent = '−';
+  _zOut.addEventListener('click', () => elevZoomBy(1 / 1.3));
+  header.appendChild(_zOut);
+
+  const _zIn = document.createElement('button');
+  _zIn.id = 'elev-zoom-in'; _zIn.title = 'Zoom in';
+  _zIn.style.cssText = _zbCss; _zIn.textContent = '+';
+  _zIn.addEventListener('click', () => elevZoomBy(1.3));
+  header.appendChild(_zIn);
+
   const _zb = document.createElement('button');
   _zb.id = 'elev-zoom-reset';
   _zb.title = 'Reset zoom';
-  _zb.style.cssText = 'background:none;border:1px solid #555;color:#aaa;border-radius:5px;' +
-    'padding:3px 9px;font-size:11px;cursor:pointer;display:none;' +
-    'touch-action:manipulation;min-height:36px';
+  _zb.style.cssText = _zbCss + ';display:none;font-size:11px';
   _zb.textContent = '1×';
   _zb.addEventListener('click', () => {
     elevZoom = 1; elevPanX = 0; elevPanY = 0;
     if (elevWall) drawElevation();
   });
-  elevationPanel.querySelector('#elev-wall-info').parentElement.appendChild(_zb);
+  header.appendChild(_zb);
 }
+
+// Desktop: mouse-wheel zoom anchored at the cursor
+elevCanvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const z0 = elevZoom;
+  const z1 = Math.max(0.4, Math.min(6, z0 * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
+  if (z1 === z0) return;
+  const rect = elevCanvas.getBoundingClientRect();
+  const ax = e.clientX - rect.left, ay = e.clientY - rect.top;
+  elevPanX = ax - ((ax - elevPanX) / z0) * z1;
+  elevPanY = ay - ((ay - elevPanY) / z0) * z1;
+  elevZoom = z1;
+  if (elevWall) drawElevation();
+}, { passive: false });
 
 function getElevDrawInfo() {
   const W = elevCanvas.width, H = elevCanvas.height;
@@ -6576,53 +6628,47 @@ function applyTheme(idx) {
 
 applyTheme(themeIndex); // restore saved theme on load
 
-// ── Theme flyout (drops below btn-toggle-view) ───────────────────────────
+// ── Theme flyout (opens beside the floating 🎨 button, right edge) ────────
 
-const themeMenuEl   = document.getElementById('theme-menu');
-const btnToggleView = document.getElementById('btn-toggle-view');
+const themeMenuEl     = document.getElementById('theme-menu');
+const btnThemeTrigger = document.getElementById('btn-theme-trigger');
 
 function updateThemeMenuUI() {
   const t = THEMES[themeIndex];
   document.getElementById('tmenu-dark').classList.toggle('active',   t.id === 'dark');
   document.getElementById('tmenu-light').classList.toggle('active',  t.id === 'light');
   document.getElementById('tmenu-gaming').classList.toggle('active', t.id === 'gaming');
+  // Trigger button shows the current theme's icon
+  // (getElementById, not the const — applyTheme runs on load before it's declared)
+  const trig = document.getElementById('btn-theme-trigger');
+  trig.textContent = t.icon;
+  trig.title = 'Theme: ' + t.label;
 }
 
 function openThemeMenu() {
-  const rect = btnToggleView.getBoundingClientRect();
-  themeMenuEl.style.top  = (rect.bottom + 6) + 'px';
-  themeMenuEl.style.left = Math.max(4, rect.left - 4) + 'px';
+  const rect = btnThemeTrigger.getBoundingClientRect();
+  // Open to the left of the trigger so it stays on screen at the right edge
+  themeMenuEl.style.top   = rect.top + 'px';
+  themeMenuEl.style.left  = '';
+  themeMenuEl.style.right = (window.innerWidth - rect.left + 8) + 'px';
   themeMenuEl.style.display = 'flex';
-  const trig = document.getElementById('btn-theme-trigger');
-  if (trig) trig.classList.add('active');
+  btnThemeTrigger.classList.add('active');
   updateThemeMenuUI();
 }
 function closeThemeMenu() {
   themeMenuEl.style.display = 'none';
-  const trig = document.getElementById('btn-theme-trigger');
-  if (trig) trig.classList.remove('active');
+  btnThemeTrigger.classList.remove('active');
 }
 
-// Attach theme picker as a small 🎨 button injected right after btn-toggle-view.
-(function () {
-  const trigger = document.createElement('button');
-  trigger.id = 'btn-theme-trigger';
-  trigger.className = 'tb-icon';
-  trigger.title = 'Theme';
-  trigger.textContent = '🎨';
-  trigger.style.cssText = 'font-size:13px!important;width:28px!important;min-width:28px!important;';
-  btnToggleView.insertAdjacentElement('afterend', trigger);
-
-  trigger.addEventListener('click', (e) => {
-    e.stopPropagation();
-    themeMenuEl.style.display === 'flex' ? closeThemeMenu() : openThemeMenu();
-  });
-})();
+btnThemeTrigger.addEventListener('click', (e) => {
+  e.stopPropagation();
+  themeMenuEl.style.display === 'flex' ? closeThemeMenu() : openThemeMenu();
+});
 
 document.addEventListener('click', (e) => {
   if (themeMenuEl.style.display === 'flex' &&
       !themeMenuEl.contains(e.target) &&
-      e.target !== document.getElementById('btn-theme-trigger')) {
+      e.target !== btnThemeTrigger) {
     closeThemeMenu();
   }
 });
