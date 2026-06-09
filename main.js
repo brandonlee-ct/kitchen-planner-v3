@@ -2034,28 +2034,11 @@ function buildFloorMesh() {
   }
   if (poly.length < 3) return;
 
-  // Inset each vertex toward polygon interior by half wall thickness
-  const inset = mm(settings.wallThickness) / 2;
-  const n = poly.length;
-  const insetPoly = poly.map((B, i) => {
-    const A = poly[(i + n - 1) % n];
-    const C = poly[(i + 1) % n];
-    const dirAB = new THREE.Vector3().subVectors(B, A).normalize();
-    const dirBC = new THREE.Vector3().subVectors(C, B).normalize();
-    // Inward normals (right of edge direction assuming CCW winding)
-    const nAB = new THREE.Vector3( dirAB.z, 0, -dirAB.x);
-    const nBC = new THREE.Vector3( dirBC.z, 0, -dirBC.x);
-    const bisector = nAB.clone().add(nBC);
-    const len = bisector.length();
-    if (len < 0.001) return B.clone().addScaledVector(nAB, inset);
-    const sin = len / 2;                       // sin(half-angle) approximation
-    const miter = Math.min(inset / Math.max(sin, 0.15), inset * 4);
-    return B.clone().addScaledVector(bisector.normalize(), miter);
-  });
-
+  // Use wall centreline polygon directly. Parts under the walls are hidden by
+  // the wall meshes; no inset needed to get a clean visual result.
   const shape = new THREE.Shape();
-  shape.moveTo(insetPoly[0].x, insetPoly[0].z);
-  for (let i = 1; i < insetPoly.length; i++) shape.lineTo(insetPoly[i].x, insetPoly[i].z);
+  shape.moveTo(poly[0].x, poly[0].z);
+  for (let i = 1; i < poly.length; i++) shape.lineTo(poly[i].x, poly[i].z);
   shape.closePath();
 
   floorMesh = new THREE.Mesh(
