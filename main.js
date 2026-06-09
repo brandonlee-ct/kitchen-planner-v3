@@ -963,10 +963,11 @@ function showWallPopup(wallObj, sx, sy) {
 function hideWallPopup() {
   wallPopup.style.display = 'none';
   clearWallHandles();
-
   dimLabel.style.display = 'none';
   walls.forEach(w => w.mesh.material.color.set(0xddd5c8));
   selectedWall = null; hoveredWall = null;
+  // In Free Draw mode the popup serves as the fd selection popup — clear that state too.
+  if (mode === 'draw-free') { fdSel = null; fdDragging = false; fdLastNs = fdLastNe = null; }
 }
 
 document.getElementById('wp-confirm').addEventListener('click', () => {
@@ -3895,6 +3896,7 @@ function fdDeselect() {
   clearWallHandles();
   walls.forEach(x => x.mesh.material.color.set(0xddd5c8));
   if (fdEditEl) fdEditEl.style.display = 'none';
+  if (wallPopup.style.display === 'block') hideWallPopup();
 }
 
 // Replace one wall's geometry (anchor preserved by caller) and record undoable history.
@@ -3929,13 +3931,12 @@ document.body.appendChild(fdEditEl);
   fdEditEl.addEventListener(ev, (e) => e.stopPropagation()));
 
 function fdShowEditor(w) {
-  document.getElementById('fd-len').value = Math.round(w.start.distanceTo(w.end) * 1000);
+  // Open the main Edit Wall popup rather than the small fdEditEl.
   const mid = new THREE.Vector3((w.start.x + w.end.x) / 2, 0, (w.start.z + w.end.z) / 2).project(activeCamera);
   const sx = (mid.x *  0.5 + 0.5) * window.innerWidth;
   const sy = (mid.y * -0.5 + 0.5) * window.innerHeight;
-  fdEditEl.style.left = Math.round(sx - 90) + 'px';
-  fdEditEl.style.top  = Math.round(sy - 60) + 'px';
-  fdEditEl.style.display = 'flex';
+  selectedWall = w;   // keep in sync so wallPopup's OK/delete handlers target the right wall
+  showWallPopup(w, sx, sy);
 }
 
 function fdApplyLength() {
