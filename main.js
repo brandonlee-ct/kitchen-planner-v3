@@ -378,7 +378,8 @@ scene.add(previewMeshGroup);
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Shift') shiftDown = true;
-  if (e.key === 'Escape') cancelWallDraw();
+  // In Free Draw, let its dedicated Escape handler run (ruler first, then exit) — see below.
+  if (e.key === 'Escape' && mode !== 'draw-free') cancelWallDraw();
   if (e.key === 'Delete' || e.key === 'Backspace') {
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
 
@@ -2268,10 +2269,19 @@ lastMouseY = e.clientY;
           }
           return;
         }
+        // Free Draw: right-click exits the ruler first, then exits the mode (mirrors Escape).
+        if (mode === 'draw-free') {
+          if (fdRulerActive) fdRulerDeactivate();
+          else cancelFreeDraw();
+          return;
+        }
         cancelWallDraw();
       });
       
       function cancelWallDraw() {
+        // Task F: if we're actually in Free Draw, that mode owns its own cleanup
+        // (and its own toolbar button). Delegate so the Free Draw button can't get stuck.
+        if (mode === 'draw-free') { cancelFreeDraw(); return; }
         hideWallDimInput();
         wallStart = firstPoint = null;
         firstWallLocked = false;
@@ -2586,6 +2596,7 @@ drawPresetThumbnails();
         return best || pos;
       }
 document.getElementById('btn-draw-wall').addEventListener('click', () => {
+  if (mode === 'draw-free') cancelFreeDraw();   // Task F: leaving Free Draw clears its button
   const inDrawMode = ['draw-wall','draw-preset','draw-freehand','draw-twopoint','draw-glide'].includes(mode);
   if (inDrawMode) {
     abortPreviewWalls();
