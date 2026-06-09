@@ -3701,6 +3701,7 @@ function cancelFreeDraw() {
   const b = document.getElementById('btn-free-draw');
   if (b) { b.style.background = ''; b.style.color = ''; }
   fdRulerClearAll();
+  fdHideSplitLabels();
   const rbar = document.getElementById('fd-ruler-bar');
   if (rbar) rbar.style.display = 'none';
 }
@@ -3735,8 +3736,9 @@ canvas.addEventListener('mousemove', (e) => {
   const pt = getFloorPos(e); if (!pt) return;
   let s = snapToCorner(snapToGrid(pt));
 
-  // No chain started yet: show green endpoint-alignment guides from existing walls.
+  // No chain started yet: show green endpoint-alignment guides + split-distance labels.
   if (!freeStart) {
+    fdUpdateSplitLabels(e, s);
     fdShowEndpointGuides(s);
     return;
   }
@@ -3786,12 +3788,28 @@ canvas.addEventListener('click', (e) => {
   if (fdRulerActive) { fdRulerClick(e); return; }
   if (fdSuppressClick) { fdSuppressClick = false; return; }  // swallow the click that ended a slide-drag / anchor pick
 
-  // FD-2: when NOT mid-chain, a click on an existing wall selects it for editing
-  // (rather than starting a new line). Non-selected walls are never touched.
+  // When NOT mid-chain: click wall body → project onto centreline and start chain;
+  // click near a wall endpoint (≤150 mm) → select wall for editing (FD-2).
   if (!freeStart) {
     const hitWall = fdRaycastWall(e);
-    if (hitWall) { fdSelectWall(hitWall); return; }
-    if (fdSel)   { fdDeselect(); return; }   // click empty space to dismiss the current selection
+    if (hitWall) {
+      const pt0 = getFloorPos(e);
+      if (pt0) {
+        const dS = pt0.distanceTo(hitWall.start);
+        const dE = pt0.distanceTo(hitWall.end);
+        if (dS < 0.15 || dE < 0.15) {
+          fdSelectWall(hitWall);                          // near endpoint → FD-2 edit
+        } else {
+          fdDeselect();
+          fdHideSplitLabels();
+          const proj = fdProjectOntoWall(hitWall, snapToGrid(pt0));
+          freeStart = proj.clone();
+          freeFirst = proj.clone();
+        }
+      }
+      return;
+    }
+    if (fdSel) { fdDeselect(); return; }   // click empty space → deselect
   }
 
   const pt = getFloorPos(e); if (!pt) return;
@@ -3800,6 +3818,7 @@ canvas.addEventListener('click', (e) => {
   s = fdEndpointSnap(s);   // lock onto any visible green endpoint guide
 
   if (!freeStart) {
+    fdHideSplitLabels();
     freeStart = s.clone(); freeFirst = s.clone();
   } else if (freeFirst && s.distanceTo(freeFirst) < 0.2) {
     buildWall(freeStart, freeFirst);
@@ -3834,6 +3853,11 @@ let fdRulerFloatingLabel = null;       // DOM label following mouse after first 
 let fdRulerPinnedLabels  = [];         // [{ wallObj, side, lengthMm, el }]
 let fdRulerSide          = 'exterior'; // 'exterior' | 'interior' | 'centre'
 let fdRulerFirstWall     = null;       // wall from first ruler click
+
+// ── Free Draw split-distance hover state ───────────────────────────────────
+let fdSplitLabelA    = null;   // DOM label at wall.start end
+let fdSplitLabelB    = null;   // DOM label at wall.end end
+let fdSplitHoveredWall = null; // wall currently being split-labelled
 
 function fdRaycastWall(e) {
   updateMouse(e);
@@ -3994,6 +4018,75 @@ window.addEventListener('mouseup', () => {
   }
   fdLastNs = fdLastNe = null;
 });
+
+// ── Free Draw: wall-body projection helpers ────────────────────────────────
+
+// Project a floor point onto the wall's longitudinal centreline, clamped to the wall's extent.
+function fdProjectOntoWall(w, p) {
+  const dir = new THREE.Vector3().subVectors(w.end, w.start);
+  const len = dir.length();
+  dir.normalize();
+  const t = new THREE.Vector3().subVectors(p, w.start).dot(dir);
+  return w.start.clone().addScaledVector(dir, Math.max(0, Math.min(len, t)));
+}
+
+// Project a world Vector3 to a { x, y } CSS pixel position.
+function fdWorldToScreen(v) {
+  const p = v.clone().project(activeCamera);
+  return {
+    x: Math.round(( p.x *  0.5 + 0.5) * window.innerWidth),
+    y: Math.round((-p.y *  0.5 + 0.5) * window.innerHeight),
+  };
+}
+
+// Show / update the two split-distance labels on a hovered wall.
+function fdUpdateSplitLabels(e, floorPt) {
+  // Reuse already-set mouse state — just cast against wall meshes.
+  updateMouse(e);
+  raycaster.setFromCamera(mouse, activeCamera);
+  const hits = raycaster.intersectObjects(walls.map(w => w.mesh))
+    .filter(h => walls.includes(h.object.userData.wallObj));
+  const hitWall = hits.length ? hits[0].object.userData.wallObj : null;
+
+  if (!hitWall) {
+    fdHideSplitLabels();
+    fdSplitHoveredWall = null;
+    return;
+  }
+  fdSplitHoveredWall = hitWall;
+
+  const proj = fdProjectOntoWall(hitWall, floorPt);
+  const dA   = Math.round(proj.distanceTo(hitWall.start) * 1000);
+  const dB   = Math.round(proj.distanceTo(hitWall.end)   * 1000);
+  const scA  = fdWorldToScreen(hitWall.start);
+  const scB  = fdWorldToScreen(hitWall.end);
+
+  if (!fdSplitLabelA) {
+    fdSplitLabelA = document.createElement('div');
+    fdSplitLabelA.className = 'fd-split-label';
+    document.body.appendChild(fdSplitLabelA);
+  }
+  fdSplitLabelA.textContent  = dA + ' mm';
+  fdSplitLabelA.style.left   = scA.x + 'px';
+  fdSplitLabelA.style.top    = (scA.y - 24) + 'px';
+  fdSplitLabelA.style.display = 'block';
+
+  if (!fdSplitLabelB) {
+    fdSplitLabelB = document.createElement('div');
+    fdSplitLabelB.className = 'fd-split-label';
+    document.body.appendChild(fdSplitLabelB);
+  }
+  fdSplitLabelB.textContent  = dB + ' mm';
+  fdSplitLabelB.style.left   = scB.x + 'px';
+  fdSplitLabelB.style.top    = (scB.y - 24) + 'px';
+  fdSplitLabelB.style.display = 'block';
+}
+
+function fdHideSplitLabels() {
+  if (fdSplitLabelA) fdSplitLabelA.style.display = 'none';
+  if (fdSplitLabelB) fdSplitLabelB.style.display = 'none';
+  fdSplitHoveredWall = null;
+}
 
 // ── Free Draw Ruler tool (Task 2) ─────────────────────────────────────────
 

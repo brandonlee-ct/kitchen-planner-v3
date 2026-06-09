@@ -1037,3 +1037,20 @@ canvas#canvas {
   transition: color 0.15s;
 }
 .fd-ruler-dismiss:hover { color: #fff; }
+
+/* Free Draw split-distance hover labels */
+.fd-split-label {
+  position: fixed;
+  z-index: 190;
+  background: rgba(0,0,0,0.75);
+  border: 1px solid #00ff88;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  color: #00ff88;
+  pointer-events: none;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  display: none;
+}
