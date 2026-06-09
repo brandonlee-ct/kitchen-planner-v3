@@ -3794,7 +3794,10 @@ canvas.addEventListener('click', (e) => {
     const hitWall = fdRaycastWall(e);
     if (hitWall) {
       const pt0 = getFloorPos(e);
-      if (pt0) {
+      if (!pt0) {
+        // Floor not hit (edge case in 3D view) — fall back to wall select.
+        fdSelectWall(hitWall);
+      } else {
         const dS = pt0.distanceTo(hitWall.start);
         const dE = pt0.distanceTo(hitWall.end);
         if (dS < 0.15 || dE < 0.15) {
@@ -4041,7 +4044,6 @@ function fdWorldToScreen(v) {
 
 // Show / update the two split-distance labels on a hovered wall.
 function fdUpdateSplitLabels(e, floorPt) {
-  // Reuse already-set mouse state — just cast against wall meshes.
   updateMouse(e);
   raycaster.setFromCamera(mouse, activeCamera);
   const hits = raycaster.intersectObjects(walls.map(w => w.mesh))
@@ -4058,28 +4060,16 @@ function fdUpdateSplitLabels(e, floorPt) {
   const proj = fdProjectOntoWall(hitWall, floorPt);
   const dA   = Math.round(proj.distanceTo(hitWall.start) * 1000);
   const dB   = Math.round(proj.distanceTo(hitWall.end)   * 1000);
-  const scA  = fdWorldToScreen(hitWall.start);
-  const scB  = fdWorldToScreen(hitWall.end);
 
   if (!fdSplitLabelA) {
     fdSplitLabelA = document.createElement('div');
     fdSplitLabelA.className = 'fd-split-label';
     document.body.appendChild(fdSplitLabelA);
   }
-  fdSplitLabelA.textContent  = dA + ' mm';
-  fdSplitLabelA.style.left   = scA.x + 'px';
-  fdSplitLabelA.style.top    = (scA.y - 24) + 'px';
+  fdSplitLabelA.textContent  = '\u2190' + dA + '\u202fmm\u2002|\u2002' + dB + '\u202fmm\u2192';
+  fdSplitLabelA.style.left   = (e.clientX + 14) + 'px';
+  fdSplitLabelA.style.top    = (e.clientY - 28) + 'px';
   fdSplitLabelA.style.display = 'block';
-
-  if (!fdSplitLabelB) {
-    fdSplitLabelB = document.createElement('div');
-    fdSplitLabelB.className = 'fd-split-label';
-    document.body.appendChild(fdSplitLabelB);
-  }
-  fdSplitLabelB.textContent  = dB + ' mm';
-  fdSplitLabelB.style.left   = scB.x + 'px';
-  fdSplitLabelB.style.top    = (scB.y - 24) + 'px';
-  fdSplitLabelB.style.display = 'block';
 }
 
 function fdHideSplitLabels() {
