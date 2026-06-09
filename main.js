@@ -1079,21 +1079,26 @@ function updateWallPopupTouchUI() {
     moreSec.style.display = '';
     wallPopup.classList.remove('wep-tq', 'wep-peeked');
     wallPopup.style.background = '#2a2a2a';
+    wallPopup.style.padding    = '';
     return;
   }
 
   // Touch Quick Draw mode
   wallPopup.classList.add('wep-tq');
-  wallPopup.style.background = 'rgba(18,18,18,0.82)';
+  wallPopup.style.background = 'rgba(15,15,15,0.52)';
   handle.style.display  = 'flex';
   peekBtn.style.display = '';
   moreBtn.style.display = '';
+  // Anchor row is not useful mid-draw — keep it hidden in Quick Draw
+  document.getElementById('wp-fd-anchor-row').style.display = 'none';
 
   if (_wpTQPeeked) {
     wallPopup.classList.add('wep-peeked');
     // CSS hides everything except handle + absolute buttons
   } else {
     wallPopup.classList.remove('wep-peeked');
+    // Secondary (thickness/height/type) + advanced (angle/openings) both
+    // live behind ▸ More options so the default view is minimal
     secSec.style.display  = _wpTQMoreOpen ? '' : 'none';
     moreSec.style.display = _wpTQMoreOpen ? '' : 'none';
   }
@@ -1174,13 +1179,13 @@ function showWallPopup(wallObj, sx, sy) {
     // ── Compact floating panel for Quick Draw (draggable, semi-transparent) ──
     wallPopup.style.transform     = '';
     wallPopup.style.bottom        = '';
-    wallPopup.style.width         = '240px';
+    wallPopup.style.width         = '200px';
     wallPopup.style.maxHeight     = '90dvh';
     wallPopup.style.overflowY     = 'auto';
     wallPopup.style.borderRadius  = '12px';
-    wallPopup.style.paddingBottom = '12px';
+    wallPopup.style.padding       = '8px 10px 10px';
     // Position near tap, clamped so it doesn't go off screen
-    const popW = 240, popH = _wpTQMoreOpen ? 320 : 170;
+    const popW = 200, popH = _wpTQMoreOpen ? 280 : 130;
     let px = sx - popW / 2;
     let py = sy - popH - 20;
     // Prefer below if above would clip
@@ -1263,6 +1268,7 @@ function hideWallPopup() {
   wallPopup.style.display = 'none';
   wallPopup.classList.remove('wep-tq', 'wep-peeked');
   wallPopup.style.background = '#2a2a2a';
+  wallPopup.style.padding = '';  // reset compact-mode padding
   _wpTQPeeked = false;
   clearWallHandles();
   dimLabel.style.display = 'none';
@@ -5960,6 +5966,7 @@ window._debug = { serialiseScene, clearScene, loadScene };
 const authModal = document.getElementById('auth-modal');
 
 document.getElementById('btn-auth').addEventListener('click', () => {
+  closeHamburgerMenu();
   authModal.style.display = 'flex';
 });
 
@@ -6561,14 +6568,63 @@ function applyTheme(idx) {
     floor.material.visible = false;
   }
 
-  const btn = document.getElementById('btn-theme');
-  btn.textContent = t.icon;
-  btn.title = 'Theme: ' + t.label + ' — click to cycle';
   localStorage.setItem('bbk-theme', themeIndex);
+  updateThemeMenuUI();
 }
 
 applyTheme(themeIndex); // restore saved theme on load
 
-document.getElementById('btn-theme').addEventListener('click', () => {
-  applyTheme(themeIndex + 1);
+// ── Theme flyout (drops below btn-toggle-view) ───────────────────────────
+
+const themeMenuEl   = document.getElementById('theme-menu');
+const btnToggleView = document.getElementById('btn-toggle-view');
+
+function updateThemeMenuUI() {
+  const t = THEMES[themeIndex];
+  document.getElementById('tmenu-dark').classList.toggle('active',   t.id === 'dark');
+  document.getElementById('tmenu-light').classList.toggle('active',  t.id === 'light');
+  document.getElementById('tmenu-gaming').classList.toggle('active', t.id === 'gaming');
+}
+
+function openThemeMenu() {
+  const rect = btnToggleView.getBoundingClientRect();
+  themeMenuEl.style.top  = (rect.bottom + 6) + 'px';
+  themeMenuEl.style.left = Math.max(4, rect.left - 4) + 'px';
+  themeMenuEl.style.display = 'flex';
+  const trig = document.getElementById('btn-theme-trigger');
+  if (trig) trig.classList.add('active');
+  updateThemeMenuUI();
+}
+function closeThemeMenu() {
+  themeMenuEl.style.display = 'none';
+  const trig = document.getElementById('btn-theme-trigger');
+  if (trig) trig.classList.remove('active');
+}
+
+// Attach theme picker as a small 🎨 button injected right after btn-toggle-view.
+(function () {
+  const trigger = document.createElement('button');
+  trigger.id = 'btn-theme-trigger';
+  trigger.className = 'tb-icon';
+  trigger.title = 'Theme';
+  trigger.textContent = '🎨';
+  trigger.style.cssText = 'font-size:13px!important;width:28px!important;min-width:28px!important;';
+  btnToggleView.insertAdjacentElement('afterend', trigger);
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    themeMenuEl.style.display === 'flex' ? closeThemeMenu() : openThemeMenu();
+  });
+})();
+
+document.addEventListener('click', (e) => {
+  if (themeMenuEl.style.display === 'flex' &&
+      !themeMenuEl.contains(e.target) &&
+      e.target !== document.getElementById('btn-theme-trigger')) {
+    closeThemeMenu();
+  }
 });
+
+document.getElementById('tmenu-dark').addEventListener('click',   () => { applyTheme(THEMES.findIndex(t => t.id === 'dark'));   closeThemeMenu(); });
+document.getElementById('tmenu-light').addEventListener('click',  () => { applyTheme(THEMES.findIndex(t => t.id === 'light'));  closeThemeMenu(); });
+document.getElementById('tmenu-gaming').addEventListener('click', () => { applyTheme(THEMES.findIndex(t => t.id === 'gaming')); closeThemeMenu(); });

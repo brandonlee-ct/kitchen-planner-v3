@@ -57,6 +57,7 @@ function updateAuthUI() {
   if (_user) {
     const name = _user.user_metadata?.full_name || _user.email || 'Signed in';
     btnAuth.title = name;
+    btnAuth.textContent = '👤 ' + name;
     btnAuth.classList.add('signed-in');    
     if (authStatus)  authStatus.textContent  = '✅ Signed in as ' + name;
     if (btnSignin)   btnSignin.style.display  = 'none';
@@ -65,6 +66,7 @@ function updateAuthUI() {
     if (btnProjects) btnProjects.style.display = 'block';
   } else {
     btnAuth.title = 'Sign in';
+    btnAuth.textContent = '👤 Sign In';
     btnAuth.classList.remove('signed-in');
     if (authStatus)  authStatus.textContent  = 'Sign in to save your projects';
     if (btnSignin)   btnSignin.style.display  = 'block';

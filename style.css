@@ -143,6 +143,38 @@ canvas#canvas {
   /* display toggled by JS between 'none' and 'flex' */
 }
 
+#theme-menu {
+  position: fixed;
+  z-index: 600;
+  /* top/left set by JS when opened */
+  background: #1e1e1e;
+  border: 2px solid #ff9500;
+  border-radius: 14px;
+  padding: 8px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+#theme-menu button {
+  background: #2a2a2a;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+  width: 100%;
+  transition: background 0.15s;
+}
+#theme-menu button:hover,
+#theme-menu button:active { background: #3a3a3a; }
+#theme-menu button.active { background: #ff9500; border-color: #ff9500; color: #fff; }
+
 #hamburger-menu button {
   background: #2a2a2a;
   color: #fff;
@@ -1226,16 +1258,19 @@ body.theme-gaming #quote-header { border-bottom-color: #1a1a3a; }
 body.theme-gaming #btn-export,
 body.theme-gaming #btn-export-pdf,
 body.theme-gaming #btn-send-cart { background: #1a1a2e; color: #e0e0ff; border-color: #2a2a4e; }
-body.theme-gaming #hamburger-menu {
+body.theme-gaming #hamburger-menu,
+body.theme-gaming #theme-menu {
   background: #0d0d1a;
   border-color: #2a2a4e;
 }
-body.theme-gaming #hamburger-menu button {
+body.theme-gaming #hamburger-menu button,
+body.theme-gaming #theme-menu button {
   background: #1a1a2e;
   border-color: #2a2a4e;
   color: #e0e0ff;
 }
-body.theme-gaming #hamburger-menu button:hover { background: #2a2a4e; }
+body.theme-gaming #hamburger-menu button:hover,
+body.theme-gaming #theme-menu button:hover { background: #2a2a4e; }
 
 /* ── Light ───────────────────────────────────────────────────────────────── */
 body.theme-light {
@@ -1275,26 +1310,66 @@ body.theme-light #quote-header button { color: #111; }
 body.theme-light #btn-export,
 body.theme-light #btn-export-pdf,
 body.theme-light #btn-send-cart { background: #e8e8e8; color: #111; border-color: #ccc; }
-body.theme-light #hamburger-menu {
+body.theme-light #hamburger-menu,
+body.theme-light #theme-menu {
   background: #fff;
   border-color: #ddd;
 }
-body.theme-light #hamburger-menu button {
+body.theme-light #hamburger-menu button,
+body.theme-light #theme-menu button {
   background: #e8e8e8;
   border-color: #ccc;
   color: #111;
 }
-body.theme-light #hamburger-menu button:hover { background: #d8d8d8; }
+body.theme-light #hamburger-menu button:hover,
+body.theme-light #theme-menu button:hover { background: #d8d8d8; }
 
 /* ── Wall Edit popup — touch Quick Draw compact floating mode ─────────── */
 
-/* Semi-transparent floating panel */
+/* Semi-transparent compact floating panel for Quick Draw */
 #wall-edit-popup.wep-tq {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-color: rgba(255, 149, 0, 0.5) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
-  /* background set by JS to rgba(18,18,18,0.82) */
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-color: rgba(255, 149, 0, 0.35) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45) !important;
+  /* background set by JS to rgba(15,15,15,0.52) */
+  font-size: 12px !important;
+}
+/* Tighten all labels inside wep-tq */
+#wall-edit-popup.wep-tq label {
+  font-size: 10px !important;
+  margin-bottom: 2px;
+  display: block;
+}
+/* Title */
+#wall-edit-popup.wep-tq > div[style*="color:#ff9500"] {
+  font-size: 12px !important;
+  margin-bottom: 4px !important;
+}
+/* Length + BT/OK row */
+#wall-edit-popup.wep-tq #wp-length {
+  padding: 5px 7px !important;
+  font-size: 14px !important;
+}
+#wall-edit-popup.wep-tq #wp-bt,
+#wall-edit-popup.wep-tq #wp-confirm {
+  padding: 5px 8px !important;
+  font-size: 12px !important;
+  min-height: 0 !important;
+}
+/* Length row spacing */
+#wall-edit-popup.wep-tq > div[style*="margin:4px 0 10px"] {
+  margin: 3px 0 6px !important;
+}
+/* Delete / View Wall row */
+#wall-edit-popup.wep-tq #wp-delete,
+#wall-edit-popup.wep-tq #wp-view {
+  padding: 6px !important;
+  font-size: 12px !important;
+  min-height: 0 !important;
+}
+#wall-edit-popup.wep-tq > div:has(#wp-delete) {
+  margin-bottom: 4px !important;
 }
 
 /* Peeked (minimised to handle strip) — hide all direct children except handle + abs buttons */
