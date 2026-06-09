@@ -375,8 +375,9 @@ let previewWallPoints  = [];     // confirmed polygon corners (Vector3 array)
 let freehandRawPoints  = [];     // raw tapped points before snapping
 let twoPtPhase         = 0;      // 0 = awaiting first click, 1 = awaiting second
 let twoPtStart         = null;   // first corner (Vector3)
-let draggingPreviewHdl = null;   // index into previewWallPoints, or null
-let prevHdlOffset      = new THREE.Vector3();
+let draggingPreviewHdl  = null;   // index into previewWallPoints (corner), or null
+let draggingPreviewEdge = null;   // { edgeIdx, perpDir, initA, initB, initPerp } or null
+let prevHdlOffset       = new THREE.Vector3();
 
 // Preview geometry group — dotted lines + fill + corner handles
 const previewMeshGroup = new THREE.Group();
@@ -2513,7 +2514,8 @@ function clearPreview() {
   while (previewMeshGroup.children.length) {
     previewMeshGroup.remove(previewMeshGroup.children[0]);
   }
-  draggingPreviewHdl = null;
+  draggingPreviewHdl  = null;
+  draggingPreviewEdge = null;
 }
 
 // Helper: build a canvas-texture Sprite for preview labels (always faces camera).
@@ -2616,6 +2618,21 @@ function drawPreviewPolygon(pts) {
       previewMeshGroup.add(angSprite);
     }
   });
+
+  // Edge midpoint drag handles (draw-preset only — Step 3)
+  if (mode === 'draw-preset') {
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      const mid = a.clone().lerp(b, 0.5);
+      const edgeHdl = new THREE.Mesh(
+        new THREE.SphereGeometry(0.07, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xff9500, opacity: 0.75, transparent: true })
+      );
+      edgeHdl.position.set(mid.x, 0.06, mid.z);
+      edgeHdl.userData.previewEdgeIndex = i;
+      previewMeshGroup.add(edgeHdl);
+    }
+  }
 }
 function makeCleanRect(pts) {
   let minX = Infinity, maxX = -Infinity;
@@ -4965,12 +4982,14 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button !== 0 || mode !== 'draw-preset') return;
   updateMouse(e);
   raycaster.setFromCamera(mouse, activeCamera);
-  const handles = previewMeshGroup.children.filter(
+
+  // Corner handles take priority
+  const cornerHandles = previewMeshGroup.children.filter(
     c => c.userData.previewHandleIndex !== undefined
   );
-  const hits = raycaster.intersectObjects(handles);
-  if (hits.length > 0) {
-    draggingPreviewHdl = hits[0].object.userData.previewHandleIndex;
+  const cornerHits = raycaster.intersectObjects(cornerHandles);
+  if (cornerHits.length > 0) {
+    draggingPreviewHdl = cornerHits[0].object.userData.previewHandleIndex;
     const fp = getFloorPos(e);
     if (fp) prevHdlOffset.set(
       previewWallPoints[draggingPreviewHdl].x - fp.x, 0,
@@ -4978,23 +4997,62 @@ canvas.addEventListener('mousedown', (e) => {
     );
     controls.enabled = false;
     e.stopImmediatePropagation();
+    return;
+  }
+
+  // Edge midpoint handles — drag whole edge perpendicularly (Step 3)
+  const edgeHandles = previewMeshGroup.children.filter(
+    c => c.userData.previewEdgeIndex !== undefined
+  );
+  const edgeHits = raycaster.intersectObjects(edgeHandles);
+  if (edgeHits.length > 0) {
+    const edgeIdx = edgeHits[0].object.userData.previewEdgeIndex;
+    const a = previewWallPoints[edgeIdx];
+    const b = previewWallPoints[(edgeIdx + 1) % previewWallPoints.length];
+    const edgeDir = new THREE.Vector3().subVectors(b, a).normalize();
+    const perpDir = new THREE.Vector3(-edgeDir.z, 0, edgeDir.x);
+    const fp = getFloorPos(e);
+    draggingPreviewEdge = {
+      edgeIdx, perpDir,
+      initA: a.clone(), initB: b.clone(),
+      initPerp: fp ? fp.dot(perpDir) : 0
+    };
+    controls.enabled = false;
+    e.stopImmediatePropagation();
   }
 }, { capture: true });
 
 canvas.addEventListener('mousemove', (e) => {
-  if (draggingPreviewHdl === null || mode !== 'draw-preset') return;
-  const pt = getFloorPos(e); if (!pt) return;
-  const s = snapToGrid(new THREE.Vector3(
-    pt.x + prevHdlOffset.x, 0,
-    pt.z + prevHdlOffset.z
-  ));
-  previewWallPoints[draggingPreviewHdl].set(s.x, 0, s.z);
-  drawPreviewPolygon(previewWallPoints);
+  if (mode !== 'draw-preset') return;
+
+  if (draggingPreviewHdl !== null) {
+    const pt = getFloorPos(e); if (!pt) return;
+    const s = snapToGrid(new THREE.Vector3(
+      pt.x + prevHdlOffset.x, 0,
+      pt.z + prevHdlOffset.z
+    ));
+    previewWallPoints[draggingPreviewHdl].set(s.x, 0, s.z);
+    drawPreviewPolygon(previewWallPoints);
+    return;
+  }
+
+  if (draggingPreviewEdge !== null) {
+    const pt = getFloorPos(e); if (!pt) return;
+    const { edgeIdx, perpDir, initA, initB, initPerp } = draggingPreviewEdge;
+    const rawDelta = pt.dot(perpDir) - initPerp;
+    const g = mm(settings.gridSize);
+    const snappedDelta = Math.round(rawDelta / g) * g;
+    const n = previewWallPoints.length;
+    previewWallPoints[edgeIdx].copy(initA).addScaledVector(perpDir, snappedDelta);
+    previewWallPoints[(edgeIdx + 1) % n].copy(initB).addScaledVector(perpDir, snappedDelta);
+    drawPreviewPolygon(previewWallPoints);
+  }
 }, { capture: true });
 
 canvas.addEventListener('mouseup', () => {
-  if (draggingPreviewHdl !== null) {
-    draggingPreviewHdl = null;
+  if (draggingPreviewHdl !== null || draggingPreviewEdge !== null) {
+    draggingPreviewHdl  = null;
+    draggingPreviewEdge = null;
     controls.enabled = true;
   }
 }, { capture: true });
@@ -5006,38 +5064,77 @@ canvas.addEventListener('touchstart', (e) => {
   const t = e.touches[0];
   updateMouse({ clientX: t.clientX, clientY: t.clientY });
   raycaster.setFromCamera(mouse, activeCamera);
-  const handles = previewMeshGroup.children.filter(
+
+  // Corner handles first
+  const cornerHandles = previewMeshGroup.children.filter(
     c => c.userData.previewHandleIndex !== undefined
   );
-  const hits = raycaster.intersectObjects(handles);
-  if (hits.length > 0) {
-    draggingPreviewHdl = hits[0].object.userData.previewHandleIndex;
+  const cornerHits = raycaster.intersectObjects(cornerHandles);
+  if (cornerHits.length > 0) {
+    draggingPreviewHdl = cornerHits[0].object.userData.previewHandleIndex;
     const fp = getFloorPos({ clientX: t.clientX, clientY: t.clientY });
     if (fp) prevHdlOffset.set(
       previewWallPoints[draggingPreviewHdl].x - fp.x, 0,
       previewWallPoints[draggingPreviewHdl].z - fp.z
     );
     e.preventDefault();
+    return;
+  }
+
+  // Edge midpoint handles (Step 3)
+  const edgeHandles = previewMeshGroup.children.filter(
+    c => c.userData.previewEdgeIndex !== undefined
+  );
+  const edgeHits = raycaster.intersectObjects(edgeHandles);
+  if (edgeHits.length > 0) {
+    const edgeIdx = edgeHits[0].object.userData.previewEdgeIndex;
+    const a = previewWallPoints[edgeIdx];
+    const b = previewWallPoints[(edgeIdx + 1) % previewWallPoints.length];
+    const edgeDir = new THREE.Vector3().subVectors(b, a).normalize();
+    const perpDir = new THREE.Vector3(-edgeDir.z, 0, edgeDir.x);
+    const fp = getFloorPos({ clientX: t.clientX, clientY: t.clientY });
+    draggingPreviewEdge = {
+      edgeIdx, perpDir,
+      initA: a.clone(), initB: b.clone(),
+      initPerp: fp ? fp.dot(perpDir) : 0
+    };
+    e.preventDefault();
   }
 }, { passive: false });
 
 canvas.addEventListener('touchmove', (e) => {
-  if (draggingPreviewHdl === null || mode !== 'draw-preset') return;
+  if (mode !== 'draw-preset') return;
   e.preventDefault();
   const t  = e.touches[0];
   const pt = getFloorPos({ clientX: t.clientX, clientY: t.clientY });
   if (!pt) return;
-  const s = snapToGrid(new THREE.Vector3(
-    pt.x + prevHdlOffset.x, 0,
-    pt.z + prevHdlOffset.z
-  ));
-  previewWallPoints[draggingPreviewHdl].set(s.x, 0, s.z);
-  drawPreviewPolygon(previewWallPoints);
+
+  if (draggingPreviewHdl !== null) {
+    const s = snapToGrid(new THREE.Vector3(
+      pt.x + prevHdlOffset.x, 0,
+      pt.z + prevHdlOffset.z
+    ));
+    previewWallPoints[draggingPreviewHdl].set(s.x, 0, s.z);
+    drawPreviewPolygon(previewWallPoints);
+    return;
+  }
+
+  if (draggingPreviewEdge !== null) {
+    const { edgeIdx, perpDir, initA, initB, initPerp } = draggingPreviewEdge;
+    const rawDelta = pt.dot(perpDir) - initPerp;
+    const g = mm(settings.gridSize);
+    const snappedDelta = Math.round(rawDelta / g) * g;
+    const n = previewWallPoints.length;
+    previewWallPoints[edgeIdx].copy(initA).addScaledVector(perpDir, snappedDelta);
+    previewWallPoints[(edgeIdx + 1) % n].copy(initB).addScaledVector(perpDir, snappedDelta);
+    drawPreviewPolygon(previewWallPoints);
+  }
 }, { passive: false });
 
 canvas.addEventListener('touchend', () => {
-  if (draggingPreviewHdl !== null) {
-    draggingPreviewHdl = null;
+  if (draggingPreviewHdl !== null || draggingPreviewEdge !== null) {
+    draggingPreviewHdl  = null;
+    draggingPreviewEdge = null;
     controls.enabled = true;
   }
 });
