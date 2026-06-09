@@ -3682,7 +3682,7 @@ function startFreeDraw() {
   const b = document.getElementById('btn-free-draw');
   if (b) { b.style.background = '#ff9500'; b.style.color = '#fff'; }
   const rbar = document.getElementById('fd-ruler-bar');
-  if (rbar) rbar.style.display = '';
+  if (rbar) rbar.style.display = 'block';
 }
 
 function cancelFreeDraw() {
