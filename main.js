@@ -1270,7 +1270,7 @@ function setWallXray(on) {
   const btn = document.getElementById('btn-wall-xray');
   if (btn) btn.classList.toggle('active', wallXray);
 }
-document.getElementById('btn-wall-xray')?.addEventListener('click', () => setWallXray(!wallXray));
+// X-ray toggled via hamburger menu (#hmenu-wall-xray → setWallXray)
 
 document.getElementById('wp-confirm').addEventListener('click', () => {
   if (!selectedWall) return;
@@ -6000,7 +6000,7 @@ window.addEventListener('keydown', (e) => {
 // Hamburger menu items — delegate to existing toolbar buttons
 document.getElementById('hmenu-wall-xray').addEventListener('click', () => {
   closeHamburgerMenu();
-  document.getElementById('btn-wall-xray').click();
+  setWallXray(!wallXray);
 });
 document.getElementById('hmenu-import-glb').addEventListener('click', () => {
   closeHamburgerMenu();

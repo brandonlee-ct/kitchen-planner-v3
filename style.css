@@ -168,7 +168,6 @@ canvas#canvas {
 @media (max-width: 768px) {
   /* Secondary actions collapse behind ☰ on tablet/phone */
   #btn-free-draw,
-  #btn-wall-xray,
   #btn-undo,
   #btn-redo,
   #btn-import-glb {
