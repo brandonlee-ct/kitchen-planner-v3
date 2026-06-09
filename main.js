@@ -5890,3 +5890,95 @@ window.addEventListener('keydown', (e) => {
     closeProjectsModal();
   }
 });
+
+// ── 1.3 Mobile Toolbar — camera capture + hamburger menu ─────────────────────
+
+// 📷 Camera capture — saves current canvas view as PNG
+document.getElementById('btn-camera').addEventListener('click', () => {
+  renderer.render(scene, activeCamera);
+  const url = renderer.domElement.toDataURL('image/png');
+  const a   = document.createElement('a');
+  a.href     = url;
+  a.download = 'kitchen-view.png';
+  a.click();
+});
+
+// ☰ Hamburger menu — open/close
+const btnHamburger  = document.getElementById('btn-hamburger');
+const hamburgerMenu = document.getElementById('hamburger-menu');
+
+function openHamburgerMenu() {
+  hamburgerMenu.style.display = 'flex';
+  btnHamburger.classList.add('active');
+}
+function closeHamburgerMenu() {
+  hamburgerMenu.style.display = 'none';
+  btnHamburger.classList.remove('active');
+}
+
+btnHamburger.addEventListener('click', (e) => {
+  e.stopPropagation();
+  hamburgerMenu.style.display === 'flex' ? closeHamburgerMenu() : openHamburgerMenu();
+});
+
+// Dismiss when tapping outside the menu
+document.addEventListener('click', (e) => {
+  if (hamburgerMenu.style.display === 'flex' &&
+      !hamburgerMenu.contains(e.target) &&
+      e.target !== btnHamburger) {
+    closeHamburgerMenu();
+  }
+});
+
+// Close menu on Escape
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeHamburgerMenu();
+});
+
+// Hamburger menu items — delegate to existing toolbar buttons
+document.getElementById('hmenu-free-draw').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('btn-free-draw').click();
+});
+document.getElementById('hmenu-wall-xray').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('btn-wall-xray').click();
+});
+document.getElementById('hmenu-undo').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('btn-undo').click();
+});
+document.getElementById('hmenu-redo').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('btn-redo').click();
+});
+document.getElementById('hmenu-import-glb').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('btn-import-glb').click();
+});
+
+// ── Theme switcher ──────────────────────────────────────────────────────────
+const THEMES = [
+  { id: 'dark',   icon: '🌑', label: 'Dark',   sceneBg: 0x1a1a1a },
+  { id: 'gaming', icon: '🎮', label: 'Gaming', sceneBg: 0x0a0a0f },
+  { id: 'light',  icon: '☀️', label: 'Light',  sceneBg: 0xe8e8e8 },
+];
+let themeIndex = Math.min(parseInt(localStorage.getItem('bbk-theme') || '0', 10) || 0, THEMES.length - 1);
+
+function applyTheme(idx) {
+  themeIndex = ((idx % THEMES.length) + THEMES.length) % THEMES.length;
+  const t = THEMES[themeIndex];
+  document.body.classList.remove('theme-gaming', 'theme-light');
+  if (t.id !== 'dark') document.body.classList.add('theme-' + t.id);
+  scene.background = new THREE.Color(t.sceneBg);
+  const btn = document.getElementById('btn-theme');
+  btn.textContent = t.icon;
+  btn.title = 'Theme: ' + t.label + ' — click to cycle';
+  localStorage.setItem('bbk-theme', themeIndex);
+}
+
+applyTheme(themeIndex); // restore saved theme on load
+
+document.getElementById('btn-theme').addEventListener('click', () => {
+  applyTheme(themeIndex + 1);
+});
