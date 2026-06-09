@@ -3788,27 +3788,25 @@ canvas.addEventListener('click', (e) => {
   if (fdRulerActive) { fdRulerClick(e); return; }
   if (fdSuppressClick) { fdSuppressClick = false; return; }  // swallow the click that ended a slide-drag / anchor pick
 
-  // When NOT mid-chain: click wall body → project onto centreline and start chain;
-  // click near a wall endpoint (≤150 mm) → select wall for editing (FD-2).
+  // When NOT mid-chain:
+  //   First click on a wall  → select it for editing (popup + handles, same as before).
+  //   Second click on the SAME selected wall → project onto centreline and start chain.
+  //   Click empty space      → deselect.
   if (!freeStart) {
     const hitWall = fdRaycastWall(e);
     if (hitWall) {
-      const pt0 = getFloorPos(e);
-      if (!pt0) {
-        // Floor not hit (edge case in 3D view) — fall back to wall select.
-        fdSelectWall(hitWall);
-      } else {
-        const dS = pt0.distanceTo(hitWall.start);
-        const dE = pt0.distanceTo(hitWall.end);
-        if (dS < 0.15 || dE < 0.15) {
-          fdSelectWall(hitWall);                          // near endpoint → FD-2 edit
-        } else {
+      if (fdSel === hitWall) {
+        // Already selected — second click starts chain from projected point.
+        const pt0 = getFloorPos(e);
+        if (pt0) {
           fdDeselect();
           fdHideSplitLabels();
           const proj = fdProjectOntoWall(hitWall, snapToGrid(pt0));
           freeStart = proj.clone();
           freeFirst = proj.clone();
         }
+      } else {
+        fdSelectWall(hitWall);                            // first click → select + popup
       }
       return;
     }
