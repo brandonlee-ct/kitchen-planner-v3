@@ -686,6 +686,33 @@ function rebuildAllCaps() {
     owner.capMeshes.push(cap);
   });
 }
+
+// Rebuild every wall's mesh geometry in-place when global settings (height/thickness) change.
+// Preserves wallObj identity and all references (undo stack, openings, style, etc.).
+function rebuildWallMeshes() {
+  const h = mm(settings.ceilingHeight), t = mm(settings.wallThickness);
+  walls.forEach(w => {
+    if (w.mesh.geometry) w.mesh.geometry.dispose();
+    if (w.mesh.material) w.mesh.material.dispose();
+    scene.remove(w.mesh);
+    const dx = w.end.x - w.start.x, dz = w.end.z - w.start.z;
+    const len = Math.sqrt(dx * dx + dz * dz);
+    w.mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(len, h, t),
+      new THREE.MeshStandardMaterial({ color: wallBaseColor(w) })
+    );
+    w.mesh.position.set((w.start.x + w.end.x) / 2, h / 2, (w.start.z + w.end.z) / 2);
+    w.mesh.rotation.y = -Math.atan2(dz, dx);
+    w.mesh.castShadow = w.mesh.receiveShadow = true;
+    w.mesh.userData.wallObj = w;
+    scene.add(w.mesh);
+    applyWallVisual(w);
+    if (w.openings && w.openings.length) syncOpeningsTo3D(w);
+  });
+  rebuildAllCaps();
+  refreshAll2DLabels();
+  rebuild2DWallOverlays();
+}
 function cornerKey(v) {
   return Math.round(v.x * 1000) / 1000 + ',' + Math.round(v.z * 1000) / 1000;
 }
@@ -954,19 +981,22 @@ wallPopup.innerHTML = [
   '<div id="wp-fd-anchor-row" style="display:none;margin:-6px 0 12px">',
   '<button id="wp-fd-anchor" title="Switch which end stays locked when resizing" style="width:100%;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:7px 8px;cursor:pointer;font-size:12px">⇄ Anchor: start</button>',
   '</div>',
-  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Wall Thickness (mm)</label>',
-  '<div style="display:flex;gap:6px;margin:4px 0 12px;align-items:center">',
-  '<input id="wp-thickness" type="number" step="10" min="50" max="500" style="flex:1;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:8px 10px;font-size:14px;box-sizing:border-box"/>',
+  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Ceiling Height</label>',
+  '<select id="wp-height" style="width:100%;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:7px 8px;font-size:13px;margin:4px 0 4px;box-sizing:border-box">',
+  '<option value="2400">2400mm</option><option value="2700">2700mm</option><option value="custom">Custom...</option>',
+  '</select>',
+  '<div id="wp-height-custom-row" style="display:none;gap:6px;margin:0 0 10px;align-items:center">',
+  '<input id="wp-height-custom" type="number" step="10" min="1000" max="5000" placeholder="e.g. 2550" style="flex:1;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:8px 10px;font-size:14px;box-sizing:border-box"/>',
   '<span style="color:#aaa;font-size:12px">mm</span>',
   '</div>',
-  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Ceiling Height</label>',
-  '<select id="wp-height" style="width:100%;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:7px 8px;font-size:13px;margin:4px 0 10px;box-sizing:border-box">',
-  '<option value="2400">2400mm</option><option value="2700">2700mm</option>',
-  '</select>',
   '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Wall Type</label>',
-  '<select id="wp-type" style="width:100%;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:7px 8px;font-size:13px;margin:4px 0 12px;box-sizing:border-box">',
-  '<option value="110">Interior 110mm</option><option value="150">Exterior 150mm</option>',
+  '<select id="wp-type" style="width:100%;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:7px 8px;font-size:13px;margin:4px 0 4px;box-sizing:border-box">',
+  '<option value="110">Interior 110mm</option><option value="150">Exterior 150mm</option><option value="custom">Custom...</option>',
   '</select>',
+  '<div id="wp-thickness-row" style="display:none;gap:6px;margin:0 0 12px;align-items:center">',
+  '<input id="wp-thickness" type="number" step="10" min="50" max="500" placeholder="e.g. 90" style="flex:1;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:8px 10px;font-size:14px;box-sizing:border-box"/>',
+  '<span style="color:#aaa;font-size:12px">mm</span>',
+  '</div>',
   '<div style="display:flex;gap:8px;margin-bottom:10px">',
   '<button id="wp-delete" style="flex:1;background:#c0392b;color:#fff;border:none;border-radius:6px;padding:9px;cursor:pointer;font-size:13px">Delete</button>',
   '<button id="wp-view" style="flex:1;background:#2980b9;color:#fff;border:none;border-radius:6px;padding:9px;cursor:pointer;font-size:13px">View Wall</button>',
@@ -988,6 +1018,17 @@ wallPopup.innerHTML = [
 ].join('');
 document.body.appendChild(wallPopup);
 
+document.getElementById('wp-height').addEventListener('change', () => {
+  const isCustom = document.getElementById('wp-height').value === 'custom';
+  document.getElementById('wp-height-custom-row').style.display = isCustom ? 'flex' : 'none';
+  if (isCustom) document.getElementById('wp-height-custom').focus();
+});
+document.getElementById('wp-type').addEventListener('change', () => {
+  const isCustom = document.getElementById('wp-type').value === 'custom';
+  document.getElementById('wp-thickness-row').style.display = isCustom ? 'flex' : 'none';
+  if (isCustom) document.getElementById('wp-thickness').focus();
+});
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && wallPopup.style.display === 'block') document.getElementById('wp-confirm').click();
 });
@@ -995,9 +1036,26 @@ document.addEventListener('keydown', (e) => {
 function showWallPopup(wallObj, sx, sy) {
   selectedWall = wallObj;
   document.getElementById('wp-length').value    = Math.round(wallObj.start.distanceTo(wallObj.end) * 1000);
-  document.getElementById('wp-height').value    = settings.ceilingHeight;
-  document.getElementById('wp-type').value      = settings.wallThickness;
-  document.getElementById('wp-thickness').value = settings.wallThickness;
+  const _presetH = ['2400', '2700'];
+  const _hStr = String(settings.ceilingHeight);
+  if (_presetH.includes(_hStr)) {
+    document.getElementById('wp-height').value = _hStr;
+    document.getElementById('wp-height-custom-row').style.display = 'none';
+  } else {
+    document.getElementById('wp-height').value = 'custom';
+    document.getElementById('wp-height-custom').value = settings.ceilingHeight;
+    document.getElementById('wp-height-custom-row').style.display = 'flex';
+  }
+  const _presetT = ['110', '150'];
+  const _tStr = String(settings.wallThickness);
+  if (_presetT.includes(_tStr)) {
+    document.getElementById('wp-type').value = _tStr;
+    document.getElementById('wp-thickness-row').style.display = 'none';
+  } else {
+    document.getElementById('wp-type').value = 'custom';
+    document.getElementById('wp-thickness').value = settings.wallThickness;
+    document.getElementById('wp-thickness-row').style.display = 'flex';
+  }
   const wallAngleRad = Math.atan2(
     wallObj.end.x - wallObj.start.x,
     wallObj.end.z - wallObj.start.z
@@ -1272,9 +1330,24 @@ document.getElementById('btn-wall-xray')?.addEventListener('click', () => setWal
 document.getElementById('wp-confirm').addEventListener('click', () => {
   if (!selectedWall) return;
   const newLenM  = mm(parseFloat(document.getElementById('wp-length').value));
-  const newThick = parseInt(document.getElementById('wp-thickness').value);
-  settings.ceilingHeight = parseInt(document.getElementById('wp-height').value);
-  settings.wallThickness = parseInt(document.getElementById('wp-type').value) || newThick;
+
+  // Read ceiling height (preset or custom)
+  const _hSel = document.getElementById('wp-height').value;
+  const _newCH = _hSel === 'custom'
+    ? Math.max(1000, Math.min(5000, parseInt(document.getElementById('wp-height-custom').value) || 2400))
+    : parseInt(_hSel);
+
+  // Read wall thickness (preset or custom)
+  const _tSel = document.getElementById('wp-type').value;
+  const _newWT = _tSel === 'custom'
+    ? Math.max(50, Math.min(500, parseInt(document.getElementById('wp-thickness').value) || 110))
+    : parseInt(_tSel);
+
+  const _settingsChanged = (_newCH !== settings.ceilingHeight || _newWT !== settings.wallThickness);
+  settings.ceilingHeight = _newCH;
+  settings.wallThickness = _newWT;
+  if (_settingsChanged) rebuildWallMeshes();
+
   // Free Draw: resize keeping the chosen anchor end fixed (angle preserved).
   if (mode === 'draw-free' && fdSel === selectedWall && newLenM > 0) {
     const anchor = (fdAnchor === 'start' ? fdSel.start : fdSel.end).clone();
