@@ -115,6 +115,80 @@ canvas#canvas {
   background: rgba(255,149,0,0.15) !important;
 }
 
+/* ── 1.3 Mobile Toolbar — hamburger menu ──────────────────────────────── */
+#btn-hamburger {
+  display: none; /* shown only at ≤768px via media query below */
+}
+
+#hamburger-menu {
+  position: fixed;
+  z-index: 600;
+  top: 52px; /* just below 48px toolbar */
+  right: 6px;
+  background: #1e1e1e;
+  border: 2px solid #ff9500;
+  border-radius: 14px;
+  padding: 8px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 190px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  /* display toggled by JS between 'none' and 'flex' */
+}
+
+#hamburger-menu button {
+  background: #2a2a2a;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+  width: 100%;
+  transition: background 0.15s;
+}
+#hamburger-menu button:active,
+#hamburger-menu button:hover { background: #3a3a3a; }
+
+/* Force-hide hamburger menu on desktop */
+@media (min-width: 769px) {
+  #hamburger-menu { display: none !important; }
+}
+
+/* ── 1.3 Mobile Toolbar — 44px targets + secondary collapse (≤768px) ──── */
+@media (max-width: 768px) {
+  /* Secondary actions collapse behind ☰ on tablet/phone */
+  #btn-free-draw,
+  #btn-wall-xray,
+  #btn-undo,
+  #btn-redo,
+  #btn-import-glb {
+    display: none;
+  }
+
+  /* Show hamburger */
+  #btn-hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 44px minimum touch targets for all toolbar buttons */
+  #toolbar button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .tb-icon {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+}
+
 /* ── iPhone toolbar overrides ──────────────────────────── */
 @media (max-width: 430px) {
   #toolbar {
@@ -133,30 +207,30 @@ canvas#canvas {
     padding: 5px 7px;
     font-size: 11px;
     border-radius: 7px;
-    min-height: 34px;
-    min-width: 34px;
+    min-height: 44px;
+    min-width: 44px;
     flex-shrink: 0;
   }
 
   .tb-icon {
     padding: 5px 6px !important;
     font-size: 14px !important;
-    min-width: 34px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
   }
 
   #btn-draw-wall   { font-size: 11px; padding: 5px 7px; }
   #btn-toggle-view { font-size: 11px; padding: 5px 7px; }
-  #btn-import-glb  { font-size: 11px; padding: 5px 7px; }
-
-  #btn-undo, #btn-redo {
-    min-width: 34px;
-    padding: 5px 6px;
-    font-size: 13px;
-  }
 
   #btn-total-pill {
     padding: 4px 8px !important;
     font-size: 11px;
+  }
+
+  #hamburger-menu {
+    top: 48px;
+    right: 4px;
+    min-width: 180px;
   }
 }
 

@@ -5890,3 +5890,69 @@ window.addEventListener('keydown', (e) => {
     closeProjectsModal();
   }
 });
+
+// ── 1.3 Mobile Toolbar — camera capture + hamburger menu ─────────────────────
+
+// 📷 Camera capture — saves current canvas view as PNG
+document.getElementById('btn-camera').addEventListener('click', () => {
+  renderer.render(scene, activeCamera);
+  const url = renderer.domElement.toDataURL('image/png');
+  const a   = document.createElement('a');
+  a.href     = url;
+  a.download = 'kitchen-view.png';
+  a.click();
+});
+
+// ☰ Hamburger menu — open/close
+const btnHamburger  = document.getElementById('btn-hamburger');
+const hamburgerMenu = document.getElementById('hamburger-menu');
+
+function openHamburgerMenu() {
+  hamburgerMenu.style.display = 'flex';
+  btnHamburger.classList.add('active');
+}
+function closeHamburgerMenu() {
+  hamburgerMenu.style.display = 'none';
+  btnHamburger.classList.remove('active');
+}
+
+btnHamburger.addEventListener('click', (e) => {
+  e.stopPropagation();
+  hamburgerMenu.style.display === 'flex' ? closeHamburgerMenu() : openHamburgerMenu();
+});
+
+// Dismiss when tapping outside the menu
+document.addEventListener('click', (e) => {
+  if (hamburgerMenu.style.display === 'flex' &&
+      !hamburgerMenu.contains(e.target) &&
+      e.target !== btnHamburger) {
+    closeHamburgerMenu();
+  }
+});
+
+// Close menu on Escape
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeHamburgerMenu();
+});
+
+// Hamburger menu items — delegate to existing toolbar buttons
+document.getElementById('hmenu-free-draw').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('btn-free-draw').click();
+});
+document.getElementById('hmenu-wall-xray').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('btn-wall-xray').click();
+});
+document.getElementById('hmenu-undo').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('btn-undo').click();
+});
+document.getElementById('hmenu-redo').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('btn-redo').click();
+});
+document.getElementById('hmenu-import-glb').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('btn-import-glb').click();
+});
