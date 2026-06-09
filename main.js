@@ -3573,6 +3573,29 @@ function showStartAxisGuides(startPt, currentPt) {
   }
 }
 
+// Free Draw variant: green for vertical (X-axis), blue for horizontal (Z-axis)
+function fdShowStartAxisGuides(startPt, currentPt) {
+  clearAxisGuides();
+  if (!startPt || !currentPt) return;
+  const th = mm(150), guideLen = 20;
+  const mkHoriz = () => new THREE.LineBasicMaterial({ color: 0x4488ff, transparent: true, opacity: 0.7 });
+  const mkVert  = () => new THREE.LineBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.7 });
+  if (Math.abs(currentPt.z - startPt.z) < th) {
+    axisGuideZ = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-guideLen, 0.035, startPt.z),
+      new THREE.Vector3( guideLen, 0.035, startPt.z),
+    ]), mkHoriz());
+    scene.add(axisGuideZ);
+  }
+  if (Math.abs(currentPt.x - startPt.x) < th) {
+    axisGuideX = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(startPt.x, 0.035, -guideLen),
+      new THREE.Vector3(startPt.x, 0.035,  guideLen),
+    ]), mkVert());
+    scene.add(axisGuideX);
+  }
+}
+
 function startFreeDraw() {
   if (['draw-preset','draw-freehand','draw-twopoint'].includes(mode)) abortPreviewWalls();
   hideWallPopup();
@@ -3633,9 +3656,9 @@ canvas.addEventListener('mousemove', (e) => {
   const { point, snapMode } = freeDrawSnap(s);
   s = point;
 
-  // Align to the chain's starting corner: snap to its X/Z axis + green guide
+  // Align to the chain's starting corner: snap to its X/Z axis + colour-coded guides
   s = snapToStartLine(s, freeFirst);
-  showStartAxisGuides(freeFirst, s);
+  fdShowStartAxisGuides(freeFirst, s);
 
   if (freeFirst && s.distanceTo(freeFirst) < 0.2) {
     s = freeFirst.clone();
