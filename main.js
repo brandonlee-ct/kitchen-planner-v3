@@ -3821,28 +3821,21 @@ canvas.addEventListener('click', (e) => {
   if (fdSuppressClick) { fdSuppressClick = false; return; }  // swallow the click that ended a slide-drag / anchor pick
 
   // When NOT mid-chain:
-  //   First click on a wall  → select it for editing (popup + handles, same as before).
-  //   Second click on the SAME selected wall → project onto centreline and start chain.
-  //   Click empty space      → deselect.
+  //   Left-click on a wall → start a new wall's first point, projected onto the wall
+  //                          centreline (grid-snapped). Editing lives in Select mode now.
   if (!freeStart) {
     const hitWall = fdRaycastWall(e);
     if (hitWall) {
-      if (fdSel === hitWall) {
-        // Already selected — second click starts chain from projected point.
-        const pt0 = getFloorPos(e);
-        if (pt0) {
-          fdDeselect();
-          fdHideSplitLabels();
-          const proj = fdProjectOntoWall(hitWall, snapToGrid(pt0));
-          freeStart = proj.clone();
-          freeFirst = proj.clone();
-        }
-      } else {
-        fdSelectWall(hitWall);                            // first click → select + popup
+      const pt0 = getFloorPos(e);
+      if (pt0) {
+        fdHideSplitLabels();
+        const proj = fdProjectOntoWall(hitWall, snapToGrid(pt0));
+        freeStart = proj.clone();
+        freeFirst = proj.clone();
       }
       return;
     }
-    if (fdSel) { fdDeselect(); return; }   // click empty space → deselect
+    if (fdSel) { fdDeselect(); return; }   // safety: clear any stale selection
   }
 
   const pt = getFloorPos(e); if (!pt) return;
