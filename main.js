@@ -3622,6 +3622,47 @@ document.getElementById('btn-export').addEventListener('click', () => {
   }, 0);
 });
 
+// ── Send to Cart (Shopify cartCreate → checkoutUrl) ──
+const CART_CREATE_MUTATION = `
+  mutation CartCreate($input: CartInput!) {
+    cartCreate(input: $input) {
+      cart { id checkoutUrl }
+      userErrors { field message }
+    }
+  }
+`;
+
+document.getElementById('btn-send-cart').addEventListener('click', async () => {
+  // Aggregate by variantId → { merchandiseId, quantity }
+  const lineMap = new Map();
+  placedItems.forEach(obj => {
+    if (!obj.userData?.product?.skus) return;
+    const { product, skuIndex } = obj.userData;
+    const sku = product.skus[skuIndex ?? 0];
+    if (!sku?.variantId) return;
+    const count = lineMap.get(sku.variantId) || 0;
+    lineMap.set(sku.variantId, count + 1);
+  });
+  if (lineMap.size === 0) {
+    alert('Add products to your quote first.');
+    return;
+  }
+  const lines = [...lineMap.entries()].map(([id, qty]) => ({ merchandiseId: id, quantity: qty }));
+  const btn = document.getElementById('btn-send-cart');
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  try {
+    const data = await shopifyFetch(CART_CREATE_MUTATION, { input: { lines } });
+    const { cart, userErrors } = data.cartCreate;
+    if (userErrors?.length) throw new Error(userErrors[0].message);
+    window.location.href = cart.checkoutUrl;
+  } catch (err) {
+    alert('Cart error: ' + (err.message || 'Unknown error'));
+    btn.disabled = false;
+    btn.textContent = '🛒 Send to Cart';
+  }
+});
+
 
 // ── Bottom overlay bar ──
 const touchOverlay     = document.getElementById('touch-model-overlay');

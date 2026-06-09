@@ -376,6 +376,25 @@ canvas#canvas {
 #btn-export:hover  { background: #ffaa33; }
 #btn-export:active { background: #e08000; }
 
+#btn-send-cart {
+  width: 100%;
+  background: #2da44e;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 11px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.15s;
+  min-height: 44px;
+  margin-top: 8px;
+}
+#btn-send-cart:hover    { background: #3cbf5f; }
+#btn-send-cart:active   { background: #238636; }
+#btn-send-cart:disabled { background: #555; cursor: default; }
+
 /* ── Wall dim input ────────────────────────────────────── */
 #wall-dim-input {
   display: none;
