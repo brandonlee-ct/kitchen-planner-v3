@@ -369,6 +369,7 @@ let shiftDown = false;
 let snapGuideH = null, snapGuideV = null;
 let axisGuideX = null, axisGuideZ = null;
 let roomCorners = [], roomLocked = false;
+let floorMesh = null;
 // ── Draw Mode State ──────────────────────────────────────
 let drawModeActive     = null;   // 'quick' | 'preset' | 'freehand' | 'twopoint'
 let previewWallPoints  = [];     // confirmed polygon corners (Vector3 array)
@@ -685,6 +686,7 @@ function rebuildAllCaps() {
     if (!owner.capMeshes) owner.capMeshes = [];
     owner.capMeshes.push(cap);
   });
+  buildFloorMesh();
 }
 function cornerKey(v) {
   return Math.round(v.x * 1000) / 1000 + ',' + Math.round(v.z * 1000) / 1000;
@@ -1923,7 +1925,54 @@ function drawRuler(ctx, info, direction) {
     roomCorners = [walls[0].start.clone()];
     walls.forEach(w => roomCorners.push(w.end.clone()));
     roomLocked = true;
+    buildFloorMesh();
   }
+
+// ── Auto floor ───────────────────────────────────────────────────────────────
+// Traces the closed wall loop and builds a dark floor mesh at y ≈ 0.
+// Uses wall centrelines directly — walls sit on top and hide any overlap.
+function buildFloorMesh() {
+  if (floorMesh) {
+    scene.remove(floorMesh);
+    if (floorMesh.geometry) floorMesh.geometry.dispose();
+    if (floorMesh.material) floorMesh.material.dispose();
+    floorMesh = null;
+  }
+  if (walls.length < 3) return;
+
+  // Walk the wall graph to trace a closed polygon
+  const poly = [];
+  const startKey = cornerKey(walls[0].start);
+  poly.push(walls[0].start.clone());
+  let prevWall = walls[0];
+  let curKey   = cornerKey(walls[0].end);
+  for (let i = 0; i < walls.length; i++) {
+    if (curKey === startKey) break;
+    const next = walls.find(w => w !== prevWall &&
+      (cornerKey(w.start) === curKey || cornerKey(w.end) === curKey));
+    if (!next) return;                       // open chain — no floor
+    const [cx, cz] = curKey.split(',').map(Number);
+    poly.push(new THREE.Vector3(cx, 0, cz));
+    curKey = cornerKey(next.start) === curKey ? cornerKey(next.end) : cornerKey(next.start);
+    prevWall = next;
+  }
+  if (poly.length < 3) return;
+
+  // Use wall centreline polygon directly; walls render on top and hide any overlap
+  const shape = new THREE.Shape();
+  shape.moveTo(poly[0].x, poly[0].z);
+  for (let i = 1; i < poly.length; i++) shape.lineTo(poly[i].x, poly[i].z);
+  shape.closePath();
+
+  floorMesh = new THREE.Mesh(
+    new THREE.ShapeGeometry(shape),
+    new THREE.MeshStandardMaterial({ color: 0x3a3530, side: THREE.DoubleSide })
+  );
+  floorMesh.rotation.x = -Math.PI / 2;
+  floorMesh.position.y = 0.005;
+  floorMesh.receiveShadow = true;
+  scene.add(floorMesh);
+}
   
   // ── Parametric rescale ───────────────────────────────────────────────────
   // When one wall's length changes in a closed room, neighbouring walls
@@ -5472,6 +5521,14 @@ function clearScene() {
   roomLocked = false;
   roomCorners = [];
 
+  // Remove auto floor
+  if (floorMesh) {
+    scene.remove(floorMesh);
+    if (floorMesh.geometry) floorMesh.geometry.dispose();
+    if (floorMesh.material) floorMesh.material.dispose();
+    floorMesh = null;
+  }
+
   // Force back to select mode so taps work after clearing
   mode = 'select';
   canvas.style.cursor = 'default';
@@ -5513,6 +5570,9 @@ function loadScene(sceneJson) {
       syncOpeningsTo3D(wallObj);
     }
   });
+
+  // Rebuild floor if walls form a closed loop
+  buildFloorMesh();
 
   // Rebuild items
   (sceneJson.items || []).forEach(item => {
