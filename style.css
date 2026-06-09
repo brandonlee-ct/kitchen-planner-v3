@@ -122,7 +122,9 @@ canvas#canvas {
 
 /* ── 1.3 Mobile Toolbar — hamburger menu ──────────────────────────────── */
 #btn-hamburger {
-  display: none; /* shown only at ≤768px via media query below */
+  display: inline-flex; /* always visible — hamburger holds X-Ray + Import GLB on all screen sizes */
+  align-items: center;
+  justify-content: center;
 }
 
 #hamburger-menu {
@@ -159,10 +161,7 @@ canvas#canvas {
 #hamburger-menu button:active,
 #hamburger-menu button:hover { background: #3a3a3a; }
 
-/* Force-hide hamburger menu on desktop */
-@media (min-width: 769px) {
-  #hamburger-menu { display: none !important; }
-}
+/* Hamburger menu is available on all screen sizes */
 
 /* ── 1.3 Mobile Toolbar — 44px targets + secondary collapse (≤768px) ──── */
 /* Free Draw requires a mouse — hide on any touch device regardless of screen size */
