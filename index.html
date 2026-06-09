@@ -25,8 +25,6 @@
     <button id="btn-redo" disabled title="Redo (Ctrl+Y)">↪</button>
   </div>
   <div class="bar-right">
-    <button id="btn-camera" class="tb-icon" title="Save PNG snapshot">📷</button>
-    <button id="btn-import-glb">Import GLB</button>
     <input id="glb-file-input" type="file" accept=".glb,.gltf" multiple style="display:none"/>
     <button id="btn-total-pill">$0.00</button>
     <button id="btn-theme" class="tb-icon" title="Theme: Dark (click to cycle)">🌑</button>
@@ -383,6 +381,11 @@
     </div>
 
   </div>
+</div>
+
+<!-- ── Floating camera button (right edge, always visible) ── -->
+<div id="float-camera">
+  <button id="btn-camera" title="Save PNG snapshot">📷</button>
 </div>
 
 <!-- ── Free Draw Ruler Bar ────────────────────────────── -->

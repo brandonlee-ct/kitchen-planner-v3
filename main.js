@@ -3015,7 +3015,6 @@ loadShopifyProducts();
       // ── GLB Import — button + drag-and-drop ──────────────────────────────────────
 
 const glbFileInput = document.getElementById('glb-file-input');
-const btnImportGlb = document.getElementById('btn-import-glb');
 
 const dropOverlay = document.createElement('div');
 dropOverlay.style.cssText = [
@@ -3063,7 +3062,7 @@ window.addEventListener('drop', (e) => {
   if (files.length === 0) return;
   files.forEach(loadGlbFile);
 });
-btnImportGlb.addEventListener('click', () => glbFileInput.click());
+// GLB import triggered via hamburger menu (#hmenu-import-glb → glbFileInput)
 glbFileInput.addEventListener('change', () => {
   Array.from(glbFileInput.files).forEach(loadGlbFile);
   glbFileInput.value = '';
@@ -6005,7 +6004,7 @@ document.getElementById('hmenu-wall-xray').addEventListener('click', () => {
 });
 document.getElementById('hmenu-import-glb').addEventListener('click', () => {
   closeHamburgerMenu();
-  document.getElementById('btn-import-glb').click();
+  glbFileInput.click();
 });
 
 // ── Theme switcher ──────────────────────────────────────────────────────────
