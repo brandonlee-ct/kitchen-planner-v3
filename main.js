@@ -223,6 +223,8 @@ function executeUndo(entry) {
   } else if (entry.type === 'delete-wall') {
     scene.add(entry.data.wallObj.mesh);
     walls.push(entry.data.wallObj);
+    if (entry.data.wallObj.openings && entry.data.wallObj.openings.length)
+      syncOpeningsTo3D(entry.data.wallObj);
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays();
     updateRoomArea();
   } else if (entry.type === 'add-item') {
@@ -241,6 +243,7 @@ function executeUndo(entry) {
       scene.remove(w.mesh);
       if (w.capMeshes) w.capMeshes.forEach(c => scene.remove(c));
       if (w.label2D) wall2DLabelGroup.remove(w.label2D);
+      clearWallOpeningMeshes(w);
       walls = walls.filter(x => x !== w);
       if (selectedWall === w) selectedWall = null;
 
@@ -249,6 +252,7 @@ function executeUndo(entry) {
     entry.data.removed.forEach(w => {
       scene.add(w.mesh);
       if (!walls.includes(w)) walls.push(w);
+      if (w.openings && w.openings.length) syncOpeningsTo3D(w);
     });
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
     if (mode === 'draw-free') fdDeselect();   // drop stale Free Draw selection/handles
@@ -283,6 +287,7 @@ function executeRedo(entry) {
     scene.remove(entry.data.wallObj.mesh);
     if (entry.data.wallObj.capMeshes) entry.data.wallObj.capMeshes.forEach(c => scene.remove(c));
     if (entry.data.wallObj.label2D) wall2DLabelGroup.remove(entry.data.wallObj.label2D);
+    clearWallOpeningMeshes(entry.data.wallObj);
     walls = walls.filter(x => x !== entry.data.wallObj);
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
     updateRoomArea();
@@ -302,12 +307,14 @@ function executeRedo(entry) {
       scene.remove(w.mesh);
       if (w.capMeshes) w.capMeshes.forEach(c => scene.remove(c));
       if (w.label2D) wall2DLabelGroup.remove(w.label2D);
+      clearWallOpeningMeshes(w);
       walls = walls.filter(x => x !== w);
     });
     // Add back the NEW walls (restored)
     entry.data.restored.forEach(w => {
       scene.add(w.mesh);
       if (!walls.includes(w)) walls.push(w);
+      if (w.openings && w.openings.length) syncOpeningsTo3D(w);
     });
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
     if (mode === 'draw-free') fdDeselect();   // drop stale Free Draw selection/handles
@@ -357,6 +364,7 @@ let selectedWalls = [];                 // Task C: Ctrl/Cmd + left-click multi-s
 const WALL_MULTI_COLOR = 0x00bcd4;      // cyan highlight for multi-selected walls
 let wallXray = false;                   // Task E: global see-through-walls toggle (view only)
 const XRAY_OPACITY = 0.22;              // forced opacity while X-ray is on
+let selAnchor = 'start';                // Task B: which wall end stays fixed when resizing in Select mode
 let shiftDown = false;
 let snapGuideH = null, snapGuideV = null;
 let axisGuideX = null, axisGuideZ = null;
@@ -392,6 +400,7 @@ window.addEventListener('keydown', (e) => {
         scene.remove(w.mesh);
         if (w.capMeshes) w.capMeshes.forEach(c => scene.remove(c));
         if (w.label2D) wall2DLabelGroup.remove(w.label2D);
+        clearWallOpeningMeshes(w);
         walls = walls.filter(x => x !== w);
       });
       selectedWalls = [];
@@ -413,6 +422,7 @@ window.addEventListener('keydown', (e) => {
       scene.remove(selectedWall.mesh);
       if (selectedWall.capMeshes) selectedWall.capMeshes.forEach(c => scene.remove(c));
       if (selectedWall.label2D) wall2DLabelGroup.remove(selectedWall.label2D);
+      clearWallOpeningMeshes(selectedWall);
       walls = walls.filter(w => w !== selectedWall);
       rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
       updateRoomArea();
@@ -634,6 +644,16 @@ function clearWallHandles() {
   while (wallHandleGroup.children.length > 0) {
     wallHandleGroup.remove(wallHandleGroup.children[0]);
   }
+}
+
+// Task B: green = anchored (fixed) end, white = moving end. Generic version of
+// the Free Draw handle colouring, reusable from Select mode.
+function colorWallHandles(anchorName) {
+  wallHandleGroup.children.forEach(h => {
+    const isAnchor = (h.userData.handleIndex === 0 && anchorName === 'start') ||
+                     (h.userData.handleIndex === 1 && anchorName === 'end');
+    h.material.color.set(isAnchor ? 0x00ff88 : 0xffffff);
+  });
 }
 
 function rebuildAllCaps() {
@@ -996,12 +1016,19 @@ function showWallPopup(wallObj, sx, sy) {
   setTimeout(() => document.getElementById('wp-length').select(), 50);
   showWallHandles(wallObj);
 
-  // Free Draw only: reveal the anchor toggle and colour handles (green=locked, white=moving).
+  // Anchor toggle: Free Draw keeps its own state; Select mode (Task B) gets the
+  // same control wired to selAnchor + the parametric rescale. Handles colour
+  // green = locked end, white = moving end.
   const anchorRow = document.getElementById('wp-fd-anchor-row');
   if (mode === 'draw-free' && fdSel === wallObj) {
     anchorRow.style.display = 'block';
     document.getElementById('wp-fd-anchor').textContent = '⇄ Anchor: ' + fdAnchor;
     fdHandleColors();
+  } else if (mode === 'select') {
+    selAnchor = 'start';                       // reset per wall selection
+    anchorRow.style.display = 'block';
+    document.getElementById('wp-fd-anchor').textContent = '⇄ Anchor: ' + selAnchor;
+    colorWallHandles(selAnchor);
   } else {
     anchorRow.style.display = 'none';
   }
@@ -1260,7 +1287,7 @@ document.getElementById('wp-confirm').addEventListener('click', () => {
     hideWallPopup();
     return;
   }
-  resizeLockedWall(selectedWall, newLenM);
+  resizeLockedWall(selectedWall, newLenM, selAnchor);   // Task B: honour chosen anchor
   hideWallPopup();
 });
 document.getElementById('wp-bt').addEventListener('click', () => {
@@ -1272,16 +1299,25 @@ document.getElementById('wp-delete').addEventListener('click', () => {
   scene.remove(selectedWall.mesh);
   if (selectedWall.capMeshes) selectedWall.capMeshes.forEach(c => scene.remove(c));
   if (selectedWall.label2D) wall2DLabelGroup.remove(selectedWall.label2D);
+  clearWallOpeningMeshes(selectedWall);
   walls = walls.filter(w => w !== selectedWall);
   rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
   updateRoomArea();
 });
 document.getElementById('wp-close').addEventListener('click', hideWallPopup);
 document.getElementById('wp-fd-anchor').addEventListener('click', () => {
-  if (!fdSel) return;
-  fdAnchor = fdAnchor === 'start' ? 'end' : 'start';
-  document.getElementById('wp-fd-anchor').textContent = '⇄ Anchor: ' + fdAnchor;
-  fdHandleColors();
+  if (fdSel) {                                 // Free Draw branch — unchanged
+    fdAnchor = fdAnchor === 'start' ? 'end' : 'start';
+    document.getElementById('wp-fd-anchor').textContent = '⇄ Anchor: ' + fdAnchor;
+    fdHandleColors();
+    return;
+  }
+  // Task B: Select mode — toggle which end the parametric rescale keeps fixed.
+  if (mode === 'select' && selectedWall) {
+    selAnchor = selAnchor === 'start' ? 'end' : 'start';
+    document.getElementById('wp-fd-anchor').textContent = '⇄ Anchor: ' + selAnchor;
+    colorWallHandles(selAnchor);
+  }
 });
 document.getElementById('wp-angle-apply').addEventListener('click', () => {
   if (!selectedWall) return;
@@ -1889,39 +1925,108 @@ function drawRuler(ctx, info, direction) {
     roomLocked = true;
   }
   
-  function resizeLockedWall(wallObj, newLengthM) {
-    const dir    = new THREE.Vector3().subVectors(wallObj.end, wallObj.start).normalize();
-    const newEnd = wallObj.start.clone().addScaledVector(dir, newLengthM);
-    if (!roomLocked) {
-      const old = wallObj;
-      scene.remove(old.mesh);
-      if (old.capMeshes) old.capMeshes.forEach(c => scene.remove(c));
-      if (old.label2D) wall2DLabelGroup.remove(old.label2D);
-      walls = walls.filter(w => w !== old);
-      const newWall = buildWall(wallObj.start, newEnd, true);
-      carryWallStyle(old, newWall);
-      pushHistory({ type: 'resize-wall', data: { removed: [old], restored: [newWall] } });
-      rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays();
-      updateRoomArea();
-      return;
+  // ── Parametric rescale ───────────────────────────────────────────────────
+  // When one wall's length changes in a closed room, neighbouring walls
+  // PERPENDICULAR to the shift translate whole (angles preserved); the first
+  // wall PARALLEL to the shift absorbs it as a length change. Adjacency is
+  // derived from shared corner positions (cornerKey), never from `walls`
+  // array order — buildWall() appends, so array order is not loop order.
+
+  // Remove the door/window meshes attached to a wall (they reference it via parentWall).
+  function clearWallOpeningMeshes(w) {
+    placedItems = placedItems.filter(m => {
+      if (m.userData && m.userData.parentWall === w) { scene.remove(m); return false; }
+      return true;
+    });
+  }
+
+  function wallsAtCorner(key, except) {
+    return walls.filter(w => w !== except &&
+      (cornerKey(w.start) === key || cornerKey(w.end) === key));
+  }
+
+  // Walk the loop from the moving corner and plan which walls shift.
+  // Returns [{ wall, ns, ne }] or null when the topology can't support it
+  // (open chain, T-junction, or loop closes before any wall absorbs the delta).
+  function planRoomRescale(wallObj, movingCorner, anchorCorner, delta) {
+    const dHat = delta.clone().normalize();
+    const anchorKey = cornerKey(anchorCorner);
+    const changes = [];
+    let prevWall = wallObj;
+    let corner = movingCorner.clone();
+    for (let i = 0; i < walls.length; i++) {
+      const key = cornerKey(corner);
+      if (key === anchorKey) return null;       // reached the anchor without absorbing
+      const candidates = wallsAtCorner(key, prevWall);
+      if (candidates.length !== 1) return null; // open chain or T-junction
+      const w = candidates[0];
+      const entryIsStart = cornerKey(w.start) === key;
+      const far = entryIsStart ? w.end : w.start;
+      const unit = new THREE.Vector3().subVectors(far, corner).normalize();
+      if (Math.abs(unit.dot(dHat)) < 0.1) {
+        // Perpendicular to the shift → translate the whole wall, keep walking.
+        changes.push({ wall: w, ns: w.start.clone().add(delta), ne: w.end.clone().add(delta) });
+        prevWall = w;
+        corner = far.clone();
+        continue;
+      }
+      // Parallel (or oblique — graceful degradation) → absorb as a length change.
+      changes.push({
+        wall: w,
+        ns: entryIsStart ? w.start.clone().add(delta) : w.start.clone(),
+        ne: entryIsStart ? w.end.clone()              : w.end.clone().add(delta),
+      });
+      return changes;
     }
-    const idx = walls.indexOf(wallObj);
-    if (idx === -1) return;
-    const nextIdx  = (idx + 1) % walls.length;
-    const nextWall = walls[nextIdx];
-    const oldCurrent = wallObj, oldNext = nextWall;
-    scene.remove(oldCurrent.mesh); scene.remove(oldNext.mesh);
-    if (oldCurrent.capMeshes) oldCurrent.capMeshes.forEach(c => scene.remove(c));
-    if (oldNext.capMeshes)    oldNext.capMeshes.forEach(c => scene.remove(c));
-    if (oldCurrent.label2D)   wall2DLabelGroup.remove(oldCurrent.label2D);
-    if (oldNext.label2D)      wall2DLabelGroup.remove(oldNext.label2D);
-    walls = walls.filter(w => w !== oldCurrent && w !== oldNext);
-    const updatedWall = buildWall(wallObj.start, newEnd, true);
-    const updatedNext = buildWall(newEnd, nextWall.end, true);
-    carryWallStyle(oldCurrent, updatedWall);
-    carryWallStyle(oldNext,    updatedNext);
-    pushHistory({ type: 'resize-wall', data: { removed: [oldCurrent, oldNext], restored: [updatedWall, updatedNext]
- } });
+    return null;
+  }
+
+  function resizeLockedWall(wallObj, newLengthM, anchorEnd = 'start') {
+    if (!(newLengthM > 0)) return;
+    const anchor = anchorEnd === 'end' ? wallObj.end.clone()   : wallObj.start.clone();
+    const moving = anchorEnd === 'end' ? wallObj.start.clone() : wallObj.end.clone();
+    const dir    = new THREE.Vector3().subVectors(moving, anchor).normalize();
+    const newMov = anchor.clone().addScaledVector(dir, newLengthM);
+    const delta  = new THREE.Vector3().subVectors(newMov, moving);
+    if (delta.lengthSq() < 1e-10) return;
+
+    // Keep original start/end roles so openings' distFromLeft stays meaningful.
+    const selfNs = anchorEnd === 'end' ? newMov.clone() : wallObj.start.clone();
+    const selfNe = anchorEnd === 'end' ? wallObj.end.clone() : newMov.clone();
+
+    // Closed loop → plan the chain (detected geometrically — works even if the
+    // roomLocked flag is stale); open chain / odd topology → resize this wall only.
+    const plan = planRoomRescale(wallObj, moving, anchor, delta);
+    const changes = [{ wall: wallObj, ns: selfNs, ne: selfNe }, ...(plan || [])];
+
+    for (const c of changes) {
+      if (c.ns.distanceTo(c.ne) < mm(50) + 1e-6) {
+        alert('Cannot resize: an adjacent wall would become shorter than 50mm.');
+        return;
+      }
+    }
+
+    const removed = changes.map(c => c.wall);
+    removed.forEach(w => {
+      scene.remove(w.mesh);
+      if (w.capMeshes) w.capMeshes.forEach(c => scene.remove(c));
+      if (w.label2D)   wall2DLabelGroup.remove(w.label2D);
+      clearWallOpeningMeshes(w);
+    });
+    walls = walls.filter(w => !removed.includes(w));
+
+    const restored = [];
+    changes.forEach(c => {
+      const nw = buildWall(c.ns, c.ne, true);
+      if (!nw) return;                          // guarded above; belt-and-braces
+      carryWallStyle(c.wall, nw);
+      if (c.wall.openings && c.wall.openings.length) {
+        nw.openings = c.wall.openings.map(op => ({ ...op }));
+        syncOpeningsTo3D(nw);
+      }
+      restored.push(nw);
+    });
+    pushHistory({ type: 'resize-wall', data: { removed, restored } });
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays();
     updateRoomArea();
   }
