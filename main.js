@@ -5956,3 +5956,29 @@ document.getElementById('hmenu-import-glb').addEventListener('click', () => {
   closeHamburgerMenu();
   document.getElementById('btn-import-glb').click();
 });
+
+// ── Theme switcher ──────────────────────────────────────────────────────────
+const THEMES = [
+  { id: 'dark',   icon: '🌑', label: 'Dark',   sceneBg: 0x1a1a1a },
+  { id: 'gaming', icon: '🎮', label: 'Gaming', sceneBg: 0x0a0a0f },
+  { id: 'light',  icon: '☀️', label: 'Light',  sceneBg: 0xe8e8e8 },
+];
+let themeIndex = Math.min(parseInt(localStorage.getItem('bbk-theme') || '0', 10) || 0, THEMES.length - 1);
+
+function applyTheme(idx) {
+  themeIndex = ((idx % THEMES.length) + THEMES.length) % THEMES.length;
+  const t = THEMES[themeIndex];
+  document.body.classList.remove('theme-gaming', 'theme-light');
+  if (t.id !== 'dark') document.body.classList.add('theme-' + t.id);
+  scene.background = new THREE.Color(t.sceneBg);
+  const btn = document.getElementById('btn-theme');
+  btn.textContent = t.icon;
+  btn.title = 'Theme: ' + t.label + ' — click to cycle';
+  localStorage.setItem('bbk-theme', themeIndex);
+}
+
+applyTheme(themeIndex); // restore saved theme on load
+
+document.getElementById('btn-theme').addEventListener('click', () => {
+  applyTheme(themeIndex + 1);
+});
