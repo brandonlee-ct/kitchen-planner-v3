@@ -5999,21 +5999,9 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Hamburger menu items — delegate to existing toolbar buttons
-document.getElementById('hmenu-free-draw').addEventListener('click', () => {
-  closeHamburgerMenu();
-  document.getElementById('btn-free-draw').click();
-});
 document.getElementById('hmenu-wall-xray').addEventListener('click', () => {
   closeHamburgerMenu();
   document.getElementById('btn-wall-xray').click();
-});
-document.getElementById('hmenu-undo').addEventListener('click', () => {
-  closeHamburgerMenu();
-  document.getElementById('btn-undo').click();
-});
-document.getElementById('hmenu-redo').addEventListener('click', () => {
-  closeHamburgerMenu();
-  document.getElementById('btn-redo').click();
 });
 document.getElementById('hmenu-import-glb').addEventListener('click', () => {
   closeHamburgerMenu();
