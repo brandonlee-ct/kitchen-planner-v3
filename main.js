@@ -3681,6 +3681,8 @@ function startFreeDraw() {
   controls.enabled = false;                 // camera lock — no orbit/pan
   const b = document.getElementById('btn-free-draw');
   if (b) { b.style.background = '#ff9500'; b.style.color = '#fff'; }
+  const rbar = document.getElementById('fd-ruler-bar');
+  if (rbar) rbar.style.display = '';
 }
 
 function cancelFreeDraw() {
@@ -3698,6 +3700,9 @@ function cancelFreeDraw() {
   if (is3D) controls.enabled = true;        // restore camera on exit
   const b = document.getElementById('btn-free-draw');
   if (b) { b.style.background = ''; b.style.color = ''; }
+  fdRulerClearAll();
+  const rbar = document.getElementById('fd-ruler-bar');
+  if (rbar) rbar.style.display = 'none';
 }
 
 // Snap helper shared by Free Draw preview + click: free angle, 90° on Shift / within 5°
@@ -3726,6 +3731,7 @@ document.getElementById('btn-free-draw')?.addEventListener('click', () => {
 // Free Draw — live preview
 canvas.addEventListener('mousemove', (e) => {
   if (mode !== 'draw-free') return;
+  if (fdRulerActive) { fdRulerMouseMove(e); return; }
   const pt = getFloorPos(e); if (!pt) return;
   let s = snapToCorner(snapToGrid(pt));
 
@@ -3777,6 +3783,7 @@ canvas.addEventListener('mousemove', (e) => {
 // Free Draw — place corners on click (or select an existing wall to edit)
 canvas.addEventListener('click', (e) => {
   if (mode !== 'draw-free') return;
+  if (fdRulerActive) { fdRulerClick(e); return; }
   if (fdSuppressClick) { fdSuppressClick = false; return; }  // swallow the click that ended a slide-drag / anchor pick
 
   // FD-2: when NOT mid-chain, a click on an existing wall selects it for editing
@@ -3804,9 +3811,12 @@ canvas.addEventListener('click', (e) => {
   }
 });
 
-// Free Draw — Escape exits the mode cleanly
+// Free Draw — Escape exits ruler first, then draw mode cleanly
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && mode === 'draw-free') cancelFreeDraw();
+  if (e.key === 'Escape' && mode === 'draw-free') {
+    if (fdRulerActive) fdRulerDeactivate();
+    else cancelFreeDraw();
+  }
 });
 
 // ── Free Draw: select + edit an existing wall (FD-2 / FD-3 / FD-4) ────────────
@@ -3816,6 +3826,14 @@ let fdAnchor       = 'start';    // which END stays locked: 'start' | 'end'
 let fdSuppressClick = false;     // swallow the click that ends a slide-drag / anchor pick
 let fdDragging     = false;
 let fdOrigStart    = null, fdOrigEnd = null, fdDragRef = null, fdLastNs = null, fdLastNe = null;
+
+// ── Free Draw Ruler state (Task 2) ─────────────────────────────────────────
+let fdRulerActive        = false;
+let fdRulerHoveredWall   = null;       // wall highlighted orange while hovering
+let fdRulerFloatingLabel = null;       // DOM label following mouse after first wall click
+let fdRulerPinnedLabels  = [];         // [{ wallObj, side, lengthMm, el }]
+let fdRulerSide          = 'exterior'; // 'exterior' | 'interior' | 'centre'
+let fdRulerFirstWall     = null;       // wall from first ruler click
 
 function fdRaycastWall(e) {
   updateMouse(e);
@@ -3922,6 +3940,7 @@ document.getElementById('fd-flip').addEventListener('click', () => {
 // ── Slide a selected wall (FD-4): drag the body, angle locked, grid-snapped ────
 canvas.addEventListener('mousedown', (e) => {
   if (mode !== 'draw-free' || freeStart || !fdSel) return;
+  if (fdRulerActive) return;
   updateMouse(e);
   raycaster.setFromCamera(mouse, activeCamera);
 
@@ -3974,6 +3993,148 @@ window.addEventListener('mouseup', () => {
     showWallHandles(fdSel); fdHandleColors(); fdShowEditor(fdSel);
   }
   fdLastNs = fdLastNe = null;
+});
+
+// ── Free Draw Ruler tool (Task 2) ─────────────────────────────────────────
+
+// Detect which face of the wall was clicked relative to its perpendicular axis.
+function fdRulerDetectSide(w, hitPoint) {
+  const dx = w.end.x - w.start.x, dz = w.end.z - w.start.z;
+  const len = Math.hypot(dx, dz);
+  if (len < 1e-6) return 'centre';
+  const nx = dx / len, nz = dz / len;
+  const perpX = -nz, perpZ = nx;
+  const midX = (w.start.x + w.end.x) / 2;
+  const midZ = (w.start.z + w.end.z) / 2;
+  const dot  = (hitPoint.x - midX) * perpX + (hitPoint.z - midZ) * perpZ;
+  const halfT = mm(settings.wallThickness) / 2;
+  if (dot >  halfT * 0.3) return 'exterior';
+  if (dot < -halfT * 0.3) return 'interior';
+  return 'centre';
+}
+
+function fdRulerSideLabel(side) {
+  if (side === 'exterior') return 'Ext';
+  if (side === 'interior') return 'Int';
+  return 'CL';
+}
+
+// Mousemove handler while ruler is active: hover highlight + follow floating label.
+function fdRulerMouseMove(e) {
+  updateMouse(e);
+  raycaster.setFromCamera(mouse, activeCamera);
+  const hits = raycaster.intersectObjects(walls.map(w => w.mesh))
+    .filter(h => walls.includes(h.object.userData.wallObj));
+  const hitWall = hits.length ? hits[0].object.userData.wallObj : null;
+
+  // Orange hover highlight — restore previous hovered wall's colour first.
+  if (hitWall !== fdRulerHoveredWall) {
+    if (fdRulerHoveredWall) {
+      const wasSelected = (fdRulerHoveredWall === fdSel);
+      fdRulerHoveredWall.mesh.material.color.set(wasSelected ? 0xff9500 : 0xddd5c8);
+    }
+    fdRulerHoveredWall = hitWall;
+    if (hitWall) hitWall.mesh.material.color.set(0xff9500);
+  }
+
+  // Move floating label with cursor after first wall click.
+  if (fdRulerFirstWall && fdRulerFloatingLabel) {
+    fdRulerFloatingLabel.style.left = (e.clientX + 14) + 'px';
+    fdRulerFloatingLabel.style.top  = (e.clientY - 10) + 'px';
+  }
+}
+
+// Click handler while ruler is active.
+function fdRulerClick(e) {
+  updateMouse(e);
+  raycaster.setFromCamera(mouse, activeCamera);
+  const hits = raycaster.intersectObjects(walls.map(w => w.mesh))
+    .filter(h => walls.includes(h.object.userData.wallObj));
+  const hitWall = hits.length ? hits[0].object.userData.wallObj : null;
+
+  if (!fdRulerFirstWall) {
+    // First click must land on a wall face.
+    if (!hitWall) return;
+    fdRulerFirstWall = hitWall;
+    fdRulerSide = fdRulerDetectSide(hitWall, hits[0].point);
+    const lengthMm = Math.round(hitWall.start.distanceTo(hitWall.end) * 1000);
+    if (fdRulerFloatingLabel) fdRulerFloatingLabel.remove();
+    fdRulerFloatingLabel = document.createElement('div');
+    fdRulerFloatingLabel.className = 'fd-ruler-label';
+    fdRulerFloatingLabel.textContent = fdRulerSideLabel(fdRulerSide) + ': ' + lengthMm + ' mm';
+    fdRulerFloatingLabel.style.left = (e.clientX + 14) + 'px';
+    fdRulerFloatingLabel.style.top  = (e.clientY - 10) + 'px';
+    document.body.appendChild(fdRulerFloatingLabel);
+  } else {
+    // Second click pins the floating label at the current cursor position.
+    fdRulerPinAt(e.clientX, e.clientY);
+    fdRulerFirstWall = null;
+  }
+}
+
+// Pin the floating label, appending a dismissible DOM element.
+function fdRulerPinAt(sx, sy) {
+  if (!fdRulerFirstWall) return;
+  const w        = fdRulerFirstWall;
+  const side     = fdRulerSide;
+  const lengthMm = Math.round(w.start.distanceTo(w.end) * 1000);
+  if (fdRulerFloatingLabel) { fdRulerFloatingLabel.remove(); fdRulerFloatingLabel = null; }
+
+  const el = document.createElement('div');
+  el.className = 'fd-ruler-label pinned';
+  el.innerHTML =
+    '<span>' + fdRulerSideLabel(side) + ': <strong>' + lengthMm + '\u202fmm</strong></span>' +
+    '<button class="fd-ruler-dismiss" title="Dismiss">✕</button>';
+  el.style.left = sx + 'px';
+  el.style.top  = sy + 'px';
+  document.body.appendChild(el);
+
+  const entry = { wallObj: w, side, lengthMm, el };
+  fdRulerPinnedLabels.push(entry);
+  el.querySelector('.fd-ruler-dismiss').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    entry.el.remove();
+    fdRulerPinnedLabels = fdRulerPinnedLabels.filter(x => x !== entry);
+  });
+}
+
+// Deactivate ruler mode without clearing pinned labels.
+function fdRulerDeactivate() {
+  fdRulerActive = false;
+  // Restore hovered wall to its previous colour.
+  if (fdRulerHoveredWall) {
+    const wasSelected = (fdRulerHoveredWall === fdSel);
+    fdRulerHoveredWall.mesh.material.color.set(wasSelected ? 0xff9500 : 0xddd5c8);
+    fdRulerHoveredWall = null;
+  }
+  // Remove any in-flight floating label.
+  if (fdRulerFloatingLabel) { fdRulerFloatingLabel.remove(); fdRulerFloatingLabel = null; }
+  fdRulerFirstWall = null;
+  canvas.style.cursor = 'crosshair';  // stay in draw-free cursor
+  const btn = document.getElementById('btn-fd-ruler');
+  if (btn) btn.classList.remove('active');
+}
+
+// Full reset: deactivate + remove all pinned labels. Called on Free Draw exit.
+function fdRulerClearAll() {
+  fdRulerDeactivate();
+  fdRulerPinnedLabels.forEach(entry => entry.el.remove());
+  fdRulerPinnedLabels = [];
+}
+
+document.getElementById('btn-fd-ruler')?.addEventListener('click', () => {
+  if (!fdRulerActive) {
+    fdRulerActive = true;
+    freeStart = null;                                        // suspend chain drawing
+    if (previewLine) { scene.remove(previewLine); previewLine = null; }
+    dimLabel.style.display  = 'none';
+    closeHint.style.display = 'none';
+    canvas.style.cursor = 'crosshair';
+    const btn = document.getElementById('btn-fd-ruler');
+    if (btn) btn.classList.add('active');
+  } else {
+    fdRulerDeactivate();
+  }
 });
 
 // ── Preset picker handlers ───────────────────────────────
