@@ -2516,9 +2516,34 @@ function clearPreview() {
   draggingPreviewHdl = null;
 }
 
+// Helper: build a canvas-texture Sprite for preview labels (always faces camera).
+function makePreviewLabel(text, fontSize, bgColor, textColor) {
+  const c = document.createElement('canvas');
+  c.width = 200; c.height = 56;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  ctx.fillStyle = bgColor || 'rgba(255,149,0,0.92)';
+  ctx.beginPath(); ctx.roundRect(4, 4, c.width - 8, c.height - 8, 8); ctx.fill();
+  ctx.fillStyle = textColor || '#fff';
+  ctx.font = 'bold ' + (fontSize || 22) + 'px Arial';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, c.width / 2, c.height / 2);
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true })
+  );
+  sprite.renderOrder = 999;
+  return sprite;
+}
+
 function drawPreviewPolygon(pts) {
   clearPreview();
   if (pts.length < 2) return;
+
+  // Lock camera while editing preset preview — mirror how draw-wall behaves.
+  if (mode === 'draw-preset') {
+    controls.enabled = false;
+    isPanning2D = false;
+  }
 
   // Shaded interior fill
   if (pts.length >= 3) {
@@ -2555,9 +2580,19 @@ function drawPreviewPolygon(pts) {
       ));
       t += segLen + gapLen;
     }
+
+    // Edge midpoint dimension label (only in draw-preset mode)
+    if (mode === 'draw-preset' && len > mm(100)) {
+      const mid = a.clone().lerp(b, 0.5);
+      const lenMm = Math.round(len * 1000);
+      const dimSprite = makePreviewLabel(lenMm + 'mm', 22);
+      dimSprite.scale.set(0.55, 0.155, 1);
+      dimSprite.position.set(mid.x, 0.25, mid.z);
+      previewMeshGroup.add(dimSprite);
+    }
   }
 
-  // Corner handles
+  // Corner handles + angle labels
   pts.forEach((pt, i) => {
     const sphere = new THREE.Mesh(
       new THREE.SphereGeometry(0.1, 12, 12),
@@ -2566,6 +2601,20 @@ function drawPreviewPolygon(pts) {
     sphere.position.set(pt.x, 0.06, pt.z);
     sphere.userData.previewHandleIndex = i;
     previewMeshGroup.add(sphere);
+
+    // Interior angle label at each corner (only in draw-preset mode with ≥3 pts)
+    if (mode === 'draw-preset' && pts.length >= 3) {
+      const prev = pts[(i + pts.length - 1) % pts.length];
+      const next = pts[(i + 1) % pts.length];
+      const dirA = new THREE.Vector3().subVectors(prev, pt).normalize();
+      const dirB = new THREE.Vector3().subVectors(next, pt).normalize();
+      const cosA = Math.min(1, Math.max(-1, dirA.dot(dirB)));
+      const angleDeg = Math.round(THREE.MathUtils.radToDeg(Math.acos(cosA)));
+      const angSprite = makePreviewLabel(angleDeg + '°', 18, 'rgba(0,140,210,0.90)', '#fff');
+      angSprite.scale.set(0.28, 0.105, 1);
+      angSprite.position.set(pt.x, 0.3, pt.z);
+      previewMeshGroup.add(angSprite);
+    }
   });
 }
 function makeCleanRect(pts) {
@@ -4769,11 +4818,11 @@ document.getElementById('dpp-rect').addEventListener('click', () => {
     new THREE.Vector3( s/2, 0,  s/2),
     new THREE.Vector3(-s/2, 0,  s/2),
   ];
-  drawPreviewPolygon(previewWallPoints);
-  showConfirmBar('Drag corners to resize · ✓ to confirm');
   drawModeActive = 'preset';
-  mode = 'draw-preset';
+  mode = 'draw-preset';       // set before drawPreviewPolygon so pan-lock fires immediately
   canvas.style.cursor = 'default';
+  drawPreviewPolygon(previewWallPoints);
+  showConfirmBar('Drag corners · ✓ to confirm');
 });
 
 document.getElementById('dpp-lshape').addEventListener('click', () => {
@@ -4786,11 +4835,11 @@ document.getElementById('dpp-lshape').addEventListener('click', () => {
     new THREE.Vector3( 0.5, 0,  1.5),
     new THREE.Vector3(-2,   0,  1.5),
   ];
-  drawPreviewPolygon(previewWallPoints);
-  showConfirmBar('Drag corners to resize · ✓ to confirm');
   drawModeActive = 'preset';
-  mode = 'draw-preset';
+  mode = 'draw-preset';       // set before drawPreviewPolygon so pan-lock fires immediately
   canvas.style.cursor = 'default';
+  drawPreviewPolygon(previewWallPoints);
+  showConfirmBar('Drag corners · ✓ to confirm');
 });
 
 // ── Confirm / cancel bar handlers ───────────────────────
