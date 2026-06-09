@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { initAuth, signInWithGoogle, signOut, saveProject, listProjects, loadProject, deleteProject } from './auth.js';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
 const mm = v => v / 1000;
+const SLAB_H = mm(300);   // floor slab height — walls sit on top of this
 const settings = { ceilingHeight: 2400, wallThickness: 110, gridSize: 100 };
 
 const canvas = document.getElementById('canvas');
@@ -680,7 +681,7 @@ function rebuildAllCaps() {
       new THREE.BoxGeometry(t, h, t),
       new THREE.MeshStandardMaterial({ color: wallBaseColor(owner), transparent: ownerOp < 1, opacity: ownerOp })
     );
-    cap.position.set(x, h / 2, z);
+    cap.position.set(x, SLAB_H + h / 2, z);
     cap.castShadow = cap.receiveShadow = true;
     scene.add(cap);
     if (!owner.capMeshes) owner.capMeshes = [];
@@ -894,7 +895,7 @@ function buildWall(start, end, skipHistory = false) {
     new THREE.BoxGeometry(length, h, t),
     new THREE.MeshStandardMaterial({ color: 0xddd5c8 })
   );
-  mesh.position.set((start.x + end.x) / 2, h / 2, (start.z + end.z) / 2);
+  mesh.position.set((start.x + end.x) / 2, SLAB_H + h / 2, (start.z + end.z) / 2);
   mesh.rotation.y = -Math.atan2(dz, dx);
   mesh.castShadow = mesh.receiveShadow = true;
   scene.add(mesh);
@@ -1891,7 +1892,7 @@ function drawRuler(ctx, info, direction) {
     const angle = wallObj.mesh.rotation.y;
     (wallObj.openings || []).forEach(op => {
       const iw = mm(op.width), ih = mm(op.height);
-      const iy = mm(op.floorDist) + ih / 2;
+      const iy = SLAB_H + mm(op.floorDist) + ih / 2;
       const color = op.type === 'door' ? 0x8B4513 : 0x87CEEB;
       const t = mm(op.distFromLeft) + iw / 2;
       const dx = wallObj.end.x - wallObj.start.x, dz = wallObj.end.z - wallObj.start.z;
@@ -1958,18 +1959,20 @@ function buildFloorMesh() {
   }
   if (poly.length < 3) return;
 
-  // Use wall centreline polygon directly; walls render on top and hide any overlap
+  // Build a 300mm-thick slab using the wall centreline polygon.
+  // ExtrudeGeometry depth goes in +Z; with rotation.x = Math.PI/2 that maps to -Y,
+  // so we position the mesh at SLAB_H so the slab spans y=0 → y=SLAB_H.
   const shape = new THREE.Shape();
   shape.moveTo(poly[0].x, poly[0].z);
   for (let i = 1; i < poly.length; i++) shape.lineTo(poly[i].x, poly[i].z);
   shape.closePath();
 
   floorMesh = new THREE.Mesh(
-    new THREE.ShapeGeometry(shape),
+    new THREE.ExtrudeGeometry(shape, { depth: SLAB_H, bevelEnabled: false }),
     new THREE.MeshStandardMaterial({ color: 0x3a3530, side: THREE.DoubleSide })
   );
   floorMesh.rotation.x = Math.PI / 2;
-  floorMesh.position.y = 0.005;
+  floorMesh.position.y = SLAB_H;
   floorMesh.receiveShadow = true;
   scene.add(floorMesh);
 }
@@ -4512,7 +4515,7 @@ canvas.addEventListener('mousemove', (e) => {
   fdLastNe = fdOrigEnd.clone().add(off);
 
   const h = fdSel.mesh.geometry.parameters.height;           // live mesh reposition (rotation unchanged)
-  fdSel.mesh.position.set((fdLastNs.x + fdLastNe.x) / 2, h / 2, (fdLastNs.z + fdLastNe.z) / 2);
+  fdSel.mesh.position.set((fdLastNs.x + fdLastNe.x) / 2, SLAB_H + h / 2, (fdLastNs.z + fdLastNe.z) / 2);
   wallHandleGroup.children.forEach(hd => {
     const pt = hd.userData.handleIndex === 0 ? fdLastNs : fdLastNe;
     hd.position.set(pt.x, 0.08, pt.z);
