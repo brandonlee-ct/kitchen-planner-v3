@@ -3637,6 +3637,24 @@ function fdShowEndpointGuides(curPt) {
   }
 }
 
+// Snap s onto any visible endpoint guide axis (same threshold as fdShowEndpointGuides).
+// Returns a new Vector3 with x and/or z locked to the nearest matching wall endpoint.
+function fdEndpointSnap(s) {
+  if (!s || walls.length === 0) return s;
+  const th = mm(150);
+  let x = s.x, z = s.z;
+  let bestXDist = Infinity, bestZDist = Infinity;
+  walls.forEach(w => {
+    [w.start, w.end].forEach(ep => {
+      const dx = Math.abs(s.x - ep.x);
+      const dz = Math.abs(s.z - ep.z);
+      if (dx < th && dx < bestXDist) { bestXDist = dx; x = ep.x; }
+      if (dz < th && dz < bestZDist) { bestZDist = dz; z = ep.z; }
+    });
+  });
+  return new THREE.Vector3(x, s.y, z);
+}
+
 // Returns true when the preview line from→to is within 5° of any existing wall.
 function fdIsParallelToAnyWall(from, to) {
   const dx = to.x - from.x, dz = to.z - from.z;
@@ -3719,10 +3737,10 @@ canvas.addEventListener('mousemove', (e) => {
   const { point, snapMode } = freeDrawSnap(s);
   s = point;
 
-  // Align to the chain's starting corner: snap to its X/Z axis + colour-coded guides
+  // Align to the chain's starting corner, then lock onto any visible endpoint guide.
   s = snapToStartLine(s, freeFirst);
+  s = fdEndpointSnap(s);
   fdShowStartAxisGuides(freeFirst, s);
-  // Keep endpoint guides active mid-chain so the far end of an existing wall also triggers a guide.
   fdShowEndpointGuides(s);
 
   if (freeFirst && s.distanceTo(freeFirst) < 0.2) {
@@ -3772,6 +3790,7 @@ canvas.addEventListener('click', (e) => {
   const pt = getFloorPos(e); if (!pt) return;
   let s = snapToCorner(snapToGrid(pt));
   if (freeStart) { s = freeDrawSnap(s).point; s = snapToStartLine(s, freeFirst); }
+  s = fdEndpointSnap(s);   // lock onto any visible green endpoint guide
 
   if (!freeStart) {
     freeStart = s.clone(); freeFirst = s.clone();
