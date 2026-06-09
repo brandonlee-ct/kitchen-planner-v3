@@ -1968,7 +1968,7 @@ function buildFloorMesh() {
     new THREE.ShapeGeometry(shape),
     new THREE.MeshStandardMaterial({ color: 0x3a3530, side: THREE.DoubleSide })
   );
-  floorMesh.rotation.x = -Math.PI / 2;
+  floorMesh.rotation.x = Math.PI / 2;
   floorMesh.position.y = 0.005;
   floorMesh.receiveShadow = true;
   scene.add(floorMesh);
