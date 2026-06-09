@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { initAuth, signInWithGoogle, signOut, saveProject, listProjects, loadProject, deleteProject } from './auth.js';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
 const mm = v => v / 1000;
 const settings = { ceilingHeight: 2400, wallThickness: 110, gridSize: 100 };
@@ -3622,6 +3624,95 @@ document.getElementById('btn-export').addEventListener('click', () => {
   }, 0);
 });
 
+
+// ── PDF quote export ────────────────────────────────────────────────────────
+document.getElementById('btn-export-pdf').addEventListener('click', () => {
+  // Aggregate identical SKUs into quantity lines (same key = product + variant)
+  const lineMap = new Map();
+  placedItems.forEach(obj => {
+    if (!obj.userData?.product?.skus) return;
+    const { product, skuIndex } = obj.userData;
+    const sku = product.skus[skuIndex ?? 0];
+    const key = product.name + '\x00' + sku.label;
+    if (lineMap.has(key)) {
+      lineMap.get(key).qty += 1;
+    } else {
+      lineMap.set(key, { product: product.name, variant: sku.label, qty: 1, unit: sku.price });
+    }
+  });
+
+  const rows = [];
+  let grandTotal = 0;
+  lineMap.forEach(line => {
+    const lineTotal = line.qty * line.unit;
+    grandTotal += lineTotal;
+    rows.push([
+      line.product,
+      line.variant,
+      line.qty,
+      '$' + line.unit.toFixed(2),
+      '$' + lineTotal.toFixed(2)
+    ]);
+  });
+
+  const projectName = document.title && document.title !== 'Kitchen Planner'
+    ? document.title
+    : 'Kitchen Quote';
+  const dateStr = new Date().toLocaleDateString('en-NZ', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+
+  // ── Header block ──
+  doc.setFillColor(30, 30, 30);
+  doc.rect(0, 0, pageW, 28, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(255, 149, 0);
+  doc.text('Brown Box Kit', 14, 12);
+  doc.setFontSize(10);
+  doc.setTextColor(180, 180, 180);
+  doc.text('brownboxkit.co.nz', 14, 19);
+
+  // ── Quote title + meta ──
+  doc.setTextColor(40, 40, 40);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(projectName, 14, 40);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  doc.text('Date: ' + dateStr, 14, 47);
+  doc.text('Prices in NZD (incl. GST)', 14, 53);
+
+  // ── Line items table ──
+  autoTable(doc, {
+    startY: 60,
+    head: [['Product', 'Variant / SKU', 'Qty', 'Unit (NZD)', 'Line Total (NZD)']],
+    body: rows,
+    foot: [['', '', '', 'Grand Total', '$' + grandTotal.toFixed(2)]],
+    headStyles: { fillColor: [255, 149, 0], textColor: [255, 255, 255], fontStyle: 'bold' },
+    footStyles: { fillColor: [240, 240, 240], textColor: [30, 30, 30], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 248, 248] },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 60 },
+      2: { cellWidth: 15, halign: 'center' },
+      3: { cellWidth: 30, halign: 'right' },
+      4: { cellWidth: 30, halign: 'right' }
+    },
+    styles: { fontSize: 10, cellPadding: 3 },
+    margin: { left: 14, right: 14 }
+  });
+
+  // ── Footer note ──
+  const finalY = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(9);
+  doc.setTextColor(150, 150, 150);
+  doc.text('This quote is indicative only. Contact Brown Box Kit for a final price.', 14, finalY);
+
+  doc.save('kitchen-quote.pdf');
+});
 
 // ── Bottom overlay bar ──
 const touchOverlay     = document.getElementById('touch-model-overlay');
