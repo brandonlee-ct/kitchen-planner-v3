@@ -263,6 +263,14 @@ function executeUndo(entry) {
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
     updateRoomArea();
 
+  } else if (entry.type === 'style-walls') {
+    entry.data.items.forEach(it => {
+      if (!walls.includes(it.wall)) return;
+      it.wall.baseColor = it.before.color;
+      it.wall.opacity   = it.before.opacity;
+      applyWallVisual(it.wall);
+    });
+    rebuildAllCaps();
   }  
 }
 function executeRedo(entry) {
@@ -312,6 +320,14 @@ function executeRedo(entry) {
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays();
     updateRoomArea();
 
+  } else if (entry.type === 'style-walls') {
+    entry.data.items.forEach(it => {
+      if (!walls.includes(it.wall)) return;
+      it.wall.baseColor = it.after.color;
+      it.wall.opacity   = it.after.opacity;
+      applyWallVisual(it.wall);
+    });
+    rebuildAllCaps();
   }  
 }
 
@@ -634,15 +650,17 @@ function rebuildAllCaps() {
   cornerMap.forEach((wallList, key) => {
     if (wallList.length < 2) return;
     const [x, z] = key.split(',').map(Number);
+    const owner = wallList[0];
+    const ownerOp = (owner.opacity != null) ? owner.opacity : 1;
     const cap = new THREE.Mesh(
       new THREE.BoxGeometry(t, h, t),
-      new THREE.MeshStandardMaterial({ color: 0xddd5c8 })
+      new THREE.MeshStandardMaterial({ color: wallBaseColor(owner), transparent: ownerOp < 1, opacity: ownerOp })
     );
     cap.position.set(x, h / 2, z);
     cap.castShadow = cap.receiveShadow = true;
     scene.add(cap);
-    if (!wallList[0].capMeshes) wallList[0].capMeshes = [];
-    wallList[0].capMeshes.push(cap);
+    if (!owner.capMeshes) owner.capMeshes = [];
+    owner.capMeshes.push(cap);
   });
 }
 function cornerKey(v) {
@@ -855,7 +873,7 @@ function buildWall(start, end, skipHistory = false) {
   mesh.rotation.y = -Math.atan2(dz, dx);
   mesh.castShadow = mesh.receiveShadow = true;
   scene.add(mesh);
-  const wallObj = { mesh, start: start.clone(), end: end.clone(), capMeshes: [], label2D: null };
+  const wallObj = { mesh, start: start.clone(), end: end.clone(), capMeshes: [], label2D: null, baseColor: 0xddd5c8, opacity: 1 };
   mesh.userData.wallObj = wallObj;
  // REPLACE WITH:
   walls.push(wallObj);
@@ -969,7 +987,7 @@ function showWallPopup(wallObj, sx, sy) {
   wallPopup.style.left = x + 'px';
   wallPopup.style.top  = y + 'px';
   wallPopup.style.display = 'block';
-  walls.forEach(w => w.mesh.material.color.set(0xddd5c8));
+  walls.forEach(w => w.mesh.material.color.set(wallBaseColor(w)));
   wallObj.mesh.material.color.set(0xff9500);
   setTimeout(() => document.getElementById('wp-length').select(), 50);
   showWallHandles(wallObj);
@@ -1006,7 +1024,7 @@ function hideWallPopup() {
   wallPopup.style.display = 'none';
   clearWallHandles();
   dimLabel.style.display = 'none';
-  walls.forEach(w => w.mesh.material.color.set(0xddd5c8));
+  walls.forEach(w => w.mesh.material.color.set(wallBaseColor(w)));
   selectedWall = null; hoveredWall = null;
   // In Free Draw mode the popup serves as the fd selection popup — clear that state too.
   if (mode === 'draw-free') { fdSel = null; fdDragging = false; fdLastNs = fdLastNe = null; }
@@ -1016,7 +1034,7 @@ function hideWallPopup() {
 function toggleWallMultiSelect(w) {
   if (selectedWalls.includes(w)) {
     selectedWalls = selectedWalls.filter(x => x !== w);
-    w.mesh.material.color.set(0xddd5c8);
+    w.mesh.material.color.set(wallBaseColor(w));
   } else {
     selectedWalls.push(w);
     w.mesh.material.color.set(WALL_MULTI_COLOR);
@@ -1026,7 +1044,7 @@ function clearWallMultiSelect() {
   if (!selectedWalls.length) return;
   const prev = selectedWalls;
   selectedWalls = [];
-  prev.forEach(w => { if (walls.includes(w)) w.mesh.material.color.set(0xddd5c8); });
+  prev.forEach(w => { if (walls.includes(w)) w.mesh.material.color.set(wallBaseColor(w)); });
 }
 
 // ── Cabinet selection: cyan wireframe box + multi-select (Select mode) ───────
@@ -1079,6 +1097,123 @@ function updateCabinetBoxes() {
   if (!selectedCabinets.length) return;
   selectedCabinets.forEach(m => { const h = cabinetBoxHelpers.get(m); if (h) h.update(); });
 }
+
+// ── Wall style (Task D): per-wall base colour + opacity ─────────────────────
+// The hover/selection code temporarily overrides .color, so we track each wall's
+// own "base" colour and restore to that (not a hardcoded default).
+function wallBaseColor(w) {
+  return (w && w.baseColor != null) ? w.baseColor : 0xddd5c8;
+}
+// Apply a wall's stored base colour + opacity to its live material (+ owned caps).
+function applyWallVisual(w) {
+  if (!w || !w.mesh || !w.mesh.material) return;
+  const op = (w.opacity != null) ? w.opacity : 1;
+  w.mesh.material.color.set(wallBaseColor(w));
+  w.mesh.material.transparent = op < 1;
+  w.mesh.material.opacity = op;
+  w.mesh.material.needsUpdate = true;
+  // Corner caps this wall owns share its colour/opacity (live feedback).
+  if (w.capMeshes) w.capMeshes.forEach(c => {
+    if (!c.material) return;
+    c.material.color.set(wallBaseColor(w));
+    c.material.transparent = op < 1;
+    c.material.opacity = op;
+    c.material.needsUpdate = true;
+  });
+}
+
+// Copy stored colour/opacity from one wall onto another (used when walls are rebuilt).
+function carryWallStyle(src, dst) {
+  if (!src || !dst) return;
+  dst.baseColor = (src.baseColor != null) ? src.baseColor : 0xddd5c8;
+  dst.opacity   = (src.opacity   != null) ? src.opacity   : 1;
+  applyWallVisual(dst);
+}
+
+// ── Wall Style popup (Task D): right-click a wall → colour + opacity ─────────
+const wallStylePopup = document.createElement('div');
+wallStylePopup.style.cssText = 'display:none;position:fixed;z-index:210;background:#2a2a2a;border:1px solid #00bcd4;border-radius:10px;padding:14px;width:220px;font-family:Arial;font-size:13px;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+const WALL_SWATCHES = ['#ddd5c8','#ffffff','#c8d8e8','#d8e8c8','#e8c8c8','#9aa0a6','#444444','#1a1a1a'];
+wallStylePopup.innerHTML = [
+  '<div style="color:#00bcd4;font-weight:bold;margin-bottom:10px">Wall Style <span id="wsp-count" style="color:#888;font-weight:normal;font-size:11px"></span></div>',
+  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Colour</label>',
+  '<div id="wsp-swatches" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px"></div>',
+  '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">',
+  '<input id="wsp-color" type="color" value="#ddd5c8" style="width:40px;height:30px;border:none;background:none;cursor:pointer"/>',
+  '<span style="color:#aaa;font-size:12px">Custom</span>',
+  '</div>',
+  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Opacity <span id="wsp-op-val">100%</span></label>',
+  '<input id="wsp-opacity" type="range" min="10" max="100" value="100" style="width:100%;margin:6px 0 12px"/>',
+  '<button id="wsp-done" style="width:100%;background:#00bcd4;color:#fff;border:none;border-radius:6px;padding:8px;cursor:pointer;font-weight:bold">Done</button>',
+  '<button id="wsp-close" style="position:absolute;top:8px;right:10px;background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;line-height:1">×</button>',
+].join('');
+document.body.appendChild(wallStylePopup);
+['click','mousedown','contextmenu','pointerdown'].forEach(ev =>
+  wallStylePopup.addEventListener(ev, e => e.stopPropagation()));
+
+let styleTargetWalls = [];          // walls being edited by the popup
+let styleBefore      = [];          // [{ wall, color, opacity }] snapshot for undo
+
+function wspHexToInt(hex) { return parseInt(hex.replace('#',''), 16); }
+function wspIntToHex(n)  { return '#' + ('000000' + ((n>>>0) & 0xffffff).toString(16)).slice(-6); }
+
+function applyWallStyleLive() {
+  const colInt = wspHexToInt(document.getElementById('wsp-color').value);
+  const op = parseInt(document.getElementById('wsp-opacity').value, 10) / 100;
+  document.getElementById('wsp-op-val').textContent = Math.round(op * 100) + '%';
+  styleTargetWalls.forEach(w => { w.baseColor = colInt; w.opacity = op; applyWallVisual(w); });
+}
+
+function openWallStylePopup(clickedWall, sx, sy) {
+  const set = new Set([clickedWall, ...selectedWalls]);
+  styleTargetWalls = [...set].filter(w => walls.includes(w));
+  if (!styleTargetWalls.length) return;
+  styleBefore = styleTargetWalls.map(w => ({ wall: w, color: wallBaseColor(w), opacity: (w.opacity != null ? w.opacity : 1) }));
+
+  document.getElementById('wsp-color').value     = wspIntToHex(wallBaseColor(clickedWall));
+  document.getElementById('wsp-opacity').value   = Math.round((clickedWall.opacity != null ? clickedWall.opacity : 1) * 100);
+  document.getElementById('wsp-op-val').textContent = document.getElementById('wsp-opacity').value + '%';
+  document.getElementById('wsp-count').textContent  = styleTargetWalls.length > 1 ? '(' + styleTargetWalls.length + ' walls)' : '';
+
+  const pw = 220, ph = 250;
+  let x = sx + 12, y = sy + 12;
+  if (x + pw > window.innerWidth)  x = window.innerWidth  - pw - 10;
+  if (y + ph > window.innerHeight) y = window.innerHeight - ph - 10;
+  wallStylePopup.style.left = x + 'px';
+  wallStylePopup.style.top  = y + 'px';
+  wallStylePopup.style.display = 'block';
+}
+
+function closeWallStylePopup() {
+  if (wallStylePopup.style.display !== 'block') return;
+  wallStylePopup.style.display = 'none';
+  const items = [];
+  styleBefore.forEach(b => {
+    if (!walls.includes(b.wall)) return;
+    const after = { color: wallBaseColor(b.wall), opacity: (b.wall.opacity != null ? b.wall.opacity : 1) };
+    if (after.color !== b.color || after.opacity !== b.opacity)
+      items.push({ wall: b.wall, before: { color: b.color, opacity: b.opacity }, after });
+  });
+  if (items.length) pushHistory({ type: 'style-walls', data: { items } });
+  styleTargetWalls = [];
+  styleBefore = [];
+  rebuildAllCaps();   // normalise shared corner caps to their owner wall's style
+  // Live styling overrode the cyan highlight — re-assert it for still-selected walls.
+  selectedWalls.forEach(w => { if (walls.includes(w)) w.mesh.material.color.set(WALL_MULTI_COLOR); });
+}
+
+const wspSwatchWrap = wallStylePopup.querySelector('#wsp-swatches');
+WALL_SWATCHES.forEach(hex => {
+  const s = document.createElement('button');
+  s.title = hex;
+  s.style.cssText = 'width:24px;height:24px;border-radius:5px;border:1px solid #555;cursor:pointer;padding:0;background:' + hex;
+  s.addEventListener('click', () => { document.getElementById('wsp-color').value = hex; applyWallStyleLive(); });
+  wspSwatchWrap.appendChild(s);
+});
+document.getElementById('wsp-color').addEventListener('input', applyWallStyleLive);
+document.getElementById('wsp-opacity').addEventListener('input', applyWallStyleLive);
+document.getElementById('wsp-done').addEventListener('click', closeWallStylePopup);
+document.getElementById('wsp-close').addEventListener('click', closeWallStylePopup);
 
 document.getElementById('wp-confirm').addEventListener('click', () => {
   if (!selectedWall) return;
@@ -1149,6 +1284,10 @@ document.getElementById('wp-angle-apply').addEventListener('click', () => {
   selectedWall.mesh.rotation.y = -Math.atan2(dz, dx);
   selectedWall.mesh.castShadow = selectedWall.mesh.receiveShadow = true;
   selectedWall.mesh.userData.wallObj = selectedWall;
+  // Preserve stored opacity on the freshly-built mesh (colour reverts on deselect).
+  { const _op = (selectedWall.opacity != null) ? selectedWall.opacity : 1;
+    selectedWall.mesh.material.transparent = _op < 1;
+    selectedWall.mesh.material.opacity = _op; }
   scene.add(selectedWall.mesh);
   rebuildAllCaps();
   refreshAll2DLabels();
@@ -1733,6 +1872,7 @@ function drawRuler(ctx, info, direction) {
       if (old.label2D) wall2DLabelGroup.remove(old.label2D);
       walls = walls.filter(w => w !== old);
       const newWall = buildWall(wallObj.start, newEnd, true);
+      carryWallStyle(old, newWall);
       pushHistory({ type: 'resize-wall', data: { removed: [old], restored: [newWall] } });
       rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays();
       updateRoomArea();
@@ -1751,6 +1891,8 @@ function drawRuler(ctx, info, direction) {
     walls = walls.filter(w => w !== oldCurrent && w !== oldNext);
     const updatedWall = buildWall(wallObj.start, newEnd, true);
     const updatedNext = buildWall(newEnd, nextWall.end, true);
+    carryWallStyle(oldCurrent, updatedWall);
+    carryWallStyle(oldNext,    updatedNext);
     pushHistory({ type: 'resize-wall', data: { removed: [oldCurrent, oldNext], restored: [updatedWall, updatedNext]
  } });
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays();
@@ -1825,7 +1967,7 @@ lastMouseY = e.clientY;
       const hit = hits[0].object.userData.wallObj;
       if (hoveredWall !== hit) {
         if (hoveredWall && hoveredWall !== selectedWall)
-          hoveredWall.mesh.material.color.set(selectedWalls.includes(hoveredWall) ? WALL_MULTI_COLOR : 0xddd5c8);
+          hoveredWall.mesh.material.color.set(selectedWalls.includes(hoveredWall) ? WALL_MULTI_COLOR : wallBaseColor(hoveredWall));
         hoveredWall = hit;
         if (hoveredWall !== selectedWall && !selectedWalls.includes(hoveredWall))
           hoveredWall.mesh.material.color.set(0xf0e0c0);
@@ -1833,7 +1975,7 @@ lastMouseY = e.clientY;
       canvas.style.cursor = 'pointer';
     } else {
       if (hoveredWall && hoveredWall !== selectedWall)
-        hoveredWall.mesh.material.color.set(selectedWalls.includes(hoveredWall) ? WALL_MULTI_COLOR : 0xddd5c8);
+        hoveredWall.mesh.material.color.set(selectedWalls.includes(hoveredWall) ? WALL_MULTI_COLOR : wallBaseColor(hoveredWall));
       hoveredWall = null;
       canvas.style.cursor = 'default';
     }
@@ -1951,6 +2093,9 @@ lastMouseY = e.clientY;
     wallObj.mesh.rotation.y = -Math.atan2(dz, dx);
     wallObj.mesh.castShadow = wallObj.mesh.receiveShadow = true;
     wallObj.mesh.userData.wallObj = wallObj;
+    { const _op = (wallObj.opacity != null) ? wallObj.opacity : 1;
+      wallObj.mesh.material.transparent = _op < 1;
+      wallObj.mesh.material.opacity = _op; }
     scene.add(wallObj.mesh);
     return;
   }
@@ -2018,6 +2163,7 @@ lastMouseY = e.clientY;
           return;
         }
           if (mode === 'select') {
+            closeWallStylePopup();          // a left-click commits & closes the style popup
             updateMouse(e);
             raycaster.setFromCamera(mouse, activeCamera);
             if (!is3D) {
@@ -2083,7 +2229,21 @@ lastMouseY = e.clientY;
         });
 
       
-      canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); cancelWallDraw(); });
+      canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        // Select mode: right-click a wall → open the Wall Style popup (colour + opacity).
+        if (mode === 'select') {
+          updateMouse(e);
+          raycaster.setFromCamera(mouse, activeCamera);
+          const wallHits = raycaster.intersectObjects(walls.map(w => w.mesh))
+            .filter(h => walls.includes(h.object.userData.wallObj));
+          if (wallHits.length) {
+            openWallStylePopup(wallHits[0].object.userData.wallObj, e.clientX, e.clientY);
+          }
+          return;
+        }
+        cancelWallDraw();
+      });
       
       function cancelWallDraw() {
         hideWallDimInput();
@@ -3552,6 +3712,9 @@ canvas.addEventListener('touchmove', (e) => {
       wallObj.mesh.rotation.y = -Math.atan2(dz, dx);
       wallObj.mesh.castShadow = wallObj.mesh.receiveShadow = true;
       wallObj.mesh.userData.wallObj = wallObj;
+      { const _op = (wallObj.opacity != null) ? wallObj.opacity : 1;
+        wallObj.mesh.material.transparent = _op < 1;
+        wallObj.mesh.material.opacity = _op; }
       scene.add(wallObj.mesh);
       return;
     }
@@ -4034,7 +4197,7 @@ function fdSelectWall(w) {
   fdDeselect();
   fdSel = w;
   fdAnchor = 'start';
-  walls.forEach(x => x.mesh.material.color.set(0xddd5c8));
+  walls.forEach(x => x.mesh.material.color.set(wallBaseColor(x)));
   w.mesh.material.color.set(0xff9500);
   showWallHandles(w);
   fdHandleColors();
@@ -4046,7 +4209,7 @@ function fdDeselect() {
   fdDragging = false;
   fdLastNs = fdLastNe = null;
   clearWallHandles();
-  walls.forEach(x => x.mesh.material.color.set(0xddd5c8));
+  walls.forEach(x => x.mesh.material.color.set(wallBaseColor(x)));
   if (fdEditEl) fdEditEl.style.display = 'none';
   if (wallPopup.style.display === 'block') hideWallPopup();
 }
@@ -4063,7 +4226,8 @@ function fdReplaceWall(oldWall, ns, ne) {
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); updateRoomArea();
     return oldWall;
   }
-  nw.mesh.material.color.set(0xff9500);
+  carryWallStyle(oldWall, nw);                // preserve colour + opacity across resize
+  nw.mesh.material.color.set(0xff9500);       // selected highlight (opacity kept)
   pushHistory({ type: 'resize-wall', data: { removed: [oldWall], restored: [nw] } });
   rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); updateRoomArea();
   return nw;
@@ -4267,7 +4431,7 @@ function fdRulerMouseMove(e) {
   if (hitWall !== fdRulerHoveredWall) {
     if (fdRulerHoveredWall) {
       const wasSelected = (fdRulerHoveredWall === fdSel);
-      fdRulerHoveredWall.mesh.material.color.set(wasSelected ? 0xff9500 : 0xddd5c8);
+      fdRulerHoveredWall.mesh.material.color.set(wasSelected ? 0xff9500 : wallBaseColor(fdRulerHoveredWall));
     }
     fdRulerHoveredWall = hitWall;
     if (hitWall) hitWall.mesh.material.color.set(0xff9500);
@@ -4340,7 +4504,7 @@ function fdRulerDeactivate() {
   // Restore hovered wall to its previous colour.
   if (fdRulerHoveredWall) {
     const wasSelected = (fdRulerHoveredWall === fdSel);
-    fdRulerHoveredWall.mesh.material.color.set(wasSelected ? 0xff9500 : 0xddd5c8);
+    fdRulerHoveredWall.mesh.material.color.set(wasSelected ? 0xff9500 : wallBaseColor(fdRulerHoveredWall));
     fdRulerHoveredWall = null;
   }
   // Remove any in-flight floating label.
@@ -5058,6 +5222,8 @@ function serialiseScene() {
   const wallsData = walls.map(w => ({
     start: { x: w.start.x, z: w.start.z },
     end:   { x: w.end.x,   z: w.end.z   },
+    color:   wallBaseColor(w),
+    opacity: (w.opacity != null ? w.opacity : 1),
     openings: (w.openings || []).map(op => ({
       type:        op.type,
       width:       op.width,
@@ -5193,6 +5359,11 @@ function loadScene(sceneJson) {
     const end   = new THREE.Vector3(wd.end.x,   0, wd.end.z);
     const wallObj = buildWall(start, end, true);
     if (!wallObj) return;
+
+    // Restore saved colour / opacity
+    if (wd.color   != null) wallObj.baseColor = wd.color;
+    if (wd.opacity != null) wallObj.opacity   = wd.opacity;
+    applyWallVisual(wallObj);
 
     // Attach openings and sync to 3D
     if (wd.openings && wd.openings.length > 0) {
