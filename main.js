@@ -1079,7 +1079,6 @@ function updateWallPopupTouchUI() {
     moreSec.style.display = '';
     wallPopup.classList.remove('wep-tq', 'wep-peeked');
     wallPopup.style.background = '#2a2a2a';
-    wallPopup.style.padding    = '';
     return;
   }
 
@@ -1109,8 +1108,8 @@ function updateWallPopupTouchUI() {
 }
 
 function _wpTQSetPos(left, top) {
-  const popW = wallPopup.offsetWidth  || 240;
-  const popH = wallPopup.offsetHeight || 160;
+  const popW = wallPopup.offsetWidth  || 200;
+  const popH = wallPopup.offsetHeight || 130;
   _wpTQPopLeft = Math.max(4, Math.min(window.innerWidth  - popW - 4, left));
   _wpTQPopTop  = Math.max(56, Math.min(window.innerHeight - popH - 8, top));
   wallPopup.style.left = _wpTQPopLeft + 'px';
@@ -1209,6 +1208,7 @@ function showWallPopup(wallObj, sx, sy) {
     wallPopup.style.maxHeight     = '82dvh';
     wallPopup.style.overflowY     = 'auto';
     wallPopup.style.borderRadius  = '14px 14px 0 0';
+    wallPopup.style.padding       = '16px';   // restore base padding (compact mode overwrites the shorthand)
     wallPopup.style.paddingBottom = 'calc(16px + env(safe-area-inset-bottom, 0px))';
   } else {
     // ── Desktop: positioned near click ───────────────────────────────────────
@@ -1220,13 +1220,15 @@ function showWallPopup(wallObj, sx, sy) {
     wallPopup.style.transform = ''; wallPopup.style.bottom = '';
     wallPopup.style.width = '260px'; wallPopup.style.maxHeight = '';
     wallPopup.style.overflowY = ''; wallPopup.style.borderRadius = '10px';
-    wallPopup.style.paddingBottom = '16px';
+    wallPopup.style.padding = '16px';   // restore base padding (compact mode overwrites the shorthand)
   }
   updateWallPopupTouchUI();
   wallPopup.style.display = 'block';
   walls.forEach(w => w.mesh.material.color.set(wallBaseColor(w)));
   wallObj.mesh.material.color.set(0xff9500);
-  setTimeout(() => document.getElementById('wp-length').select(), 50);
+  // Desktop only: auto-select length for quick typing. On touch this would pop
+  // the on-screen keyboard over the scene on every wall tap.
+  if (!IS_TOUCH) setTimeout(() => document.getElementById('wp-length').select(), 50);
   showWallHandles(wallObj);
 
   // Anchor toggle: Free Draw keeps its own state; Select mode (Task B) gets the

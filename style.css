@@ -1355,7 +1355,7 @@ body.theme-light #theme-menu button:hover { background: #d8d8d8; }
 #wall-edit-popup.wep-tq #wp-confirm {
   padding: 5px 8px !important;
   font-size: 12px !important;
-  min-height: 0 !important;
+  min-height: 36px !important;   /* compact but still a usable touch target */
 }
 /* Length row spacing */
 #wall-edit-popup.wep-tq > div[style*="margin:4px 0 10px"] {
@@ -1366,10 +1366,22 @@ body.theme-light #theme-menu button:hover { background: #d8d8d8; }
 #wall-edit-popup.wep-tq #wp-view {
   padding: 6px !important;
   font-size: 12px !important;
-  min-height: 0 !important;
+  min-height: 36px !important;   /* compact but still a usable touch target */
 }
 #wall-edit-popup.wep-tq > div:has(#wp-delete) {
   margin-bottom: 4px !important;
+}
+/* More-options toggle — keep compact (override 44px coarse-pointer rule) */
+#wall-edit-popup.wep-tq #wp-more-btn {
+  min-height: 32px !important;
+  padding: 5px !important;
+}
+/* Absolute mini buttons (close ✕ / peek –) must stay small or they overlap */
+#wall-edit-popup.wep-tq #wp-close,
+#wall-edit-popup.wep-tq #wp-peek-btn {
+  min-height: 0 !important;
+  height: 24px !important;
+  width: 24px !important;
 }
 
 /* Peeked (minimised to handle strip) — hide all direct children except handle + abs buttons */
