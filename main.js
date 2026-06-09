@@ -2782,7 +2782,7 @@ document.getElementById('btn-draw-wall').addEventListener('click', () => {
           updateOrtho();
           activeCamera = camera2D; controls.enabled = false;
         }
-        document.getElementById('btn-toggle-view').textContent = is3D ? 'Switch to 2D' : 'Switch to 3D';
+        document.getElementById('btn-toggle-view').textContent = is3D ? '2D' : '3D';
         update2DLabelVisibility();
         rebuild2DWallOverlays();
       });
@@ -5070,7 +5070,7 @@ function startGlideDraw() {
     updateOrtho();
     activeCamera = camera2D;
     controls.enabled = false;
-    document.getElementById('btn-toggle-view').textContent = 'Switch to 3D';
+    document.getElementById('btn-toggle-view').textContent = '3D';
     update2DLabelVisibility();
     rebuild2DWallOverlays();
   }
@@ -5617,8 +5617,7 @@ function loadScene(sceneJson) {
         activeCamera = camera2D;
         controls.enabled = false;
       }
-      document.getElementById('btn-toggle-view').textContent =
-        is3D ? 'Switch to 2D' : 'Switch to 3D';
+      document.getElementById('btn-toggle-view').textContent = is3D ? '2D' : '3D';
       update2DLabelVisibility();
       rebuild2DWallOverlays();
     }
