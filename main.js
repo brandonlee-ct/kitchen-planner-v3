@@ -3716,14 +3716,14 @@ canvas.addEventListener('mousemove', (e) => {
     fdShowEndpointGuides(s);
     return;
   }
-  clearFdEndpointGuides();
-
   const { point, snapMode } = freeDrawSnap(s);
   s = point;
 
   // Align to the chain's starting corner: snap to its X/Z axis + colour-coded guides
   s = snapToStartLine(s, freeFirst);
   fdShowStartAxisGuides(freeFirst, s);
+  // Keep endpoint guides active mid-chain so the far end of an existing wall also triggers a guide.
+  fdShowEndpointGuides(s);
 
   if (freeFirst && s.distanceTo(freeFirst) < 0.2) {
     s = freeFirst.clone();
