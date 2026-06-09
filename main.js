@@ -367,6 +367,24 @@ let wallXray = false;                   // Task E: global see-through-walls togg
 const XRAY_OPACITY = 0.22;              // forced opacity while X-ray is on
 let selAnchor = 'start';                // Task B: which wall end stays fixed when resizing in Select mode
 let shiftDown = false;
+
+// ── Touch Modifier Dock state ────────────────────────────
+let touchShiftActive       = false;   // true while shift button is held
+let touchShiftLatched      = false;   // true when double-tap latched on
+let touchCamLock           = false;   // persistent cam-lock toggle
+let touchModifierCollapsed = false;   // dock collapsed to restore tab
+let _tmDragActive          = false;
+let _tmDragStartY          = 0;
+let _tmDragStartTop        = 0;
+let _tmDragMovedPx         = 0;       // px moved in current drag (conflict guard)
+let _tmIdleTimer           = null;    // handle for idle-fade timeout
+let _tmLastShiftDown       = 0;       // ms timestamp of last shift pointerdown (double-tap)
+const TM_LS_TOP       = 'bbk-tm-top';
+const TM_LS_COLLAPSED = 'bbk-tm-collapsed';
+const TM_LS_CAMLOCK   = 'bbk-tm-camlock';
+const TM_LS_HINT_SEEN = 'bbk-tm-hint-seen';
+const TM_IDLE_MS      = 2000;         // ms before dock fades to idle opacity
+
 let snapGuideH = null, snapGuideV = null;
 let axisGuideX = null, axisGuideZ = null;
 let roomCorners = [], roomLocked = false;
@@ -945,20 +963,41 @@ function rebuild2DWallOverlays() {
 }
 
 const wallPopup = document.createElement('div');
+wallPopup.id = 'wall-edit-popup';
 wallPopup.style.cssText = 'display:none;position:fixed;z-index:200;background:#2a2a2a;border:1px solid #ff9500;border-radius:10px;padding:16px;width:260px;font-family:Arial;font-size:13px;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
 wallPopup.innerHTML = [
-  '<div style="color:#ff9500;font-weight:bold;margin-bottom:12px">Edit Wall</div>',
+  // ── Touch Quick Draw: drag handle (hidden on desktop via CSS/JS) ──────────
+  '<div id="wp-drag-handle" style="display:none;align-items:center;gap:8px;',
+  'background:rgba(255,149,0,0.1);border-radius:8px;padding:6px 8px;',
+  'margin-bottom:8px;cursor:grab;touch-action:none;',
+  'user-select:none;-webkit-user-select:none">',
+  '<span style="color:rgba(255,255,255,0.3);font-size:17px;letter-spacing:-3px">⠿</span>',
+  '<span id="wp-touch-label" style="flex:1;color:#ccc;font-size:12px;font-weight:bold"></span>',
+  '</div>',
+
+  // ── Title ─────────────────────────────────────────────────────────────────
+  '<div style="color:#ff9500;font-weight:bold;margin-bottom:8px">Edit Wall</div>',
+
+  // ── Length (always visible) ───────────────────────────────────────────────
   '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Length (mm)</label>',
-  '<div style="display:flex;gap:6px;margin:4px 0 12px;align-items:center">',
+  '<div style="display:flex;gap:6px;margin:4px 0 10px;align-items:center">',
   '<input id="wp-length" type="number" step="100" min="100" style="flex:1;background:#333;border:1px solid #ff9500;border-radius:6px;color:#fff;padding:8px 10px;font-size:15px;box-sizing:border-box"/>',
-  '<button id="wp-bt" style="background:none;border:1px solid #555;border-radius:6px;padding:7px 9px;cursor:pointer;font-size:15px" title="Bluetooth">BT</button>',
-  '<button id="wp-confirm" style="background:#ff9500;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:bold">OK</button>',
+  '<button id="wp-bt" style="background:none;border:1px solid #555;border-radius:6px;padding:7px 9px;cursor:pointer;font-size:15px;touch-action:manipulation" title="Bluetooth">BT</button>',
+  '<button id="wp-confirm" style="background:#ff9500;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:bold;touch-action:manipulation">OK</button>',
   '</div>',
-  '<div id="wp-fd-anchor-row" style="display:none;margin:-6px 0 12px">',
-  '<button id="wp-fd-anchor" title="Switch which end stays locked when resizing" style="width:100%;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:7px 8px;cursor:pointer;font-size:12px">⇄ Anchor: start</button>',
+
+  // ── Anchor row ────────────────────────────────────────────────────────────
+  '<div id="wp-fd-anchor-row" style="display:none;margin:-4px 0 10px">',
+  '<button id="wp-fd-anchor" title="Switch which end stays locked when resizing" ',
+  'style="width:100%;background:#333;color:#fff;border:1px solid #555;border-radius:6px;',
+  'padding:7px 8px;cursor:pointer;font-size:12px;touch-action:manipulation">⇄ Anchor: start</button>',
   '</div>',
+
+  // ── Secondary section (thickness / height / type) ─────────────────────────
+  // Hidden in compact touch mode; visible on desktop and in expanded touch mode
+  '<div id="wp-secondary-section">',
   '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Wall Thickness (mm)</label>',
-  '<div style="display:flex;gap:6px;margin:4px 0 12px;align-items:center">',
+  '<div style="display:flex;gap:6px;margin:4px 0 10px;align-items:center">',
   '<input id="wp-thickness" type="number" step="10" min="50" max="500" style="flex:1;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:8px 10px;font-size:14px;box-sizing:border-box"/>',
   '<span style="color:#aaa;font-size:12px">mm</span>',
   '</div>',
@@ -967,33 +1006,157 @@ wallPopup.innerHTML = [
   '<option value="2400">2400mm</option><option value="2700">2700mm</option>',
   '</select>',
   '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Wall Type</label>',
-  '<select id="wp-type" style="width:100%;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:7px 8px;font-size:13px;margin:4px 0 12px;box-sizing:border-box">',
+  '<select id="wp-type" style="width:100%;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:7px 8px;font-size:13px;margin:4px 0 10px;box-sizing:border-box">',
   '<option value="110">Interior 110mm</option><option value="150">Exterior 150mm</option>',
   '</select>',
-  '<div style="display:flex;gap:8px;margin-bottom:10px">',
-  '<button id="wp-delete" style="flex:1;background:#c0392b;color:#fff;border:none;border-radius:6px;padding:9px;cursor:pointer;font-size:13px">Delete</button>',
-  '<button id="wp-view" style="flex:1;background:#2980b9;color:#fff;border:none;border-radius:6px;padding:9px;cursor:pointer;font-size:13px">View Wall</button>',
   '</div>',
-  '<hr style="border-color:#444;margin:0 0 10px"/>',
-  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Wall Angle (degrees)</label>',
-'<div style="display:flex;gap:6px;margin:4px 0 12px;align-items:center">',
-'<input id="wp-angle" type="number" step="1" min="-360" max="360" style="flex:1;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:8px 10px;font-size:14px;box-sizing:border-box"/>',
-'<span style="color:#aaa;font-size:12px">°</span>',
-'<button id="wp-angle-apply" style="background:#2980b9;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:bold">Apply</button>',
-'</div>',
 
-  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Add Opening</label>',
-  '<div style="display:flex;gap:8px;margin-top:6px">',
-  '<button id="wp-door" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px">Door</button>',
-  '<button id="wp-window" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px">Window</button>',
+  // ── Actions (Delete / View Wall — always visible) ─────────────────────────
+  '<div style="display:flex;gap:8px;margin-bottom:8px">',
+  '<button id="wp-delete" style="flex:1;background:#c0392b;color:#fff;border:none;border-radius:6px;padding:9px;cursor:pointer;font-size:13px;touch-action:manipulation">Delete</button>',
+  '<button id="wp-view" style="flex:1;background:#2980b9;color:#fff;border:none;border-radius:6px;padding:9px;cursor:pointer;font-size:13px;touch-action:manipulation">View Wall</button>',
   '</div>',
-  '<button id="wp-close" style="position:absolute;top:10px;right:12px;background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;line-height:1">X</button>'
+
+  // ── More-options toggle (touch Quick Draw only; hidden on desktop) ─────────
+  '<button id="wp-more-btn" style="display:none;width:100%;background:none;',
+  'border:1px solid #444;color:#888;border-radius:6px;padding:7px;font-size:12px;',
+  'cursor:pointer;margin-bottom:6px;touch-action:manipulation">▸ More options</button>',
+
+  // ── Advanced section (angle + openings) ───────────────────────────────────
+  '<div id="wp-more-section">',
+  '<hr style="border-color:#444;margin:2px 0 10px"/>',
+  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Wall Angle (degrees)</label>',
+  '<div style="display:flex;gap:6px;margin:4px 0 10px;align-items:center">',
+  '<input id="wp-angle" type="number" step="1" min="-360" max="360" style="flex:1;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:8px 10px;font-size:14px;box-sizing:border-box"/>',
+  '<span style="color:#aaa;font-size:12px">°</span>',
+  '<button id="wp-angle-apply" style="background:#2980b9;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:bold;touch-action:manipulation">Apply</button>',
+  '</div>',
+  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Add Opening</label>',
+  '<div style="display:flex;gap:8px;margin-top:4px">',
+  '<button id="wp-door" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px;touch-action:manipulation">Door</button>',
+  '<button id="wp-window" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px;touch-action:manipulation">Window</button>',
+  '</div>',
+  '</div>',
+
+  // ── Close button (absolute, always) ───────────────────────────────────────
+  '<button id="wp-close" style="position:absolute;top:10px;right:10px;background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;line-height:1;touch-action:manipulation">✕</button>',
+
+  // ── Peek/hide button (touch Quick Draw only; hidden on desktop) ───────────
+  '<button id="wp-peek-btn" style="display:none;position:absolute;top:10px;right:36px;',
+  'background:none;border:1px solid #555;color:#aaa;border-radius:5px;',
+  'font-size:13px;line-height:1;width:24px;height:24px;padding:0;cursor:pointer;',
+  'touch-action:manipulation" title="Hide — tap handle to restore">–</button>',
 ].join('');
 document.body.appendChild(wallPopup);
+
+// ── Touch Quick Draw popup state ─────────────────────────
+let _wpTQDragging  = false;      // pointer drag in progress
+let _wpTQDragSX    = 0, _wpTQDragSY = 0;   // drag start pointer pos
+let _wpTQPopLeft   = 20, _wpTQPopTop = 120; // current popup position
+let _wpTQPeeked    = false;      // collapsed to drag-handle strip
+let _wpTQMoreOpen  = false;      // advanced section expanded
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && wallPopup.style.display === 'block') document.getElementById('wp-confirm').click();
 });
+
+// ── Touch Quick Draw popup helpers ────────────────────────────────────────
+
+function updateWallPopupTouchUI() {
+  const isQT = IS_TOUCH && drawModeActive === 'quick';
+  const handle  = document.getElementById('wp-drag-handle');
+  const peekBtn = document.getElementById('wp-peek-btn');
+  const moreBtn = document.getElementById('wp-more-btn');
+  const secSec  = document.getElementById('wp-secondary-section');
+  const moreSec = document.getElementById('wp-more-section');
+
+  if (!isQT) {
+    // Desktop / non-quick — show everything, hide touch-only controls
+    handle.style.display  = 'none';
+    peekBtn.style.display = 'none';
+    moreBtn.style.display = 'none';
+    secSec.style.display  = '';
+    moreSec.style.display = '';
+    wallPopup.classList.remove('wep-tq', 'wep-peeked');
+    wallPopup.style.background = '#2a2a2a';
+    return;
+  }
+
+  // Touch Quick Draw mode
+  wallPopup.classList.add('wep-tq');
+  wallPopup.style.background = 'rgba(18,18,18,0.82)';
+  handle.style.display  = 'flex';
+  peekBtn.style.display = '';
+  moreBtn.style.display = '';
+
+  if (_wpTQPeeked) {
+    wallPopup.classList.add('wep-peeked');
+    // CSS hides everything except handle + absolute buttons
+  } else {
+    wallPopup.classList.remove('wep-peeked');
+    secSec.style.display  = _wpTQMoreOpen ? '' : 'none';
+    moreSec.style.display = _wpTQMoreOpen ? '' : 'none';
+  }
+
+  peekBtn.textContent = _wpTQPeeked ? '+' : '–';
+  peekBtn.title       = _wpTQPeeked ? 'Restore' : 'Hide — tap grip to restore';
+  moreBtn.textContent = _wpTQMoreOpen ? '▴ Less' : '▸ More options';
+}
+
+function _wpTQSetPos(left, top) {
+  const popW = wallPopup.offsetWidth  || 240;
+  const popH = wallPopup.offsetHeight || 160;
+  _wpTQPopLeft = Math.max(4, Math.min(window.innerWidth  - popW - 4, left));
+  _wpTQPopTop  = Math.max(56, Math.min(window.innerHeight - popH - 8, top));
+  wallPopup.style.left = _wpTQPopLeft + 'px';
+  wallPopup.style.top  = _wpTQPopTop  + 'px';
+}
+
+function initWallPopupTouch() {
+  const handle  = document.getElementById('wp-drag-handle');
+  const peekBtn = document.getElementById('wp-peek-btn');
+  const moreBtn = document.getElementById('wp-more-btn');
+
+  // ── Drag by handle ──────────────────────────────────────
+  handle.addEventListener('pointerdown', (e) => {
+    if (_wpTQPeeked) {
+      // Tapping handle when peeked restores the popup
+      _wpTQPeeked = false;
+      updateWallPopupTouchUI();
+      return;
+    }
+    e.preventDefault();
+    _wpTQDragging = true;
+    _wpTQDragSX = e.clientX - _wpTQPopLeft;
+    _wpTQDragSY = e.clientY - _wpTQPopTop;
+    handle.setPointerCapture(e.pointerId);
+    wallPopup.style.cursor = 'grabbing';
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!_wpTQDragging) return;
+    _wpTQSetPos(e.clientX - _wpTQDragSX, e.clientY - _wpTQDragSY);
+  });
+  const _endWPDrag = () => {
+    if (!_wpTQDragging) return;
+    _wpTQDragging = false;
+    wallPopup.style.cursor = '';
+  };
+  handle.addEventListener('pointerup',     _endWPDrag);
+  handle.addEventListener('pointercancel', _endWPDrag);
+
+  // ── Peek / restore ──────────────────────────────────────
+  peekBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _wpTQPeeked = !_wpTQPeeked;
+    updateWallPopupTouchUI();
+  });
+
+  // ── More / less toggle ──────────────────────────────────
+  moreBtn.addEventListener('click', () => {
+    _wpTQMoreOpen = !_wpTQMoreOpen;
+    updateWallPopupTouchUI();
+  });
+}
 
 function showWallPopup(wallObj, sx, sy) {
   selectedWall = wallObj;
@@ -1007,12 +1170,54 @@ function showWallPopup(wallObj, sx, sy) {
   );
   document.getElementById('wp-angle').value = Math.round(THREE.MathUtils.radToDeg(wallAngleRad));
 
-  const pw = 260, ph = 420;
-  let x = sx + 15, y = sy - 10;
-  if (x + pw > window.innerWidth)  x = sx - pw - 15;
-  if (y + ph > window.innerHeight) y = window.innerHeight - ph - 10;
-  wallPopup.style.left = x + 'px';
-  wallPopup.style.top  = y + 'px';
+  if (IS_TOUCH && drawModeActive === 'quick') {
+    // ── Compact floating panel for Quick Draw (draggable, semi-transparent) ──
+    wallPopup.style.transform     = '';
+    wallPopup.style.bottom        = '';
+    wallPopup.style.width         = '240px';
+    wallPopup.style.maxHeight     = '90dvh';
+    wallPopup.style.overflowY     = 'auto';
+    wallPopup.style.borderRadius  = '12px';
+    wallPopup.style.paddingBottom = '12px';
+    // Position near tap, clamped so it doesn't go off screen
+    const popW = 240, popH = _wpTQMoreOpen ? 320 : 170;
+    let px = sx - popW / 2;
+    let py = sy - popH - 20;
+    // Prefer below if above would clip
+    if (py < 60) py = sy + 20;
+    _wpTQPopLeft = Math.max(4, Math.min(window.innerWidth  - popW - 4, px));
+    _wpTQPopTop  = Math.max(56, Math.min(window.innerHeight - popH - 8, py));
+    wallPopup.style.left = _wpTQPopLeft + 'px';
+    wallPopup.style.top  = _wpTQPopTop  + 'px';
+    // Update label with wall length
+    const lenMm = Math.round(wallObj.start.distanceTo(wallObj.end) * 1000);
+    document.getElementById('wp-touch-label').textContent = lenMm + ' mm';
+    // Reset peek on new wall selection
+    _wpTQPeeked = false;
+  } else if (IS_TOUCH) {
+    // ── Bottom sheet for Select mode / other touch contexts ──────────────────
+    wallPopup.style.left          = '50%';
+    wallPopup.style.transform     = 'translateX(-50%)';
+    wallPopup.style.top           = '';
+    wallPopup.style.bottom        = '0';
+    wallPopup.style.width         = 'min(440px, 100vw)';
+    wallPopup.style.maxHeight     = '82dvh';
+    wallPopup.style.overflowY     = 'auto';
+    wallPopup.style.borderRadius  = '14px 14px 0 0';
+    wallPopup.style.paddingBottom = 'calc(16px + env(safe-area-inset-bottom, 0px))';
+  } else {
+    // ── Desktop: positioned near click ───────────────────────────────────────
+    const pw = 260, ph = 420;
+    let x = sx + 15, y = sy - 10;
+    if (x + pw > window.innerWidth)  x = sx - pw - 15;
+    if (y + ph > window.innerHeight) y = window.innerHeight - ph - 10;
+    wallPopup.style.left = x + 'px'; wallPopup.style.top = y + 'px';
+    wallPopup.style.transform = ''; wallPopup.style.bottom = '';
+    wallPopup.style.width = '260px'; wallPopup.style.maxHeight = '';
+    wallPopup.style.overflowY = ''; wallPopup.style.borderRadius = '10px';
+    wallPopup.style.paddingBottom = '16px';
+  }
+  updateWallPopupTouchUI();
   wallPopup.style.display = 'block';
   walls.forEach(w => w.mesh.material.color.set(wallBaseColor(w)));
   wallObj.mesh.material.color.set(0xff9500);
@@ -1056,6 +1261,9 @@ function showWallPopup(wallObj, sx, sy) {
 }
 function hideWallPopup() {
   wallPopup.style.display = 'none';
+  wallPopup.classList.remove('wep-tq', 'wep-peeked');
+  wallPopup.style.background = '#2a2a2a';
+  _wpTQPeeked = false;
   clearWallHandles();
   dimLabel.style.display = 'none';
   walls.forEach(w => w.mesh.material.color.set(wallBaseColor(w)));
@@ -1168,6 +1376,7 @@ function carryWallStyle(src, dst) {
 
 // ── Wall Style popup (Task D): right-click a wall → colour + opacity ─────────
 const wallStylePopup = document.createElement('div');
+wallStylePopup.id = 'wall-style-popup';
 wallStylePopup.style.cssText = 'display:none;position:fixed;z-index:210;background:#2a2a2a;border:1px solid #00bcd4;border-radius:10px;padding:14px;width:220px;font-family:Arial;font-size:13px;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
 const WALL_SWATCHES = ['#ddd5c8','#ffffff','#c8d8e8','#d8e8c8','#e8c8c8','#9aa0a6','#444444','#1a1a1a'];
 wallStylePopup.innerHTML = [
@@ -1211,12 +1420,24 @@ function openWallStylePopup(clickedWall, sx, sy) {
   document.getElementById('wsp-op-val').textContent = document.getElementById('wsp-opacity').value + '%';
   document.getElementById('wsp-count').textContent  = styleTargetWalls.length > 1 ? '(' + styleTargetWalls.length + ' walls)' : '';
 
-  const pw = 220, ph = 250;
-  let x = sx + 12, y = sy + 12;
-  if (x + pw > window.innerWidth)  x = window.innerWidth  - pw - 10;
-  if (y + ph > window.innerHeight) y = window.innerHeight - ph - 10;
-  wallStylePopup.style.left = x + 'px';
-  wallStylePopup.style.top  = y + 'px';
+  if (IS_TOUCH) {
+    wallStylePopup.style.left          = '50%';
+    wallStylePopup.style.transform     = 'translateX(-50%)';
+    wallStylePopup.style.top           = '';
+    wallStylePopup.style.bottom        = '0';
+    wallStylePopup.style.width         = 'min(360px, 100vw)';
+    wallStylePopup.style.borderRadius  = '14px 14px 0 0';
+    wallStylePopup.style.paddingBottom = 'calc(14px + env(safe-area-inset-bottom, 0px))';
+  } else {
+    const pw = 220, ph = 250;
+    let x = sx + 12, y = sy + 12;
+    if (x + pw > window.innerWidth)  x = window.innerWidth  - pw - 10;
+    if (y + ph > window.innerHeight) y = window.innerHeight - ph - 10;
+    wallStylePopup.style.left = x + 'px'; wallStylePopup.style.top = y + 'px';
+    wallStylePopup.style.transform = ''; wallStylePopup.style.bottom = '';
+    wallStylePopup.style.width = '220px'; wallStylePopup.style.borderRadius = '10px';
+    wallStylePopup.style.paddingBottom = '14px';
+  }
   wallStylePopup.style.display = 'block';
 }
 
@@ -1366,8 +1587,12 @@ document.getElementById('wp-door').addEventListener('click', () => { if (selecte
 document.getElementById('wp-window').addEventListener('click', () => { if (selectedWall) addOpening(selectedWall, 'window'); hideWallPopup(); });
 document.getElementById('wp-view').addEventListener('click', () => { if (selectedWall) openWallElevation(selectedWall); hideWallPopup(); });
 
+// Initialise touch Quick Draw popup controls (once)
+initWallPopupTouch();
+
 // --- Elevation panel (unchanged from original) ---
 const elevationPanel = document.createElement('div');
+elevationPanel.id = 'elevation-panel';
 elevationPanel.style.cssText = 'display:none;position:fixed;top:0;right:0;width:520px;height:100vh;background:#1e1e1e;border-left:2px solid #ff9500;z-index:600;font-family:Arial;flex-direction:column;overflow:hidden;';
 elevationPanel.innerHTML = [
   '<div style="background:#2a2a2a;padding:14px 16px;border-bottom:1px solid #333;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">',
@@ -1407,8 +1632,30 @@ document.body.appendChild(elevationPanel);
 
 let elevWall = null, elevOpenings = [], selectedOpening = null;
 let elevDragOp = null, elevDragOffsetMm = 0, elevHoveredOp = null;
+// ── Elevation zoom / pan state (touch pinch) ──────────────
+let elevZoom = 1, elevPanX = 0, elevPanY = 0;
+let _elevPinchActive = false, _elevPinchDist0 = 1;
+let _elevPinchZoom0 = 1, _elevPinchPanX0 = 0, _elevPinchPanY0 = 0;
+let _elevPinchCx0 = 0, _elevPinchCy0 = 0, _elevPinchJustEnded = false;
+
 const elevCanvas = document.getElementById('elev-canvas');
 const elevCtx = elevCanvas.getContext('2d');
+
+// ── Zoom-reset button (shows when zoomed) ─────────────────
+{
+  const _zb = document.createElement('button');
+  _zb.id = 'elev-zoom-reset';
+  _zb.title = 'Reset zoom';
+  _zb.style.cssText = 'background:none;border:1px solid #555;color:#aaa;border-radius:5px;' +
+    'padding:3px 9px;font-size:11px;cursor:pointer;display:none;' +
+    'touch-action:manipulation;min-height:36px';
+  _zb.textContent = '1×';
+  _zb.addEventListener('click', () => {
+    elevZoom = 1; elevPanX = 0; elevPanY = 0;
+    if (elevWall) drawElevation();
+  });
+  elevationPanel.querySelector('#elev-wall-info').parentElement.appendChild(_zb);
+}
 
 function getElevDrawInfo() {
   const W = elevCanvas.width, H = elevCanvas.height;
@@ -1537,7 +1784,10 @@ function drawRuler(ctx, info, direction) {
     elevCtx.clearRect(0, 0, W, H);
     elevCtx.fillStyle = '#161616';
     elevCtx.fillRect(0, 0, W, H);
-  
+    // Apply zoom + pan transform for all drawing (inverse-transform in hit tests)
+    elevCtx.save();
+    elevCtx.setTransform(elevZoom, 0, 0, elevZoom, elevPanX, elevPanY);
+
     elevCtx.save();
     elevCtx.strokeStyle = '#252525';
     elevCtx.lineWidth = 1;
@@ -1673,7 +1923,15 @@ function drawRuler(ctx, info, direction) {
     drawDimLine(elevCtx, ox, oy + drawH + 22, ox + drawW, oy + drawH + 22, Math.round(wallLenMm) + 'mm', false);
     drawDimLine(elevCtx, ox - 46, oy, ox - 46, oy + drawH, Math.round(wallHMm) + 'mm', true);
   
+    elevCtx.restore();   // close outer zoom/pan save
     elevCanvas._drawInfo = info;
+    // Update zoom-reset button visibility
+    const _zb = document.getElementById('elev-zoom-reset');
+    if (_zb) {
+      const zoomed = elevZoom !== 1 || elevPanX !== 0 || elevPanY !== 0;
+      _zb.style.display = zoomed ? '' : 'none';
+      _zb.textContent   = elevZoom.toFixed(1) + '×';
+    }
   }
   
   function resizeElevCanvas() {
@@ -1704,14 +1962,17 @@ function drawRuler(ctx, info, direction) {
     document.getElementById('pricing-panel').classList.remove('elevation-open');
     elevationPanel.style.display = 'none';
     elevWall = null; selectedOpening = null; elevDragOp = null; elevHoveredOp = null;
+    elevZoom = 1; elevPanX = 0; elevPanY = 0;
+    _elevPinchActive = false; _elevPinchJustEnded = false;
   }
   
   elevCanvas.addEventListener('mousemove', (e) => {
     const info = elevCanvas._drawInfo;
     if (!info) return;
     const rect = elevCanvas.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
+    // Inverse-transform from element space → draw space (accounts for zoom/pan)
+    const cx = (e.clientX - rect.left - elevPanX) / elevZoom;
+    const cy = (e.clientY - rect.top  - elevPanY) / elevZoom;
     const { ox, scale, wallLenMm } = info;
   
     if (elevDragOp) {
@@ -1735,8 +1996,8 @@ function drawRuler(ctx, info, direction) {
     const info = elevCanvas._drawInfo;
     if (!info) return;
     const rect = elevCanvas.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
+    const cx = (e.clientX - rect.left - elevPanX) / elevZoom;
+    const cy = (e.clientY - rect.top  - elevPanY) / elevZoom;
     const { ox, scale } = info;
   
     const hit = openingHitTest(cx, cy, info);
@@ -1758,12 +2019,12 @@ function drawRuler(ctx, info, direction) {
   });
   
   elevCanvas.addEventListener('click', (e) => {
-    if (elevDragOp) return;
+    if (elevDragOp || _elevPinchJustEnded) return;
     const info = elevCanvas._drawInfo;
     if (!info) return;
     const rect = elevCanvas.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
+    const cx = (e.clientX - rect.left - elevPanX) / elevZoom;
+    const cy = (e.clientY - rect.top  - elevPanY) / elevZoom;
     const hit = openingHitTest(cx, cy, info);
     selectedOpening = hit || null;
     if (selectedOpening) showElevOpeningEditor(selectedOpening);
@@ -1771,33 +2032,64 @@ function drawRuler(ctx, info, direction) {
     drawElevation();
   });
   
-  // ✅ FIX: Touch support for elevation canvas drag
+  // ✅ FIX: Touch support — single-finger drag + two-finger pinch-to-zoom
   elevCanvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2) {
+      // Cancel ongoing drag then start pinch
+      elevDragOp = null;
+      elevCanvas.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      _elevPinchActive = true;
+      const t0 = e.touches[0], t1 = e.touches[1];
+      _elevPinchDist0 = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1;
+      _elevPinchZoom0  = elevZoom;
+      _elevPinchPanX0  = elevPanX; _elevPinchPanY0 = elevPanY;
+      _elevPinchCx0    = (t0.clientX + t1.clientX) / 2;
+      _elevPinchCy0    = (t0.clientY + t1.clientY) / 2;
+    } else if (e.touches.length === 1 && !_elevPinchActive) {
       const t = e.touches[0];
-      const synth = new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY, button: 0, bubbles: true });
-      elevCanvas.dispatchEvent(synth);
+      elevCanvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY, button: 0, bubbles: true }));
     }
   }, { passive: false });
-  
+
   elevCanvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    if (e.touches.length === 1) {
+    if (_elevPinchActive && e.touches.length >= 2) {
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1;
+      const newZoom = Math.max(0.4, Math.min(6, _elevPinchZoom0 * (dist / _elevPinchDist0)));
+      const rect     = elevCanvas.getBoundingClientRect();
+      const anchorCx = _elevPinchCx0 - rect.left;
+      const anchorCy = _elevPinchCy0 - rect.top;
+      // Keep the pinch anchor fixed in draw space while zoom changes
+      const drawAx = (anchorCx - _elevPinchPanX0) / _elevPinchZoom0;
+      const drawAy = (anchorCy - _elevPinchPanY0) / _elevPinchZoom0;
+      elevZoom = newZoom;
+      elevPanX = anchorCx - drawAx * newZoom;
+      elevPanY = anchorCy - drawAy * newZoom;
+      drawElevation();
+      return;
+    }
+    if (!_elevPinchActive && e.touches.length === 1) {
       const t = e.touches[0];
-      const synth = new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY, bubbles: true });
-      elevCanvas.dispatchEvent(synth);
+      elevCanvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY, bubbles: true }));
     }
   }, { passive: false });
-  
+
   elevCanvas.addEventListener('touchend', (e) => {
     e.preventDefault();
-    const synth = new MouseEvent('mouseup', { bubbles: true });
-    elevCanvas.dispatchEvent(synth);
+    if (_elevPinchActive) {
+      if (e.touches.length < 2) {
+        _elevPinchActive    = false;
+        _elevPinchJustEnded = true;
+        setTimeout(() => { _elevPinchJustEnded = false; }, 350);
+      }
+      return;   // suppress synthetic click/mouseup after a pinch gesture
+    }
+    elevCanvas.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     if (e.changedTouches.length === 1) {
       const t = e.changedTouches[0];
-      const synth2 = new MouseEvent('click', { clientX: t.clientX, clientY: t.clientY, bubbles: true });
-      elevCanvas.dispatchEvent(synth2);
+      elevCanvas.dispatchEvent(new MouseEvent('click', { clientX: t.clientX, clientY: t.clientY, bubbles: true }));
     }
   }, { passive: false });
   
@@ -2184,7 +2476,7 @@ lastMouseY = e.clientY;
       if (_len > 1e-4) {
         const _ang    = Math.atan2(Math.abs(_rdz), Math.abs(_rdx)) * 180 / Math.PI; // 0..90
         const _toAxis = Math.min(_ang, 90 - _ang);                                   // 0 = on-axis
-        if (shiftDown || _toAxis <= 5) {
+        if (isShiftModifierActive() || _toAxis <= 5) {
           s = Math.abs(_rdx) >= Math.abs(_rdz)
             ? new THREE.Vector3(s.x, 0, wallStart.z)
             : new THREE.Vector3(wallStart.x, 0, s.z);
@@ -2378,7 +2670,13 @@ lastMouseY = e.clientY;
               while (obj.parent && !placedItems.includes(obj)) obj = obj.parent;
               selectedItem = obj;
               if (IS_TOUCH) {
-                showTouchOverlayAndPanel(obj);
+                if (isShiftModifierActive()) {
+                  // Touch shift held: additive cabinet multi-select (no overlay popup)
+                  selectCabinet(obj, true);
+                  clearWallMultiSelect();
+                } else {
+                  showTouchOverlayAndPanel(obj);
+                }
               } else {
                 const additive = e.ctrlKey || e.metaKey;
                 selectCabinet(obj, additive);     // cyan box; ctrl/cmd toggles multi-select
@@ -2391,8 +2689,8 @@ lastMouseY = e.clientY;
 
             if (wallHits.length > 0) {
               const wHit = wallHits[0].object.userData.wallObj;
-              // Ctrl/Cmd + click → toggle this wall in the multi-selection (no popup).
-              if (e.ctrlKey || e.metaKey) {
+              // Ctrl/Cmd + click (desktop) OR touch + Shift → toggle wall in multi-selection.
+              if (e.ctrlKey || e.metaKey || (IS_TOUCH && isShiftModifierActive())) {
                 hideWallPopup();                        // closes single-select popup (resets colours)
                 toggleWallMultiSelect(wHit);
                 selectedWalls.forEach(w => w.mesh.material.color.set(WALL_MULTI_COLOR)); // re-assert
@@ -6005,6 +6303,238 @@ document.getElementById('hmenu-import-glb').addEventListener('click', () => {
   closeHamburgerMenu();
   glbFileInput.click();
 });
+
+// ── Touch Modifier Dock ──────────────────────────────────────────────────────
+
+/** Returns true when keyboard Shift OR the touch shift button is active. */
+function isShiftModifierActive() {
+  return shiftDown || touchShiftActive;
+}
+
+/** Returns true when the touch cam-lock toggle is active. */
+function isTouchCameraLocked() {
+  return touchCamLock;
+}
+
+/**
+ * Returns true when the camera should be locked for the current touch context.
+ * Quick Draw always locks; Select mode locks only when cam-lock is toggled on.
+ * Free Draw manages its own controls.enabled — not included here.
+ */
+function shouldLockCameraForCurrentTouchMode() {
+  if (!IS_TOUCH) return false;
+  if (drawModeActive === 'quick') return true;
+  if (mode === 'select' && touchCamLock) return true;
+  return false;
+}
+
+function loadTouchModifierPrefs() {
+  const raw = {
+    top:       parseFloat(localStorage.getItem(TM_LS_TOP)),
+    collapsed: localStorage.getItem(TM_LS_COLLAPSED) === '1',
+    camlock:   localStorage.getItem(TM_LS_CAMLOCK)   === '1',
+  };
+  return raw;
+}
+
+function saveTouchModifierPrefs() {
+  const dock = document.getElementById('touch-modifier-dock');
+  const top  = parseFloat(dock.style.top) || 0;
+  localStorage.setItem(TM_LS_TOP,       top);
+  localStorage.setItem(TM_LS_COLLAPSED, touchModifierCollapsed ? '1' : '0');
+  localStorage.setItem(TM_LS_CAMLOCK,   touchCamLock           ? '1' : '0');
+}
+
+function clampTouchModifierDock(top) {
+  const dockH = document.getElementById('touch-modifier-inner').offsetHeight || 180;
+  return Math.max(0, Math.min(window.innerHeight - dockH, top));
+}
+
+/** Wake the dock from idle; restarts the 2-second fade timer. */
+function _resetTmIdleTimer() {
+  const dock    = document.getElementById('touch-modifier-dock');
+  const restore = document.getElementById('touch-modifier-restore');
+  dock.classList.remove('tm-idle');
+  restore.classList.remove('tm-idle');
+  clearTimeout(_tmIdleTimer);
+  _tmIdleTimer = setTimeout(() => {
+    dock.classList.add('tm-idle');
+    restore.classList.add('tm-idle');
+  }, TM_IDLE_MS);
+}
+
+/** Show one-time onboarding hint beside the dock. */
+function showTouchModifierHint(dockTop) {
+  if (localStorage.getItem(TM_LS_HINT_SEEN)) return;
+  const el = document.createElement('div');
+  el.id = 'touch-modifier-hint';
+  el.style.top = (dockTop + 4) + 'px';
+  el.innerHTML =
+    '<div id="touch-modifier-hint-inner">' +
+      '<div class="tmh-line">⇧ <b>Hold Shift</b> for snap &amp; multi-select</div>' +
+      '<div class="tmh-line">🔒 <b>Cam</b> toggles view lock</div>' +
+      '<div class="tmh-dismiss">tap to dismiss</div>' +
+    '</div>';
+  el.addEventListener('pointerdown', dismissTouchModifierHint, { once: true });
+  document.body.appendChild(el);
+  setTimeout(dismissTouchModifierHint, 5000);
+}
+
+function dismissTouchModifierHint() {
+  localStorage.setItem(TM_LS_HINT_SEEN, '1');
+  const el = document.getElementById('touch-modifier-hint');
+  if (el) { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 320); }
+}
+
+function updateTouchModifierUI() {
+  const dock    = document.getElementById('touch-modifier-dock');
+  const restore = document.getElementById('touch-modifier-restore');
+  const shiftBtn  = document.getElementById('btn-touch-shift');
+  const camlockBtn = document.getElementById('btn-touch-camlock');
+
+  if (touchModifierCollapsed) {
+    dock.style.display    = 'none';
+    restore.style.display = 'flex';
+    restore.style.top     = dock.style.top;
+  } else {
+    dock.style.display    = '';
+    restore.style.display = 'none';
+  }
+
+  shiftBtn.classList.toggle('active',    touchShiftActive);
+  shiftBtn.classList.toggle('tm-latched', touchShiftLatched);
+  shiftBtn.title = touchShiftLatched ? 'Shift Latched — tap to release'
+                 : touchShiftActive  ? 'Shift Active — release to cancel'
+                 : 'Shift — hold for snap & multi-select; double-tap to latch';
+  shiftBtn.setAttribute('aria-pressed', touchShiftActive ? 'true' : 'false');
+
+  camlockBtn.classList.toggle('active', touchCamLock);
+  camlockBtn.title = touchCamLock ? 'Camera Locked — tap to unlock' : 'Lock Camera';
+  camlockBtn.setAttribute('aria-pressed', touchCamLock ? 'true' : 'false');
+}
+
+function initTouchModifierDock() {
+  // Only show on touch/coarse-pointer devices
+  if (!IS_TOUCH) {
+    document.getElementById('touch-modifier-dock').style.display    = 'none';
+    document.getElementById('touch-modifier-restore').style.display = 'none';
+    return;
+  }
+
+  const prefs = loadTouchModifierPrefs();
+  touchModifierCollapsed = prefs.collapsed;
+  touchCamLock           = prefs.camlock;
+
+  const dock    = document.getElementById('touch-modifier-dock');
+  const restore = document.getElementById('touch-modifier-restore');
+  const savedTop = isNaN(prefs.top) ? window.innerHeight * 0.35 : prefs.top;
+  dock.style.top = clampTouchModifierDock(savedTop) + 'px';
+
+  updateTouchModifierUI();
+  _resetTmIdleTimer();
+
+  // ── One-time onboarding hint ───────────────────────────
+  showTouchModifierHint(parseFloat(dock.style.top));
+
+  // ── Shift button: press-and-hold + double-tap latch ────
+  const shiftBtn = document.getElementById('btn-touch-shift');
+  shiftBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    _resetTmIdleTimer();
+    const now = Date.now();
+    if (touchShiftLatched) {
+      // Already latched: single tap unlatches and releases
+      touchShiftLatched = false;
+      touchShiftActive  = false;
+    } else if (now - _tmLastShiftDown < 400) {
+      // Double-tap within 400 ms: latch on (sticky until next tap)
+      touchShiftLatched = true;
+      touchShiftActive  = true;
+    } else {
+      // Normal press-and-hold
+      touchShiftActive = true;
+    }
+    _tmLastShiftDown = now;
+    updateTouchModifierUI();
+  });
+  const _releaseShift = () => {
+    if (touchShiftLatched) return;   // stay active when latched
+    if (!touchShiftActive) return;
+    touchShiftActive = false;
+    updateTouchModifierUI();
+  };
+  shiftBtn.addEventListener('pointerup',     _releaseShift);
+  shiftBtn.addEventListener('pointercancel', _releaseShift);
+  shiftBtn.addEventListener('pointerleave',  _releaseShift);
+
+  // ── Cam Lock toggle ────────────────────────────────────
+  document.getElementById('btn-touch-camlock').addEventListener('click', () => {
+    if (_tmDragMovedPx > 8) return;   // ignore if drag just ended here
+    _resetTmIdleTimer();
+    touchCamLock = !touchCamLock;
+    updateTouchModifierUI();
+    saveTouchModifierPrefs();
+    // Apply to OrbitControls when in select mode.
+    // Quick Draw manages its own controls.enabled lock independently.
+    if (mode === 'select') controls.enabled = !touchCamLock;
+  });
+
+  // ── Collapse ───────────────────────────────────────────
+  document.getElementById('btn-touch-mod-hide').addEventListener('click', () => {
+    if (_tmDragMovedPx > 8) return;   // ignore if drag just ended here
+    _resetTmIdleTimer();
+    touchModifierCollapsed = true;
+    updateTouchModifierUI();
+    saveTouchModifierPrefs();
+  });
+
+  // ── Restore tab ────────────────────────────────────────
+  restore.addEventListener('click', () => {
+    _resetTmIdleTimer();
+    touchModifierCollapsed = false;
+    updateTouchModifierUI();
+    saveTouchModifierPrefs();
+  });
+
+  // ── Vertical drag by handle ────────────────────────────
+  const handle = document.getElementById('touch-modifier-handle');
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    _tmDragMovedPx  = 0;
+    _tmDragActive   = true;
+    _tmDragStartY   = e.clientY;
+    _tmDragStartTop = parseFloat(dock.style.top) || 0;
+    handle.setPointerCapture(e.pointerId);
+    _resetTmIdleTimer();
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!_tmDragActive) return;
+    const dy = e.clientY - _tmDragStartY;
+    _tmDragMovedPx = Math.abs(dy);
+    dock.style.top = clampTouchModifierDock(_tmDragStartTop + dy) + 'px';
+  });
+  const _endDrag = () => {
+    if (!_tmDragActive) return;
+    _tmDragActive = false;
+    saveTouchModifierPrefs();
+    _resetTmIdleTimer();
+    // Brief window so button-click guard above sees the movement distance.
+    setTimeout(() => { _tmDragMovedPx = 0; }, 150);
+  };
+  handle.addEventListener('pointerup',     _endDrag);
+  handle.addEventListener('pointercancel', _endDrag);
+
+  // ── Re-clamp on resize / orientation change ────────────
+  const _tmReClamp = () => {
+    const cur = parseFloat(dock.style.top) || 0;
+    dock.style.top = clampTouchModifierDock(cur) + 'px';
+    updateTouchModifierUI();   // re-syncs restore tab top
+  };
+  window.addEventListener('resize',            _tmReClamp);
+  window.addEventListener('orientationchange', _tmReClamp);
+}
+
+initTouchModifierDock();
 
 // ── Theme switcher ──────────────────────────────────────────────────────────
 const THEMES = [
