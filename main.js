@@ -880,6 +880,9 @@ wallPopup.innerHTML = [
   '<button id="wp-bt" style="background:none;border:1px solid #555;border-radius:6px;padding:7px 9px;cursor:pointer;font-size:15px" title="Bluetooth">BT</button>',
   '<button id="wp-confirm" style="background:#ff9500;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:bold">OK</button>',
   '</div>',
+  '<div id="wp-fd-anchor-row" style="display:none;margin:-6px 0 12px">',
+  '<button id="wp-fd-anchor" title="Switch which end stays locked when resizing" style="width:100%;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:7px 8px;cursor:pointer;font-size:12px">⇄ Anchor: start</button>',
+  '</div>',
   '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Wall Thickness (mm)</label>',
   '<div style="display:flex;gap:6px;margin:4px 0 12px;align-items:center">',
   '<input id="wp-thickness" type="number" step="10" min="50" max="500" style="flex:1;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:8px 10px;font-size:14px;box-sizing:border-box"/>',
@@ -942,6 +945,16 @@ function showWallPopup(wallObj, sx, sy) {
   setTimeout(() => document.getElementById('wp-length').select(), 50);
   showWallHandles(wallObj);
 
+  // Free Draw only: reveal the anchor toggle and colour handles (green=locked, white=moving).
+  const anchorRow = document.getElementById('wp-fd-anchor-row');
+  if (mode === 'draw-free' && fdSel === wallObj) {
+    anchorRow.style.display = 'block';
+    document.getElementById('wp-fd-anchor').textContent = '⇄ Anchor: ' + fdAnchor;
+    fdHandleColors();
+  } else {
+    anchorRow.style.display = 'none';
+  }
+
   // Show dimension label on screen
   const wallMid = new THREE.Vector3(
     (wallObj.start.x + wallObj.end.x) / 2,
@@ -976,6 +989,18 @@ document.getElementById('wp-confirm').addEventListener('click', () => {
   const newThick = parseInt(document.getElementById('wp-thickness').value);
   settings.ceilingHeight = parseInt(document.getElementById('wp-height').value);
   settings.wallThickness = parseInt(document.getElementById('wp-type').value) || newThick;
+  // Free Draw: resize keeping the chosen anchor end fixed (angle preserved).
+  if (mode === 'draw-free' && fdSel === selectedWall && newLenM > 0) {
+    const anchor = (fdAnchor === 'start' ? fdSel.start : fdSel.end).clone();
+    const moving = (fdAnchor === 'start' ? fdSel.end   : fdSel.start).clone();
+    const dir    = new THREE.Vector3().subVectors(moving, anchor).normalize();
+    const newMov = anchor.clone().addScaledVector(dir, newLenM);
+    const ns = fdAnchor === 'start' ? anchor : newMov;
+    const ne = fdAnchor === 'start' ? newMov : anchor;
+    fdSel = fdReplaceWall(fdSel, ns, ne);
+    hideWallPopup();
+    return;
+  }
   resizeLockedWall(selectedWall, newLenM);
   hideWallPopup();
 });
@@ -993,6 +1018,12 @@ document.getElementById('wp-delete').addEventListener('click', () => {
   updateRoomArea();
 });
 document.getElementById('wp-close').addEventListener('click', hideWallPopup);
+document.getElementById('wp-fd-anchor').addEventListener('click', () => {
+  if (!fdSel) return;
+  fdAnchor = fdAnchor === 'start' ? 'end' : 'start';
+  document.getElementById('wp-fd-anchor').textContent = '⇄ Anchor: ' + fdAnchor;
+  fdHandleColors();
+});
 document.getElementById('wp-angle-apply').addEventListener('click', () => {
   if (!selectedWall) return;
   const deg = parseFloat(document.getElementById('wp-angle').value);
@@ -3975,6 +4006,8 @@ canvas.addEventListener('mousedown', (e) => {
   if (hHits.length) {
     fdAnchor = hHits[0].object.userData.handleIndex === 0 ? 'start' : 'end';
     fdHandleColors();
+    const anchorBtn = document.getElementById('wp-fd-anchor');
+    if (anchorBtn) anchorBtn.textContent = '⇄ Anchor: ' + fdAnchor;
     fdSuppressClick = true;
     return;
   }
