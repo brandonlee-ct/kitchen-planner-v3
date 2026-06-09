@@ -3540,6 +3540,7 @@ document.getElementById('dmm-twopoint').addEventListener('click', () => {
 // (no orbit/pan while drawing). Quick Draw is intentionally left untouched.
 // Wall selection / resize / slide editing is added in later steps.
 let freeStart = null, freeFirst = null;
+let fdEndpointGuides = [];
 
 // Shared "align to the chain's starting corner" helper (used by Quick Draw + Free Draw).
 // When the cursor lines up with the start corner's X or Z axis, snap onto it.
@@ -3596,6 +3597,61 @@ function fdShowStartAxisGuides(startPt, currentPt) {
   }
 }
 
+// ── Free Draw endpoint guides ──────────────────────────────────────────────────
+// Shown when no chain is active: green lines through wall-endpoint axes so the
+// user can visually continue a square room after re-entering draw mode.
+function clearFdEndpointGuides() {
+  fdEndpointGuides.forEach(g => scene.remove(g));
+  fdEndpointGuides = [];
+}
+
+function fdShowEndpointGuides(curPt) {
+  clearFdEndpointGuides();
+  if (!curPt || walls.length === 0) return;
+  const th = mm(150), guideLen = 20;
+  const mat = () => new THREE.LineBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.55 });
+  // Keep at most one guide per axis (nearest matching endpoint) to avoid clutter.
+  let bestX = null, bestXDist = Infinity;
+  let bestZ = null, bestZDist = Infinity;
+  walls.forEach(w => {
+    [w.start, w.end].forEach(ep => {
+      const dx = Math.abs(curPt.x - ep.x);
+      const dz = Math.abs(curPt.z - ep.z);
+      if (dx < th && dx < bestXDist) { bestXDist = dx; bestX = ep; }
+      if (dz < th && dz < bestZDist) { bestZDist = dz; bestZ = ep; }
+    });
+  });
+  if (bestZ) {
+    const g = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-guideLen, 0.03, bestZ.z),
+      new THREE.Vector3( guideLen, 0.03, bestZ.z),
+    ]), mat());
+    scene.add(g); fdEndpointGuides.push(g);
+  }
+  if (bestX) {
+    const g = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(bestX.x, 0.03, -guideLen),
+      new THREE.Vector3(bestX.x, 0.03,  guideLen),
+    ]), mat());
+    scene.add(g); fdEndpointGuides.push(g);
+  }
+}
+
+// Returns true when the preview line from→to is within 5° of any existing wall.
+function fdIsParallelToAnyWall(from, to) {
+  const dx = to.x - from.x, dz = to.z - from.z;
+  const len = Math.hypot(dx, dz);
+  if (len < 1e-4) return false;
+  for (const w of walls) {
+    const wdx = w.end.x - w.start.x, wdz = w.end.z - w.start.z;
+    const wlen = Math.hypot(wdx, wdz);
+    if (wlen < 1e-4) continue;
+    const dot = (dx / len) * (wdx / wlen) + (dz / len) * (wdz / wlen);
+    if (Math.acos(Math.max(-1, Math.min(1, Math.abs(dot)))) * 180 / Math.PI < 5) return true;
+  }
+  return false;
+}
+
 function startFreeDraw() {
   if (['draw-preset','draw-freehand','draw-twopoint'].includes(mode)) abortPreviewWalls();
   hideWallPopup();
@@ -3618,6 +3674,7 @@ function cancelFreeDraw() {
   canvas.style.cursor = 'default';
   if (previewLine) { scene.remove(previewLine); previewLine = null; }
   clearAxisGuides();
+  clearFdEndpointGuides();
   closeHint.style.display = 'none';
   dimLabel.style.display  = 'none';
   if (is3D) controls.enabled = true;        // restore camera on exit
@@ -3650,9 +3707,17 @@ document.getElementById('btn-free-draw')?.addEventListener('click', () => {
 
 // Free Draw — live preview
 canvas.addEventListener('mousemove', (e) => {
-  if (mode !== 'draw-free' || !freeStart) return;
+  if (mode !== 'draw-free') return;
   const pt = getFloorPos(e); if (!pt) return;
   let s = snapToCorner(snapToGrid(pt));
+
+  // No chain started yet: show green endpoint-alignment guides from existing walls.
+  if (!freeStart) {
+    fdShowEndpointGuides(s);
+    return;
+  }
+  clearFdEndpointGuides();
+
   const { point, snapMode } = freeDrawSnap(s);
   s = point;
 
@@ -3669,20 +3734,25 @@ canvas.addEventListener('mousemove', (e) => {
     closeHint.style.display = 'none';
   }
 
+  // Preview colour: blue = parallel to an existing wall, green = 90°-snapped, orange = free
+  const parallelToWall = fdIsParallelToAnyWall(freeStart, s);
+  const previewColor   = parallelToWall ? 0x4488ff : (snapMode === '90deg' ? 0x00ff88 : 0xff9500);
+  const labelColor     = parallelToWall ? '#4488ff' : (snapMode === '90deg' ? '#00aa55' : '#ff9500');
+
   if (previewLine) scene.remove(previewLine);
   previewLine = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(freeStart.x, 0.02, freeStart.z),
       new THREE.Vector3(s.x, 0.02, s.z),
     ]),
-    new THREE.LineBasicMaterial({ color: snapMode === '90deg' ? 0x00ff88 : 0xff9500 })
+    new THREE.LineBasicMaterial({ color: previewColor })
   );
   scene.add(previewLine);
 
   dimLabel.textContent   = Math.round(freeStart.distanceTo(s) * 1000) + ' mm';
   dimLabel.style.left    = (e.clientX + 15) + 'px';
   dimLabel.style.top     = (e.clientY - 10) + 'px';
-  dimLabel.style.color   = snapMode === '90deg' ? '#00aa55' : '#ff9500';
+  dimLabel.style.color   = labelColor;
   dimLabel.style.display = 'block';
 });
 
