@@ -6031,6 +6031,17 @@ function applyTheme(idx) {
   document.body.classList.remove('theme-gaming', 'theme-light');
   if (t.id !== 'dark') document.body.classList.add('theme-' + t.id);
   scene.background = new THREE.Color(t.sceneBg);
+
+  // Light theme: hide grid, show solid floor plane; all others: show grid, hide plane
+  if (t.id === 'light') {
+    minorGrid.visible = false;
+    floor.material.visible = true;
+    floor.material.color.set(0xd8d8d8);
+  } else {
+    minorGrid.visible = true;
+    floor.material.visible = false;
+  }
+
   const btn = document.getElementById('btn-theme');
   btn.textContent = t.icon;
   btn.title = 'Theme: ' + t.label + ' — click to cycle';
