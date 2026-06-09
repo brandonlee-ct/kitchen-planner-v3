@@ -5368,6 +5368,33 @@ function douglasPeucker(pts, epsilon) {
 
 // ── Commit glide to actual walls ──────────────────────────────────
 
+// Remove redundant mid-points that are collinear with their neighbours (within ~3°).
+// Iterates until stable so that newly-adjacent points are also checked.
+function mergeCollinearPts(pts) {
+  if (pts.length < 3) return pts;
+  const ANGLE_THRESH = THREE.MathUtils.degToRad(3);
+  let result = pts.slice();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const next = [result[0]];
+    for (let i = 1; i < result.length - 1; i++) {
+      const A = result[i - 1], B = result[i], C = result[i + 1];
+      const ab = new THREE.Vector3().subVectors(B, A).normalize();
+      const bc = new THREE.Vector3().subVectors(C, B).normalize();
+      const angle = Math.acos(Math.min(1, Math.max(-1, ab.dot(bc))));
+      if (angle < ANGLE_THRESH) {
+        changed = true; // skip B — collinear
+      } else {
+        next.push(B);
+      }
+    }
+    next.push(result[result.length - 1]);
+    result = next;
+  }
+  return result;
+}
+
 function commitGlideDraw() {
   clearGlidePreview();
 
@@ -5381,8 +5408,9 @@ function commitGlideDraw() {
   const ortho       = orthogonalisePoints(simplified);
   const welded      = weldCorners(ortho);
   const reortho     = orthogonalisePoints(welded);
-  const isRect      = isRoughlyRectangular(reortho);
-  const clean       = isRect ? makeCleanRect(reortho) : reortho;
+  const merged      = mergeCollinearPts(reortho);  // drop redundant collinear mid-points
+  const isRect      = isRoughlyRectangular(merged);
+  const clean       = isRect ? makeCleanRect(merged) : merged;
   const first = clean[0];
   let last  = clean[clean.length - 1];
 
