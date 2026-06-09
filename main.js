@@ -337,6 +337,8 @@ let wallStart = null, firstPoint = null, previewLine = null;
 let firstWallLocked = false;
 
 let dragTarget = null, dragStartPos = null, selectedWall = null, selectedItem = null;
+let selectedWalls = [];                 // Task C: Ctrl/Cmd + left-click multi-selection (Select mode)
+const WALL_MULTI_COLOR = 0x00bcd4;      // cyan highlight for multi-selected walls
 let shiftDown = false;
 let snapGuideH = null, snapGuideV = null;
 let axisGuideX = null, axisGuideZ = null;
@@ -361,6 +363,32 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') cancelWallDraw();
   if (e.key === 'Delete' || e.key === 'Backspace') {
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+
+    // Multi-selection delete (Ctrl/Cmd-selected walls and/or cabinets) takes priority.
+    // Each item still pushes its own undo entry, so undo/redo keeps working per item.
+    if (selectedWalls.length || selectedCabinets.length) {
+      selectedWalls.slice().forEach(w => {
+        if (!walls.includes(w)) return;
+        pushHistory({ type: 'delete-wall', data: { wallObj: w } });
+        scene.remove(w.mesh);
+        if (w.capMeshes) w.capMeshes.forEach(c => scene.remove(c));
+        if (w.label2D) wall2DLabelGroup.remove(w.label2D);
+        walls = walls.filter(x => x !== w);
+      });
+      selectedWalls = [];
+      selectedCabinets.slice().forEach(m => {
+        pushHistory({ type: 'delete-item', data: { mesh: m } });
+        deselectCabinet(m);                       // dispose cyan box + drop from selection
+        scene.remove(m);
+        placedItems = placedItems.filter(x => x !== m);
+      });
+      if (selectedWall && !walls.includes(selectedWall)) { selectedWall = null; hideWallPopup(); }
+      selectedItem = null;
+      rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays();
+      updateRoomArea(); updateQuote();
+      return;
+    }
+
     if (selectedWall) {
       pushHistory({ type: 'delete-wall', data: { wallObj: selectedWall } });
       scene.remove(selectedWall.mesh);
@@ -371,6 +399,7 @@ window.addEventListener('keydown', (e) => {
       updateRoomArea();
     } else if (selectedItem) {
       pushHistory({ type: 'delete-item', data: { mesh: selectedItem } });
+      deselectCabinet(selectedItem);
       scene.remove(selectedItem);
       placedItems = placedItems.filter(x => x !== selectedItem);
       selectedItem = null;
@@ -981,6 +1010,74 @@ function hideWallPopup() {
   selectedWall = null; hoveredWall = null;
   // In Free Draw mode the popup serves as the fd selection popup — clear that state too.
   if (mode === 'draw-free') { fdSel = null; fdDragging = false; fdLastNs = fdLastNe = null; }
+}
+
+// ── Task C: multi-select walls (Ctrl/Cmd + left-click, Select mode) ──────────
+function toggleWallMultiSelect(w) {
+  if (selectedWalls.includes(w)) {
+    selectedWalls = selectedWalls.filter(x => x !== w);
+    w.mesh.material.color.set(0xddd5c8);
+  } else {
+    selectedWalls.push(w);
+    w.mesh.material.color.set(WALL_MULTI_COLOR);
+  }
+}
+function clearWallMultiSelect() {
+  if (!selectedWalls.length) return;
+  const prev = selectedWalls;
+  selectedWalls = [];
+  prev.forEach(w => { if (walls.includes(w)) w.mesh.material.color.set(0xddd5c8); });
+}
+
+// ── Cabinet selection: cyan wireframe box + multi-select (Select mode) ───────
+let selectedCabinets = [];                 // multi-selected cabinet roots (placedItems)
+const cabinetBoxHelpers = new Map();       // model -> THREE.BoxHelper
+
+function addCabinetBox(model) {
+  if (cabinetBoxHelpers.has(model)) return;
+  const helper = new THREE.BoxHelper(model, WALL_MULTI_COLOR);
+  if (helper.material) { helper.material.depthTest = false; helper.material.transparent = true; }
+  helper.renderOrder = 999;
+  scene.add(helper);
+  cabinetBoxHelpers.set(model, helper);
+}
+function removeCabinetBox(model) {
+  const helper = cabinetBoxHelpers.get(model);
+  if (!helper) return;
+  scene.remove(helper);
+  if (helper.geometry) helper.geometry.dispose();
+  if (helper.material) helper.material.dispose();
+  cabinetBoxHelpers.delete(model);
+}
+function clearCabinetSelection() {
+  if (!selectedCabinets.length) return;
+  selectedCabinets.slice().forEach(removeCabinetBox);
+  selectedCabinets = [];
+}
+function selectCabinet(model, additive) {
+  if (additive) {
+    if (selectedCabinets.includes(model)) {
+      selectedCabinets = selectedCabinets.filter(m => m !== model);
+      removeCabinetBox(model);
+    } else {
+      selectedCabinets.push(model);
+      addCabinetBox(model);
+    }
+    return;
+  }
+  if (selectedCabinets.length === 1 && selectedCabinets[0] === model) return;  // already the sole selection
+  clearCabinetSelection();
+  selectedCabinets.push(model);
+  addCabinetBox(model);
+}
+// Drop a deleted cabinet from the selection + dispose its box.
+function deselectCabinet(model) {
+  if (cabinetBoxHelpers.has(model)) removeCabinetBox(model);
+  selectedCabinets = selectedCabinets.filter(m => m !== model);
+}
+function updateCabinetBoxes() {
+  if (!selectedCabinets.length) return;
+  selectedCabinets.forEach(m => { const h = cabinetBoxHelpers.get(m); if (h) h.update(); });
 }
 
 document.getElementById('wp-confirm').addEventListener('click', () => {
@@ -1692,10 +1789,14 @@ canvas.addEventListener('mousedown', (e) => {
     let hit = itemHits[0].object;
     while (hit.parent && !placedItems.includes(hit)) hit = hit.parent;
 
+    // Ctrl/Cmd: multi-select toggle is handled on click — don't start a drag.
+    if (e.ctrlKey || e.metaKey) return;
+
     dragTarget   = hit;
     dragStartPos = dragTarget.position.clone();
     selectedItem = dragTarget;
     controls.enabled = false;
+    selectCabinet(hit, false);          // show the cyan selection box immediately
 
     const floorHit = getFloorPosFromRay(e);
     if (floorHit) {
@@ -1723,13 +1824,16 @@ lastMouseY = e.clientY;
     if (hits.length > 0) {
       const hit = hits[0].object.userData.wallObj;
       if (hoveredWall !== hit) {
-        if (hoveredWall && hoveredWall !== selectedWall) hoveredWall.mesh.material.color.set(0xddd5c8);
+        if (hoveredWall && hoveredWall !== selectedWall)
+          hoveredWall.mesh.material.color.set(selectedWalls.includes(hoveredWall) ? WALL_MULTI_COLOR : 0xddd5c8);
         hoveredWall = hit;
-        if (hoveredWall !== selectedWall) hoveredWall.mesh.material.color.set(0xf0e0c0);
+        if (hoveredWall !== selectedWall && !selectedWalls.includes(hoveredWall))
+          hoveredWall.mesh.material.color.set(0xf0e0c0);
       }
       canvas.style.cursor = 'pointer';
     } else {
-      if (hoveredWall && hoveredWall !== selectedWall) hoveredWall.mesh.material.color.set(0xddd5c8);
+      if (hoveredWall && hoveredWall !== selectedWall)
+        hoveredWall.mesh.material.color.set(selectedWalls.includes(hoveredWall) ? WALL_MULTI_COLOR : 0xddd5c8);
       hoveredWall = null;
       canvas.style.cursor = 'default';
     }
@@ -1924,34 +2028,57 @@ lastMouseY = e.clientY;
               }
             }
             const wallHits = raycaster.intersectObjects(walls.map(w => w.mesh))
-            .filter(h => walls.includes(h.object.userData.wallObj));        
-            if (wallHits.length > 0) {
-              showWallPopup(wallHits[0].object.userData.wallObj, e.clientX, e.clientY);
-              return;
-            }
-          
-            // Desktop cabinet selection
+            .filter(h => walls.includes(h.object.userData.wallObj));
+
+            // Cabinet hit-test (raycast the meshes inside each placed item).
             const targets = [];
             placedItems.forEach(item => {
               if (item.userData?.type === 'door' || item.userData?.type === 'window') return;
               item.traverse(child => { if (child.isMesh) targets.push(child); });
             });
             const itemHits = raycaster.intersectObjects(targets, false);
-            if (itemHits.length > 0) {
+
+            // Whichever is physically closer to the camera wins (cabinets sit in
+            // front of the walls they're against, so they must be able to beat a wall).
+            const wallDist = wallHits.length ? wallHits[0].distance : Infinity;
+            const itemDist = itemHits.length ? itemHits[0].distance : Infinity;
+
+            if (itemHits.length > 0 && itemDist <= wallDist) {
               let obj = itemHits[0].object;
               while (obj.parent && !placedItems.includes(obj)) obj = obj.parent;
               selectedItem = obj;
               if (IS_TOUCH) {
                 showTouchOverlayAndPanel(obj);
               } else {
-                showDesktopItemPanel(obj);
+                const additive = e.ctrlKey || e.metaKey;
+                selectCabinet(obj, additive);     // cyan box; ctrl/cmd toggles multi-select
+                clearWallMultiSelect();
+                if (additive) hideDesktopItemPanel();
+                else showDesktopItemPanel(obj);
               }
               return;
             }
-          
+
+            if (wallHits.length > 0) {
+              const wHit = wallHits[0].object.userData.wallObj;
+              // Ctrl/Cmd + click → toggle this wall in the multi-selection (no popup).
+              if (e.ctrlKey || e.metaKey) {
+                hideWallPopup();                        // closes single-select popup (resets colours)
+                toggleWallMultiSelect(wHit);
+                selectedWalls.forEach(w => w.mesh.material.color.set(WALL_MULTI_COLOR)); // re-assert
+                return;
+              }
+              clearWallMultiSelect();                 // plain click → fresh single selection
+              clearCabinetSelection();
+              showWallPopup(wHit, e.clientX, e.clientY);
+              return;
+            }
+
             hideWallPopup();
             hideDesktopItemPanel();
             selectedItem = null;
+            clearWallMultiSelect();
+            clearCabinetSelection();
           }
         });
 
@@ -2528,6 +2655,7 @@ loadShopifyProducts();
       function animate() {
         requestAnimationFrame(animate);
         controls.update();
+        updateCabinetBoxes();
         renderer.render(scene, activeCamera);
       }
       // ── GLB Import — button + drag-and-drop ──────────────────────────────────────
@@ -5261,6 +5389,7 @@ document.getElementById('dip-ruler').addEventListener('click', () => {
 document.getElementById('dip-delete').addEventListener('click', () => {
   if (!desktopSelectedModel) return;
   pushHistory({ type: 'delete-item', data: { mesh: desktopSelectedModel } });
+  deselectCabinet(desktopSelectedModel);
   scene.remove(desktopSelectedModel);
   placedItems = placedItems.filter(x => x !== desktopSelectedModel);
   updateQuote();
