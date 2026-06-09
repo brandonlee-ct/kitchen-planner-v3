@@ -355,6 +355,8 @@ let firstWallLocked = false;
 let dragTarget = null, dragStartPos = null, selectedWall = null, selectedItem = null;
 let selectedWalls = [];                 // Task C: Ctrl/Cmd + left-click multi-selection (Select mode)
 const WALL_MULTI_COLOR = 0x00bcd4;      // cyan highlight for multi-selected walls
+let wallXray = false;                   // Task E: global see-through-walls toggle (view only)
+const XRAY_OPACITY = 0.22;              // forced opacity while X-ray is on
 let shiftDown = false;
 let snapGuideH = null, snapGuideV = null;
 let axisGuideX = null, axisGuideZ = null;
@@ -651,7 +653,7 @@ function rebuildAllCaps() {
     if (wallList.length < 2) return;
     const [x, z] = key.split(',').map(Number);
     const owner = wallList[0];
-    const ownerOp = (owner.opacity != null) ? owner.opacity : 1;
+    const ownerOp = wallXray ? XRAY_OPACITY : ((owner.opacity != null) ? owner.opacity : 1);
     const cap = new THREE.Mesh(
       new THREE.BoxGeometry(t, h, t),
       new THREE.MeshStandardMaterial({ color: wallBaseColor(owner), transparent: ownerOp < 1, opacity: ownerOp })
@@ -879,6 +881,7 @@ function buildWall(start, end, skipHistory = false) {
   walls.push(wallObj);
   make2DLabel(wallObj);
   rebuildAllCaps();
+  applyWallVisual(wallObj);   // respect X-ray / stored opacity on the new wall + caps
   // ✅ FIX: rebuild 2D overlay whenever a wall is added, not just on view toggle
   rebuild2DWallOverlays();
   update2DLabelVisibility();
@@ -1105,9 +1108,11 @@ function wallBaseColor(w) {
   return (w && w.baseColor != null) ? w.baseColor : 0xddd5c8;
 }
 // Apply a wall's stored base colour + opacity to its live material (+ owned caps).
+// While X-ray is on, opacity is forced low (view only — stored opacity is untouched).
 function applyWallVisual(w) {
   if (!w || !w.mesh || !w.mesh.material) return;
-  const op = (w.opacity != null) ? w.opacity : 1;
+  const stored = (w.opacity != null) ? w.opacity : 1;
+  const op = wallXray ? XRAY_OPACITY : stored;
   w.mesh.material.color.set(wallBaseColor(w));
   w.mesh.material.transparent = op < 1;
   w.mesh.material.opacity = op;
@@ -1214,6 +1219,27 @@ document.getElementById('wsp-color').addEventListener('input', applyWallStyleLiv
 document.getElementById('wsp-opacity').addEventListener('input', applyWallStyleLive);
 document.getElementById('wsp-done').addEventListener('click', closeWallStylePopup);
 document.getElementById('wsp-close').addEventListener('click', closeWallStylePopup);
+
+// ── Task E: global X-ray (see-through walls) toggle — view only, not persisted ─
+function setWallXray(on) {
+  wallXray = !!on;
+  walls.forEach(w => {
+    if (!w.mesh || !w.mesh.material) return;
+    const op = wallXray ? XRAY_OPACITY : ((w.opacity != null) ? w.opacity : 1);
+    w.mesh.material.transparent = op < 1;
+    w.mesh.material.opacity = op;
+    w.mesh.material.needsUpdate = true;
+    if (w.capMeshes) w.capMeshes.forEach(c => {
+      if (!c.material) return;
+      c.material.transparent = op < 1;
+      c.material.opacity = op;
+      c.material.needsUpdate = true;
+    });
+  });
+  const btn = document.getElementById('btn-wall-xray');
+  if (btn) btn.classList.toggle('active', wallXray);
+}
+document.getElementById('btn-wall-xray')?.addEventListener('click', () => setWallXray(!wallXray));
 
 document.getElementById('wp-confirm').addEventListener('click', () => {
   if (!selectedWall) return;
