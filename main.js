@@ -1644,7 +1644,10 @@ elevationPanel.innerHTML = [
 document.body.appendChild(elevationPanel);
 
 let elevWall = null, elevOpenings = [], elevCabinets = [], selectedOpening = null;
-let elevDragOp = null, elevDragOffsetMm = 0, elevHoveredOp = null;
+// ── Unified elevation selection (opening OR cabinet) ──────────────
+let elevSelectedKind = null;   // 'opening' | 'cabinet' | null
+let elevSelectedItem = null;   // the selected op or cabinet object
+let elevDragOp = null, elevDragOffsetMm = 0, elevHoveredOp = null, elevHoveredCab = null;
 // ── Elevation zoom / pan state (touch pinch) ──────────────
 let elevZoom = 1, elevPanX = 0, elevPanY = 0;
 let _elevPinchActive = false, _elevPinchDist0 = 1;
@@ -1738,6 +1741,19 @@ function openingHitTest(cx, cy, info) {
   return null;
 }
 
+function cabinetHitTest(cx, cy, info) {
+  const { ox, oy, drawH, scale } = info;
+  for (let i = elevCabinets.length - 1; i >= 0; i--) {
+    const cab = elevCabinets[i];
+    const rx = ox + cab.distFromLeft * scale;
+    const rw = cab.width  * scale;
+    const rh = cab.height * scale;
+    const ry = oy + drawH - cab.floorDist * scale - rh;
+    if (cx >= rx - 4 && cx <= rx + rw + 4 && cy >= ry - 4 && cy <= ry + rh + 4) return cab;
+  }
+  return null;
+}
+
 function rulerStepMm(totalMm, scale) {
   const candidates = [50, 100, 200, 250, 500, 1000, 2000];
   for (const c of candidates) {
@@ -1793,6 +1809,117 @@ function drawDimLine(ctx, x1, y1, x2, y2, label, vertical = false) {
   ctx.fillStyle = '#bbb';
   ctx.fillText(label, mx, my);
   ctx.restore();
+}
+
+// ── Green selection dims (D1–D5) — clickable label regions stored for editing ──
+let elevGreenDimRegions = [];   // [{ dimKey, mx, my, w, h }] in draw space
+
+// ── Orange wall-length dim — editable, with a lockable end ────────────────
+let elevWallLock = 'start';       // 'start' (left end fixed) | 'end' (right end fixed)
+let elevOrangeDimRegions = [];    // [{ kind, mx, my, w, h }] in draw space
+
+function drawOrangeWallDim(ctx, info) {
+  const { ox, oy, drawW, drawH, wallLenMm } = info;
+  const y  = oy + drawH + 22;
+  const ar = 5;
+  ctx.save();
+  ctx.strokeStyle = '#ff9500';
+  ctx.lineWidth = 1.5;
+  ctx.font = 'bold 10px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.beginPath();
+  ctx.moveTo(ox, y - 5);          ctx.lineTo(ox, y + 5);
+  ctx.moveTo(ox + drawW, y - 5);  ctx.lineTo(ox + drawW, y + 5);
+  ctx.moveTo(ox + ar, y);         ctx.lineTo(ox + drawW - ar, y);
+  ctx.stroke();
+  // Arrowheads
+  ctx.fillStyle = '#ff9500';
+  ctx.beginPath();
+  ctx.moveTo(ox, y); ctx.lineTo(ox + ar, y + ar * 0.38); ctx.lineTo(ox + ar, y - ar * 0.38);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(ox + drawW, y); ctx.lineTo(ox + drawW - ar, y + ar * 0.38); ctx.lineTo(ox + drawW - ar, y - ar * 0.38);
+  ctx.closePath(); ctx.fill();
+  // Label (click target → edit wall length)
+  const label = Math.round(wallLenMm) + 'mm';
+  const mx = ox + drawW / 2;
+  const tw = ctx.measureText(label).width + 10;
+  ctx.fillStyle = '#2a1c08';
+  ctx.fillRect(mx - tw / 2, y - 8, tw, 16);
+  ctx.strokeStyle = '#ff9500';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(mx - tw / 2, y - 8, tw, 16);
+  ctx.fillStyle = '#ff9500';
+  ctx.fillText(label, mx, y);
+  elevOrangeDimRegions.push({ kind: 'wall-len', mx, my: y, w: Math.max(tw, 40), h: 22 });
+  // Lock icons — solid on the locked end, faded on the free end. Click to lock that side.
+  const lockL = ox - 16, lockR = ox + drawW + 16;
+  ctx.font = '12px Arial';
+  ctx.globalAlpha = elevWallLock === 'start' ? 1 : 0.3;
+  ctx.fillText('🔒', lockL, y);
+  ctx.globalAlpha = elevWallLock === 'end' ? 1 : 0.3;
+  ctx.fillText('🔒', lockR, y);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  elevOrangeDimRegions.push({ kind: 'lock-start', mx: lockL, my: y, w: 28, h: 26 });
+  elevOrangeDimRegions.push({ kind: 'lock-end',   mx: lockR, my: y, w: 28, h: 26 });
+}
+
+function drawGreenArrow(ctx, x, y, angle, size) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.fillStyle = '#00ff88';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(size,  size * 0.38);
+  ctx.lineTo(size, -size * 0.38);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawGreenDim(ctx, x1, y1, x2, y2, label, vertical, dimKey) {
+  ctx.save();
+  ctx.strokeStyle = '#00ff88';
+  ctx.lineWidth = 1.5;
+  ctx.font = 'bold 10px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const ar = 5;
+  ctx.beginPath();
+  if (!vertical) {
+    ctx.moveTo(x1, y1 - 5); ctx.lineTo(x1, y1 + 5);
+    ctx.moveTo(x2, y2 - 5); ctx.lineTo(x2, y2 + 5);
+    if (x2 - x1 > ar * 2) { ctx.moveTo(x1 + ar, y1); ctx.lineTo(x2 - ar, y2); }
+    ctx.stroke();
+    if (x2 - x1 > ar * 2) {
+      drawGreenArrow(ctx, x1, y1, 0,       ar);
+      drawGreenArrow(ctx, x2, y2, Math.PI, ar);
+    }
+  } else {
+    ctx.moveTo(x1 - 5, y1); ctx.lineTo(x1 + 5, y1);
+    ctx.moveTo(x2 - 5, y2); ctx.lineTo(x2 + 5, y2);
+    if (y2 - y1 > ar * 2) { ctx.moveTo(x1, y1 + ar); ctx.lineTo(x2, y2 - ar); }
+    ctx.stroke();
+    if (y2 - y1 > ar * 2) {
+      drawGreenArrow(ctx, x1, y1,  Math.PI / 2, ar);
+      drawGreenArrow(ctx, x2, y2, -Math.PI / 2, ar);
+    }
+  }
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+  const tw = ctx.measureText(label).width + 10;
+  ctx.fillStyle = '#0c2418';
+  ctx.fillRect(mx - tw / 2, my - 8, tw, 16);
+  ctx.strokeStyle = '#00ff88';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(mx - tw / 2, my - 8, tw, 16);
+  ctx.fillStyle = '#00ff88';
+  ctx.fillText(label, mx, my);
+  ctx.restore();
+  // Clickable hit region around the label (Step 6 uses this)
+  elevGreenDimRegions.push({ dimKey, mx, my, w: Math.max(tw, 40), h: 22 });
 }
 
 function drawRuler(ctx, info, direction) {
@@ -1905,7 +2032,7 @@ function drawRuler(ctx, info, direction) {
       const rw = op.width  * scale;
       const rh = op.height * scale;
       const ry = oy + drawH - op.floorDist * scale - rh;
-      const isSel  = selectedOpening === op;
+      const isSel  = elevSelectedKind === 'opening' && elevSelectedItem === op;
       const isHov  = elevHoveredOp   === op;
       const isDrag = elevDragOp      === op;
   
@@ -1960,23 +2087,141 @@ function drawRuler(ctx, info, direction) {
         );
         elevCtx.restore();
       }
-  
-      drawDimLine(elevCtx, rx, ry - 22, rx + rw, ry - 22, Math.round(op.width) + 'mm', false);
-      const heightDimX = (op.distFromLeft + op.width < wallLenMm - 100)
-        ? rx + rw + 18 : rx - 18;
-      drawDimLine(elevCtx, heightDimX, ry, heightDimX, ry + rh, Math.round(op.height) + 'mm', true);
-      if (op.distFromLeft > 80) {
-        drawDimLine(elevCtx, ox, oy + drawH + 44, rx, oy + drawH + 44, Math.round(op.distFromLeft) + 'mm', false);
+
+      // ── Selection highlight / dim overlay ──
+      if (elevSelectedItem) {
+        if (isSel) {
+          elevCtx.fillStyle = 'rgba(0,255,136,0.35)';
+          elevCtx.fillRect(rx, ry, rw, rh);
+          elevCtx.strokeStyle = '#00ff88';
+          elevCtx.lineWidth = 3;
+          elevCtx.strokeRect(rx, ry, rw, rh);
+        } else {
+          elevCtx.fillStyle = 'rgba(0,0,0,0.25)';
+          elevCtx.fillRect(rx, ry, rw, rh);
+        }
       }
-      if (op.floorDist > 50) {
-        const fdX = (op.distFromLeft + op.width < wallLenMm - 100) ? rx + rw + 34 : rx - 34;
-        drawDimLine(elevCtx, fdX, oy + drawH, fdX, ry + rh, Math.round(op.floorDist) + 'mm', true);
+  
+      // Selected item's grey dims are replaced by the 7 green dims — skip to avoid overlap
+      if (!isSel) {
+        drawDimLine(elevCtx, rx, ry - 22, rx + rw, ry - 22, Math.round(op.width) + 'mm', false);
+        const heightDimX = (op.distFromLeft + op.width < wallLenMm - 100)
+          ? rx + rw + 18 : rx - 18;
+        drawDimLine(elevCtx, heightDimX, ry, heightDimX, ry + rh, Math.round(op.height) + 'mm', true);
+        if (op.distFromLeft > 80) {
+          drawDimLine(elevCtx, ox, oy + drawH + 44, rx, oy + drawH + 44, Math.round(op.distFromLeft) + 'mm', false);
+        }
+        if (op.floorDist > 50) {
+          const fdX = (op.distFromLeft + op.width < wallLenMm - 100) ? rx + rw + 34 : rx - 34;
+          drawDimLine(elevCtx, fdX, oy + drawH, fdX, ry + rh, Math.round(op.floorDist) + 'mm', true);
+        }
       }
     });
   
-    drawDimLine(elevCtx, ox, oy + drawH + 22, ox + drawW, oy + drawH + 22, Math.round(wallLenMm) + 'mm', false);
+    // ── Cabinet render loop ──────────────────────────────────────────────────
+    elevCabinets.forEach(cab => {
+      const rx = ox + cab.distFromLeft * scale;
+      const rw = cab.width  * scale;
+      const rh = cab.height * scale;
+      const ry = oy + drawH - cab.floorDist * scale - rh;
+      const isCabSel = elevSelectedKind === 'cabinet' && elevSelectedItem === cab;
+
+      const isCabHov = elevHoveredCab === cab;
+      elevCtx.fillStyle = isCabHov ? 'rgba(110,135,215,0.75)' : 'rgba(85,102,170,0.55)';
+      elevCtx.fillRect(rx, ry, rw, rh);
+
+      // Cabinet cross-hatch lines
+      elevCtx.save();
+      elevCtx.strokeStyle = 'rgba(120,140,210,0.35)';
+      elevCtx.lineWidth = 1;
+      elevCtx.beginPath();
+      elevCtx.moveTo(rx, ry); elevCtx.lineTo(rx + rw, ry + rh);
+      elevCtx.moveTo(rx + rw, ry); elevCtx.lineTo(rx, ry + rh);
+      elevCtx.stroke();
+      elevCtx.restore();
+
+      elevCtx.strokeStyle = isCabHov ? '#ffffff' : '#7799cc';
+      elevCtx.lineWidth   = isCabHov ? 2.5 : 1.5;
+      elevCtx.strokeRect(rx, ry, rw, rh);
+
+      if (rw > 40 && rh > 16) {
+        elevCtx.save();
+        elevCtx.font = 'bold 9px Arial';
+        elevCtx.textAlign = 'center';
+        elevCtx.textBaseline = 'middle';
+        elevCtx.fillStyle = 'rgba(180,200,255,0.9)';
+        const label = rw > 90
+          ? cab.productName + '  ' + Math.round(cab.width) + '×' + Math.round(cab.height)
+          : Math.round(cab.width) + '×' + Math.round(cab.height);
+        elevCtx.fillText(label, rx + rw / 2, ry + rh / 2);
+        elevCtx.restore();
+      }
+
+      // ── Selection highlight / dim overlay ──
+      if (elevSelectedItem) {
+        if (isCabSel) {
+          elevCtx.fillStyle = 'rgba(0,255,136,0.35)';
+          elevCtx.fillRect(rx, ry, rw, rh);
+          elevCtx.strokeStyle = '#00ff88';
+          elevCtx.lineWidth = 3;
+          elevCtx.strokeRect(rx, ry, rw, rh);
+        } else {
+          elevCtx.fillStyle = 'rgba(0,0,0,0.25)';
+          elevCtx.fillRect(rx, ry, rw, rh);
+        }
+      }
+
+      if (!isCabSel) {
+        drawDimLine(elevCtx, rx, ry - 22, rx + rw, ry - 22, Math.round(cab.width) + 'mm', false);
+        const cabHDimX = (cab.distFromLeft + cab.width < wallLenMm - 100)
+          ? rx + rw + 18 : rx - 18;
+        drawDimLine(elevCtx, cabHDimX, ry, cabHDimX, ry + rh, Math.round(cab.height) + 'mm', true);
+      }
+    });
+    // ─────────────────────────────────────────────────────────────────────────
+
+    elevOrangeDimRegions = [];
+    drawOrangeWallDim(elevCtx, info);
     drawDimLine(elevCtx, ox - 46, oy, ox - 46, oy + drawH, Math.round(wallHMm) + 'mm', true);
-  
+
+    // ── 7 green dimension lines for the current selection (D1–D7) ────────────
+    // Laid out as two dimension chains so labels never stack:
+    //   horizontal row below the wall:  D1 | D6 (width) | D2
+    //   vertical chain on the free side: D5 | D7 (height) | D4, with D3 (floor→top)
+    //   on its own line further out.
+    elevGreenDimRegions = [];
+    if (elevSelectedItem) {
+      const it = elevSelectedItem;
+      const rx = ox + it.distFromLeft * scale;
+      const rw = it.width  * scale;
+      const rh = it.height * scale;
+      const ry = oy + drawH - it.floorDist * scale - rh;
+      const onRight = it.distFromLeft + it.width < wallLenMm - 100;
+
+      const d1 = it.distFromLeft;                                // left wall → item
+      const d2 = wallLenMm - (it.distFromLeft + it.width);       // item → right wall
+      const d3 = it.floorDist + it.height;                       // floor → item top
+      const d4 = wallHMm - (it.floorDist + it.height);           // item top → ceiling
+      const d5 = it.floorDist;                                   // floor → item bottom
+
+      // Horizontal chain — below the wall total and the grey item-dist labels
+      const gy = oy + drawH + 64;
+      drawGreenDim(elevCtx, ox, gy, rx, gy, Math.round(d1) + 'mm', false, 'D1');
+      drawGreenDim(elevCtx, rx, gy, rx + rw, gy, Math.round(it.width) + 'mm', false, 'D6');
+      drawGreenDim(elevCtx, rx + rw, gy, ox + drawW, gy, Math.round(d2) + 'mm', false, 'D2');
+
+      // Vertical chain on the free side: floor→bottom, height, top→ceiling
+      const vx  = onRight ? rx + rw + 34 : rx - 34;
+      drawGreenDim(elevCtx, vx, ry + rh, vx, oy + drawH, Math.round(d5) + 'mm', true, 'D5');
+      drawGreenDim(elevCtx, vx, ry, vx, ry + rh, Math.round(it.height) + 'mm', true, 'D7');
+      drawGreenDim(elevCtx, vx, oy, vx, ry, Math.round(d4) + 'mm', true, 'D4');
+
+      // D3 (floor → item top) spans D5+D7, so it gets its own line further out
+      const vx2 = onRight ? rx + rw + 64 : rx - 64;
+      drawGreenDim(elevCtx, vx2, ry, vx2, oy + drawH, Math.round(d3) + 'mm', true, 'D3');
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     elevCtx.restore();   // close outer zoom/pan save
     elevCanvas._drawInfo = info;
     // Update zoom-reset button visibility
@@ -1998,8 +2243,11 @@ function drawRuler(ctx, info, direction) {
     elevWall        = wallObj;
     elevOpenings    = wallObj.openings ? [...wallObj.openings] : [];
     selectedOpening = null;
+    elevSelectedKind = null;
+    elevSelectedItem = null;
     elevDragOp      = null;
     elevHoveredOp   = null;
+    elevHoveredCab  = null;
 
     // ── Collect cabinets near this wall ──────────────────────────────────────
     const wDx = wallObj.end.x - wallObj.start.x;
@@ -2008,6 +2256,14 @@ function drawRuler(ctx, info, direction) {
     const ux = wDx / wallLen, uz = wDz / wallLen;      // unit along-wall (XZ)
     const px = -uz, pz = ux;                           // unit perp (XZ)
 
+    // Room-interior side of this wall: sign of the room centroid's perpendicular
+    // offset. Shared walls show only cabinets on THIS room's side — a cabinet
+    // snapped to the far face (adjacent room) is excluded.
+    let cenX = 0, cenZ = 0;
+    walls.forEach(w => { cenX += (w.start.x + w.end.x) / 2; cenZ += (w.start.z + w.end.z) / 2; });
+    cenX /= walls.length; cenZ /= walls.length;
+    const interiorSide = Math.sign((cenX - wallObj.start.x) * px + (cenZ - wallObj.start.z) * pz);
+
     elevCabinets = [];
     placedItems.forEach(mesh => {
       if (!mesh.userData.product) return;
@@ -2015,9 +2271,21 @@ function drawRuler(ctx, info, direction) {
       const product = mesh.userData.product;
       const relX = mesh.position.x - wallObj.start.x;
       const relZ = mesh.position.z - wallObj.start.z;
-      const along = relX * ux + relZ * uz;           // metres along wall (centre of cabinet)
-      const perp  = Math.abs(relX * px + relZ * pz); // metres from wall centreline
-      if (perp < mm(100) && along >= 0 && along <= wallLen) {
+      const along      = relX * ux + relZ * uz;       // metres along wall (centre of cabinet)
+      const perpSigned = relX * px + relZ * pz;       // signed metres from wall centreline
+      const perp       = Math.abs(perpSigned);
+      // Cabinets snap their back face to the wall face, so the centre sits
+      // ~(wallThickness/2 + depth/2) off the centreline. Measure the gap between
+      // the cabinet back face and the wall face instead of raw centreline distance.
+      const halfDepth = mm(product.depth) / 2;
+      const halfWall  = mm(settings.wallThickness) / 2;
+      const faceGap   = perp - halfDepth - halfWall; // ~0 when snapped, negative when buried
+      // Side filter: keep cabinets on the interior side. Centre buried inside the
+      // wall body counts as ours; single isolated walls (no room) keep both sides.
+      const sideOk = interiorSide === 0
+        || Math.sign(perpSigned) === interiorSide
+        || perp <= halfWall;
+      if (sideOk && faceGap < mm(100) && faceGap > -mm(product.depth) && along >= 0 && along <= wallLen) {
         const widthMm  = product.width;   // mm
         const heightMm = product.height;  // mm
         elevCabinets.push({
@@ -2031,7 +2299,6 @@ function drawRuler(ctx, info, direction) {
         });
       }
     });
-    console.log('[elevation] elevCabinets:', elevCabinets);
     // ─────────────────────────────────────────────────────────────────────────
   
     const wallIdx = walls.indexOf(wallObj) + 1;
@@ -2049,6 +2316,9 @@ function drawRuler(ctx, info, direction) {
     document.getElementById('pricing-panel').classList.remove('elevation-open');
     elevationPanel.style.display = 'none';
     elevWall = null; selectedOpening = null; elevDragOp = null; elevHoveredOp = null;
+    elevHoveredCab = null;
+    elevSelectedKind = null; elevSelectedItem = null;
+    if (typeof removeGreenDimInput === 'function') removeGreenDimInput();
     elevCabinets = [];
     elevZoom = 1; elevPanX = 0; elevPanY = 0;
     _elevPinchActive = false; _elevPinchJustEnded = false;
@@ -2071,10 +2341,13 @@ function drawRuler(ctx, info, direction) {
       drawElevation();
       return;
     }
-    const hit = openingHitTest(cx, cy, info);
-    if (hit !== elevHoveredOp) {
-      elevHoveredOp = hit;
-      elevCanvas.style.cursor = hit ? 'grab' : 'default';
+    // Cabinets first (front-most), then openings — mirrors click priority
+    const cabHit = cabinetHitTest(cx, cy, info);
+    const opHit  = cabHit ? null : openingHitTest(cx, cy, info);
+    if (opHit !== elevHoveredOp || cabHit !== elevHoveredCab) {
+      elevHoveredOp  = opHit;
+      elevHoveredCab = cabHit;
+      elevCanvas.style.cursor = opHit ? 'grab' : (cabHit ? 'pointer' : 'default');
       drawElevation();
     }
   });
@@ -2113,10 +2386,32 @@ function drawRuler(ctx, info, direction) {
     const rect = elevCanvas.getBoundingClientRect();
     const cx = (e.clientX - rect.left - elevPanX) / elevZoom;
     const cy = (e.clientY - rect.top  - elevPanY) / elevZoom;
-    const hit = openingHitTest(cx, cy, info);
-    selectedOpening = hit || null;
-    if (selectedOpening) showElevOpeningEditor(selectedOpening);
-    else document.getElementById('elev-opening-editor').style.display = 'none';
+    // Orange wall dim: lock toggles + click-to-edit wall length
+    for (const r of elevOrangeDimRegions) {
+      if (Math.abs(cx - r.mx) <= r.w / 2 && Math.abs(cy - r.my) <= r.h / 2) {
+        if (r.kind === 'lock-start')      { elevWallLock = 'start'; drawElevation(); }
+        else if (r.kind === 'lock-end')   { elevWallLock = 'end';   drawElevation(); }
+        else                              { openWallLenInput(r); }
+        return;
+      }
+    }
+    // Green dim labels take priority — click one to edit it in place
+    if (elevSelectedItem) {
+      for (const r of elevGreenDimRegions) {
+        // Cabinet size comes from the product — D6/D7 are display-only
+        if (elevSelectedKind === 'cabinet' && (r.dimKey === 'D6' || r.dimKey === 'D7')) continue;
+        if (Math.abs(cx - r.mx) <= r.w / 2 && Math.abs(cy - r.my) <= r.h / 2) {
+          openGreenDimInput(r);
+          return;
+        }
+      }
+    }
+    // Hit-test cabinets first (front-most), then openings
+    const cabHit = cabinetHitTest(cx, cy, info);
+    const opHit  = cabHit ? null : openingHitTest(cx, cy, info);
+    if (cabHit)      selectElevItem('cabinet', cabHit);
+    else if (opHit)  selectElevItem('opening', opHit);
+    else             clearElevSelection();
     drawElevation();
   });
   
@@ -2185,11 +2480,11 @@ function drawRuler(ctx, info, direction) {
     }
   }, { passive: false });
   
-  function syncElevEditorFields(op) {
-    document.getElementById('elev-width').value      = Math.round(op.width);
-    document.getElementById('elev-height').value     = Math.round(op.height);
-    document.getElementById('elev-dist').value       = Math.round(op.distFromLeft);
-    document.getElementById('elev-floor-dist').value = Math.round(op.floorDist);
+  function syncElevEditorFields(item) {
+    document.getElementById('elev-width').value      = Math.round(item.width);
+    document.getElementById('elev-height').value     = Math.round(item.height);
+    document.getElementById('elev-dist').value       = Math.round(item.distFromLeft);
+    document.getElementById('elev-floor-dist').value = Math.round(item.floorDist);
   }
   
   function showElevOpeningEditor(op) {
@@ -2197,41 +2492,295 @@ function drawRuler(ctx, info, direction) {
     syncElevEditorFields(op);
     document.getElementById('elev-opening-editor').style.display = 'block';
   }
+
+  // ── Unified selection: openings AND cabinets share the 4-field grid editor ──
+  function setElevDimInputsDisabled(disabled) {
+    ['elev-width', 'elev-height'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = disabled;
+      el.style.opacity     = disabled ? '0.4' : '';
+      el.style.cursor      = disabled ? 'not-allowed' : '';
+      el.style.background  = disabled ? '#2a2a2a' : '';
+    });
+  }
+
+  function selectElevItem(kind, item) {
+    elevSelectedKind = kind;
+    elevSelectedItem = item;
+    selectedOpening  = kind === 'opening' ? item : null;
+    const title = kind === 'cabinet'
+      ? (item.productName || 'Cabinet')
+      : (item.type === 'door' ? 'Edit Door' : 'Edit Window');
+    document.getElementById('elev-editor-title').textContent = title;
+    syncElevEditorFields(item);
+    setElevDimInputsDisabled(kind === 'cabinet');   // width/height read-only for cabinets
+    document.getElementById('elev-opening-editor').style.display = 'block';
+    // Editor visibility changes the canvas flex height — resync bitmap size or
+    // click coordinates drift vertically (labels become unclickable).
+    requestAnimationFrame(() => { resizeElevCanvas(); drawElevation(); });
+  }
+
+  function clearElevSelection() {
+    elevSelectedKind = null;
+    elevSelectedItem = null;
+    selectedOpening  = null;
+    setElevDimInputsDisabled(false);
+    document.getElementById('elev-opening-editor').style.display = 'none';
+    requestAnimationFrame(() => { resizeElevCanvas(); drawElevation(); });
+  }
+
+  // ── Click-to-edit green dims (D1–D5) ──────────────────────────────────────
+  let _greenDimInput = null;
+
+  function removeGreenDimInput() {
+    if (_greenDimInput) { _greenDimInput.remove(); _greenDimInput = null; }
+  }
+
+  function greenDimValue(dimKey) {
+    const it = elevSelectedItem;
+    const wallLenMm = elevWall.start.distanceTo(elevWall.end) * 1000;
+    const wallHMm   = settings.ceilingHeight;
+    switch (dimKey) {
+      case 'D1': return it.distFromLeft;
+      case 'D2': return wallLenMm - (it.distFromLeft + it.width);
+      case 'D3': return it.floorDist + it.height;
+      case 'D4': return wallHMm - (it.floorDist + it.height);
+      case 'D5': return it.floorDist;
+      case 'D6': return it.width;
+      case 'D7': return it.height;
+    }
+  }
+
+  // ── Cabinet write-back: elevation record → 3D mesh position (+ undo) ──────
+  function writeCabinetTo3D(cab) {
+    if (!elevWall || !cab.mesh) return;
+    const wDx = elevWall.end.x - elevWall.start.x;
+    const wDz = elevWall.end.z - elevWall.start.z;
+    const len = Math.sqrt(wDx * wDx + wDz * wDz);
+    if (len < 1e-6) return;
+    const ux = wDx / len, uz = wDz / len;   // unit along-wall (XZ)
+    const px = -uz, pz = ux;                 // unit perp (XZ)
+    const mesh = cab.mesh;
+    // Preserve the cabinet's existing perpendicular offset from the wall face
+    const relX = mesh.position.x - elevWall.start.x;
+    const relZ = mesh.position.z - elevWall.start.z;
+    const perpSigned = relX * px + relZ * pz;
+
+    const from  = mesh.position.clone();
+    const along = mm(cab.distFromLeft + cab.width / 2);   // centre of cabinet
+    mesh.position.x = elevWall.start.x + ux * along + px * perpSigned;
+    mesh.position.z = elevWall.start.z + uz * along + pz * perpSigned;
+    mesh.position.y = mm(cab.floorDist) + mm(cab.height) / 2;
+
+    if (from.distanceTo(mesh.position) > 0.001) {
+      pushHistory({ type: 'move-item', data: { mesh, from, to: mesh.position.clone() } });
+    }
+  }
+
+  // Writes the edited dim back to distFromLeft/floorDist (clamped to the wall).
+  // Returns true if the typed value had to be clamped.
+  function applyGreenDimEdit(dimKey, typed) {
+    const it = elevSelectedItem;
+    if (!it || !elevWall || isNaN(typed)) return false;
+    const wallLenMm = elevWall.start.distanceTo(elevWall.end) * 1000;
+    const wallHMm   = settings.ceilingHeight;
+    let target, clamped;
+    if (dimKey === 'D1' || dimKey === 'D2') {
+      target  = dimKey === 'D1' ? typed : wallLenMm - it.width - typed;
+      clamped = Math.max(0, Math.min(wallLenMm - it.width, target));
+      it.distFromLeft = clamped;
+    } else if (dimKey === 'D6') {           // width — openings only, left edge anchored
+      target  = typed;
+      clamped = Math.max(100, Math.min(wallLenMm - it.distFromLeft, target));
+      it.width = clamped;
+    } else if (dimKey === 'D7') {           // height — openings only, bottom edge anchored
+      target  = typed;
+      clamped = Math.max(100, Math.min(wallHMm - it.floorDist, target));
+      it.height = clamped;
+    } else {
+      if (dimKey === 'D3')      target = typed - it.height;
+      else if (dimKey === 'D4') target = wallHMm - typed - it.height;
+      else                      target = typed;          // D5
+      clamped = Math.max(0, Math.min(wallHMm - it.height, target));
+      it.floorDist = clamped;
+    }
+    syncElevEditorFields(it);
+    if (elevSelectedKind === 'opening') {
+      syncOpeningsTo3D(elevWall);
+    } else if (elevSelectedKind === 'cabinet') {
+      writeCabinetTo3D(it);   // moves the 3D mesh + pushes move-item history
+    }
+    return clamped !== target;
+  }
+
+  function openGreenDimInput(region) {
+    removeGreenDimInput();
+    const rect = elevCanvas.getBoundingClientRect();
+    // draw space → viewport coords
+    const sx = rect.left + region.mx * elevZoom + elevPanX;
+    const sy = rect.top  + region.my * elevZoom + elevPanY;
+
+    const input = document.createElement('input');
+    input.type  = 'number';
+    input.value = Math.round(greenDimValue(region.dimKey));
+    input.style.cssText = [
+      'position:fixed', 'z-index:1500',
+      'left:' + Math.round(sx - 38) + 'px',
+      'top:'  + Math.round(sy - 14) + 'px',
+      'width:76px', 'height:28px',
+      'background:#fff', 'color:#111',
+      'border:2px solid #00ff88', 'border-radius:4px',
+      'font:bold 14px Arial', 'text-align:center',
+      'transition:background 0.15s,border-color 0.15s'
+    ].join(';');
+    document.body.appendChild(input);
+    _greenDimInput = input;
+    input.focus();
+    input.select();
+
+    let done = false;
+    const commit = () => {
+      if (done) return;
+      done = true;
+      const typed = parseFloat(input.value);
+      if (isNaN(typed)) { removeGreenDimInput(); drawElevation(); return; }
+      const wasClamped = applyGreenDimEdit(region.dimKey, typed);
+      if (wasClamped) {
+        // Flash red 300ms, then clean up and redraw.
+        // Remove only THIS input — a new one may have opened during the flash.
+        input.style.background  = '#ffd5d5';
+        input.style.borderColor = '#ff3333';
+        setTimeout(() => {
+          input.remove();
+          if (_greenDimInput === input) _greenDimInput = null;
+          drawElevation();
+        }, 300);
+      } else {
+        removeGreenDimInput();
+        drawElevation();
+      }
+    };
+    const cancel = () => {
+      if (done) return;
+      done = true;
+      removeGreenDimInput();
+      drawElevation();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();                 // don't trigger planner shortcuts / Escape-close
+      if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+      if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    });
+    input.addEventListener('blur', commit);   // click-elsewhere commits
+  }
+
+  // ── Orange wall-length edit — resizes the real wall via resizeLockedWall ──
+  function openWallLenInput(region) {
+    removeGreenDimInput();
+    const rect = elevCanvas.getBoundingClientRect();
+    const sx = rect.left + region.mx * elevZoom + elevPanX;
+    const sy = rect.top  + region.my * elevZoom + elevPanY;
+
+    const input = document.createElement('input');
+    input.type  = 'number';
+    input.value = Math.round(elevWall.start.distanceTo(elevWall.end) * 1000);
+    input.style.cssText = [
+      'position:fixed', 'z-index:1500',
+      'left:' + Math.round(sx - 38) + 'px',
+      'top:'  + Math.round(sy - 14) + 'px',
+      'width:76px', 'height:28px',
+      'background:#fff', 'color:#111',
+      'border:2px solid #ff9500', 'border-radius:4px',
+      'font:bold 14px Arial', 'text-align:center',
+      'transition:background 0.15s,border-color 0.15s'
+    ].join(';');
+    document.body.appendChild(input);
+    _greenDimInput = input;          // shared slot — same lifecycle management
+    input.focus();
+    input.select();
+
+    let done = false;
+    const finish = () => {
+      input.remove();
+      if (_greenDimInput === input) _greenDimInput = null;
+    };
+    const commit = () => {
+      if (done) return;
+      done = true;
+      const typed = parseFloat(input.value);
+      if (isNaN(typed) || !elevWall) { finish(); drawElevation(); return; }
+      const clampedVal = Math.max(100, typed);
+      const apply = () => {
+        const keepLock = elevWallLock;
+        // resizeLockedWall anchors the locked end; it rebuilds the wall + room loop
+        const newWall = resizeLockedWall(elevWall, mm(clampedVal), elevWallLock);
+        if (newWall) {
+          openWallElevation(newWall);   // rebind elevation to the rebuilt wall
+          elevWallLock = keepLock;
+        } else {
+          drawElevation();              // resize refused (e.g. adjacent wall < 50mm)
+        }
+      };
+      if (clampedVal !== typed) {
+        input.style.background  = '#ffd5d5';
+        input.style.borderColor = '#ff3333';
+        setTimeout(() => { finish(); apply(); }, 300);
+      } else {
+        finish();
+        apply();
+      }
+    };
+    const cancel = () => {
+      if (done) return;
+      done = true;
+      finish();
+      drawElevation();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+      if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    });
+    input.addEventListener('blur', commit);
+  }
   
   document.getElementById('elev-apply').addEventListener('click', () => {
-    if (!selectedOpening || !elevWall) return;
+    if (elevSelectedKind !== 'opening' || !elevSelectedItem || !elevWall) return;
+    const op = elevSelectedItem;
     const wallLenMm = elevWall.start.distanceTo(elevWall.end) * 1000;
-    selectedOpening.width        = Math.max(100, parseFloat(document.getElementById('elev-width').value)      || 100);
-    selectedOpening.height       = Math.max(100, parseFloat(document.getElementById('elev-height').value)     || 100);
-    selectedOpening.distFromLeft = Math.max(0, Math.min(wallLenMm - selectedOpening.width,
+    op.width        = Math.max(100, parseFloat(document.getElementById('elev-width').value)      || 100);
+    op.height       = Math.max(100, parseFloat(document.getElementById('elev-height').value)     || 100);
+    op.distFromLeft = Math.max(0, Math.min(wallLenMm - op.width,
                                      parseFloat(document.getElementById('elev-dist').value) || 0));
-    selectedOpening.floorDist    = Math.max(0, parseFloat(document.getElementById('elev-floor-dist').value)   || 0);
-    syncElevEditorFields(selectedOpening);
+    op.floorDist    = Math.max(0, parseFloat(document.getElementById('elev-floor-dist').value)   || 0);
+    syncElevEditorFields(op);
     syncOpeningsTo3D(elevWall);
     drawElevation();
   });
   
   document.getElementById('elev-delete-opening').addEventListener('click', () => {
-    if (!selectedOpening || !elevWall) return;
-    elevOpenings      = elevOpenings.filter(o => o !== selectedOpening);
+    if (elevSelectedKind !== 'opening' || !elevSelectedItem || !elevWall) return;
+    elevOpenings      = elevOpenings.filter(o => o !== elevSelectedItem);
     elevWall.openings = elevOpenings;
-    selectedOpening   = null;
+    clearElevSelection();
     syncOpeningsTo3D(elevWall);
-    document.getElementById('elev-opening-editor').style.display = 'none';
     drawElevation();
   });
   
   document.getElementById('elev-editor-cancel').addEventListener('click', () => {
-    document.getElementById('elev-opening-editor').style.display = 'none';
-    selectedOpening = null;
+    clearElevSelection();
     drawElevation();
   });
   
   document.getElementById('elev-center-opening').addEventListener('click', () => {
-    if (!selectedOpening || !elevWall) return;
+    if (elevSelectedKind !== 'opening' || !elevSelectedItem || !elevWall) return;
+    const op = elevSelectedItem;
     const wallLenMm = elevWall.start.distanceTo(elevWall.end) * 1000;
-    selectedOpening.distFromLeft = Math.round((wallLenMm - selectedOpening.width) / 2 / 50) * 50;
-    syncElevEditorFields(selectedOpening);
+    op.distFromLeft = Math.round((wallLenMm - op.width) / 2 / 50) * 50;
+    syncElevEditorFields(op);
     syncOpeningsTo3D(elevWall);
     drawElevation();
   });
@@ -2244,8 +2793,7 @@ function drawRuler(ctx, info, direction) {
     elevOpenings.push(op);
     elevWall.openings = elevOpenings;
     syncOpeningsTo3D(elevWall);
-    selectedOpening = op;
-    showElevOpeningEditor(op);
+    selectElevItem('opening', op);
     drawElevation();
   });
   
@@ -2257,8 +2805,7 @@ function drawRuler(ctx, info, direction) {
     elevOpenings.push(op);
     elevWall.openings = elevOpenings;
     syncOpeningsTo3D(elevWall);
-    selectedOpening = op;
-    showElevOpeningEditor(op);
+    selectElevItem('opening', op);
     drawElevation();
   });
   
@@ -2465,6 +3012,7 @@ function buildFloorMesh() {
     pushHistory({ type: 'resize-wall', data: { removed, restored } });
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays();
     updateRoomArea();
+    return restored[0];   // the rebuilt wall for wallObj (elevation rebinds to it)
   }
   
 // ── Drag state ──────────────────────────────────────────────────────────────
