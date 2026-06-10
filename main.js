@@ -964,7 +964,7 @@ function rebuild2DWallOverlays() {
 
 const wallPopup = document.createElement('div');
 wallPopup.id = 'wall-edit-popup';
-wallPopup.style.cssText = 'display:none;position:fixed;z-index:200;background:#2a2a2a;border:1px solid #ff9500;border-radius:10px;padding:16px;width:260px;font-family:Arial;font-size:13px;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+wallPopup.style.cssText = 'display:none;position:fixed;z-index:200;background:rgba(42,42,42,0.1);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid #ff9500;border-radius:10px;padding:16px;width:260px;font-family:Arial;font-size:13px;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
 wallPopup.innerHTML = [
   // ── Touch Quick Draw: drag handle (hidden on desktop via CSS/JS) ──────────
   '<div id="wp-drag-handle" style="display:none;align-items:center;gap:8px;',
@@ -1078,16 +1078,10 @@ function updateWallPopupTouchUI() {
     secSec.style.display  = '';
     moreSec.style.display = '';
     wallPopup.classList.remove('wep-tq', 'wep-peeked');
-    if (IS_TOUCH) {
-      // Touch bottom-sheet: 50% opacity glass so the scene stays visible
-      wallPopup.style.background = 'rgba(42,42,42,0.5)';
-      wallPopup.style.backdropFilter = 'blur(14px)';
-      wallPopup.style.webkitBackdropFilter = 'blur(14px)';
-    } else {
-      wallPopup.style.background = '#2a2a2a';
-      wallPopup.style.backdropFilter = '';
-      wallPopup.style.webkitBackdropFilter = '';
-    }
+    // 10% glass background on all contexts
+    wallPopup.style.background = IS_TOUCH ? 'rgba(42,42,42,0.1)' : 'rgba(42,42,42,0.1)';
+    wallPopup.style.backdropFilter = 'blur(18px)';
+    wallPopup.style.webkitBackdropFilter = 'blur(18px)';
     return;
   }
 
@@ -1278,9 +1272,9 @@ function showWallPopup(wallObj, sx, sy) {
 function hideWallPopup() {
   wallPopup.style.display = 'none';
   wallPopup.classList.remove('wep-tq', 'wep-peeked');
-  wallPopup.style.background = '#2a2a2a';
-  wallPopup.style.backdropFilter = '';
-  wallPopup.style.webkitBackdropFilter = '';
+  wallPopup.style.background = 'rgba(42,42,42,0.1)';
+  wallPopup.style.backdropFilter = 'blur(18px)';
+  wallPopup.style.webkitBackdropFilter = 'blur(18px)';
   wallPopup.style.padding = '';  // reset compact-mode padding
   _wpTQPeeked = false;
   clearWallHandles();
@@ -1649,7 +1643,7 @@ elevationPanel.innerHTML = [
 ].join('');
 document.body.appendChild(elevationPanel);
 
-let elevWall = null, elevOpenings = [], selectedOpening = null;
+let elevWall = null, elevOpenings = [], elevCabinets = [], selectedOpening = null;
 let elevDragOp = null, elevDragOffsetMm = 0, elevHoveredOp = null;
 // ── Elevation zoom / pan state (touch pinch) ──────────────
 let elevZoom = 1, elevPanX = 0, elevPanY = 0;
@@ -2006,6 +2000,39 @@ function drawRuler(ctx, info, direction) {
     selectedOpening = null;
     elevDragOp      = null;
     elevHoveredOp   = null;
+
+    // ── Collect cabinets near this wall ──────────────────────────────────────
+    const wDx = wallObj.end.x - wallObj.start.x;
+    const wDz = wallObj.end.z - wallObj.start.z;
+    const wallLen = Math.sqrt(wDx * wDx + wDz * wDz); // metres
+    const ux = wDx / wallLen, uz = wDz / wallLen;      // unit along-wall (XZ)
+    const px = -uz, pz = ux;                           // unit perp (XZ)
+
+    elevCabinets = [];
+    placedItems.forEach(mesh => {
+      if (!mesh.userData.product) return;
+      if (mesh.userData.type === 'door' || mesh.userData.type === 'window') return;
+      const product = mesh.userData.product;
+      const relX = mesh.position.x - wallObj.start.x;
+      const relZ = mesh.position.z - wallObj.start.z;
+      const along = relX * ux + relZ * uz;           // metres along wall (centre of cabinet)
+      const perp  = Math.abs(relX * px + relZ * pz); // metres from wall centreline
+      if (perp < mm(100) && along >= 0 && along <= wallLen) {
+        const widthMm  = product.width;   // mm
+        const heightMm = product.height;  // mm
+        elevCabinets.push({
+          mesh,
+          productName:  product.name,
+          width:        widthMm,
+          height:       heightMm,
+          distFromLeft: (along - mm(widthMm) / 2) * 1000, // mm, left edge
+          floorDist:    (mesh.position.y - mm(heightMm) / 2) * 1000, // mm, bottom edge
+          kind:         'cabinet',
+        });
+      }
+    });
+    console.log('[elevation] elevCabinets:', elevCabinets);
+    // ─────────────────────────────────────────────────────────────────────────
   
     const wallIdx = walls.indexOf(wallObj) + 1;
     document.getElementById('elev-wall-label').textContent = 'Wall ' + wallIdx;
@@ -2022,6 +2049,7 @@ function drawRuler(ctx, info, direction) {
     document.getElementById('pricing-panel').classList.remove('elevation-open');
     elevationPanel.style.display = 'none';
     elevWall = null; selectedOpening = null; elevDragOp = null; elevHoveredOp = null;
+    elevCabinets = [];
     elevZoom = 1; elevPanX = 0; elevPanY = 0;
     _elevPinchActive = false; _elevPinchJustEnded = false;
   }
@@ -2118,15 +2146,19 @@ function drawRuler(ctx, info, direction) {
       const t0 = e.touches[0], t1 = e.touches[1];
       const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1;
       const newZoom = Math.max(0.4, Math.min(6, _elevPinchZoom0 * (dist / _elevPinchDist0)));
-      const rect     = elevCanvas.getBoundingClientRect();
-      const anchorCx = _elevPinchCx0 - rect.left;
-      const anchorCy = _elevPinchCy0 - rect.top;
-      // Keep the pinch anchor fixed in draw space while zoom changes
-      const drawAx = (anchorCx - _elevPinchPanX0) / _elevPinchZoom0;
-      const drawAy = (anchorCy - _elevPinchPanY0) / _elevPinchZoom0;
+      const rect = elevCanvas.getBoundingClientRect();
+      // Initial pinch anchor in canvas space
+      const anchorCx0 = _elevPinchCx0 - rect.left;
+      const anchorCy0 = _elevPinchCy0 - rect.top;
+      // The draw-space point that was under the initial pinch centre
+      const drawAx = (anchorCx0 - _elevPinchPanX0) / _elevPinchZoom0;
+      const drawAy = (anchorCy0 - _elevPinchPanY0) / _elevPinchZoom0;
+      // Current midpoint in canvas space — moving fingers pans while zooming
+      const currMidX = (t0.clientX + t1.clientX) / 2 - rect.left;
+      const currMidY = (t0.clientY + t1.clientY) / 2 - rect.top;
       elevZoom = newZoom;
-      elevPanX = anchorCx - drawAx * newZoom;
-      elevPanY = anchorCy - drawAy * newZoom;
+      elevPanX = currMidX - drawAx * newZoom;
+      elevPanY = currMidY - drawAy * newZoom;
       drawElevation();
       return;
     }
