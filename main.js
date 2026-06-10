@@ -1071,17 +1071,25 @@ function updateWallPopupTouchUI() {
   const moreSec = document.getElementById('wp-more-section');
 
   if (!isQT) {
-    // Desktop / non-quick — show everything, hide touch-only controls
     handle.style.display  = 'none';
     peekBtn.style.display = 'none';
-    moreBtn.style.display = 'none';
-    secSec.style.display  = '';
-    moreSec.style.display = '';
     wallPopup.classList.remove('wep-tq', 'wep-peeked');
-    // 10% glass background on all contexts
-    wallPopup.style.background = IS_TOUCH ? 'rgba(42,42,42,0.1)' : 'rgba(42,42,42,0.1)';
     wallPopup.style.backdropFilter = 'blur(18px)';
     wallPopup.style.webkitBackdropFilter = 'blur(18px)';
+    wallPopup.style.background = 'rgba(42,42,42,0.1)';
+    if (IS_TOUCH) {
+      // Bottom-sheet (Select mode): secondary fields visible, but angle/openings
+      // hidden behind "More options" so the sheet doesn't swallow the whole screen.
+      moreBtn.style.display = '';
+      secSec.style.display  = '';
+      moreSec.style.display = _wpTQMoreOpen ? '' : 'none';
+      moreBtn.textContent   = _wpTQMoreOpen ? '▴ Less' : '▸ More options';
+    } else {
+      // Desktop: show everything at once
+      moreBtn.style.display = 'none';
+      secSec.style.display  = '';
+      moreSec.style.display = '';
+    }
     return;
   }
 
@@ -1203,6 +1211,7 @@ function showWallPopup(wallObj, sx, sy) {
     _wpTQPeeked = false;
   } else if (IS_TOUCH) {
     // ── Bottom sheet for Select mode / other touch contexts ──────────────────
+    _wpTQMoreOpen = false;   // always start collapsed so sheet isn't full-height
     wallPopup.style.left          = '50%';
     wallPopup.style.transform     = 'translateX(-50%)';
     wallPopup.style.top           = '';

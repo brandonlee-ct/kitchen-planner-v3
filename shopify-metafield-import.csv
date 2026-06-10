@@ -1,0 +1,15 @@
+Handle,Title,Metafield: planner.width_mm [number_integer],Metafield: planner.height_mm [number_integer],Metafield: planner.depth_mm [number_integer],Metafield: planner.category [single_line_text_field]
+base-cabinet-150mm,#1 Base cabinet 150mm,150,890,600,base
+base-cabinet-150mm-copy,#2 Base cabinet 200mm,200,890,600,base
+base-cabinet-300mm,#3 Base cabinet 300mm,300,890,600,base
+base-cabinet-400mm,#4 Base cabinet 400mm,400,890,600,base
+base-cabinet-600mm,#6 Base cabinet 600mm,600,890,600,base
+base-cabinet-800mm-corner,#11 Base cabinet 800mm Corner,800,890,900,corner
+base-cabinet-600mm-hob-oven,#13 Base cabinet 600mm Hob/Oven,600,890,600,appliance
+base-cabinet-640mm-dishwasher,#14 Base cabinet 640mm (Dishwasher ),640,890,600,appliance
+base-cabinet-600mm-3-drawers,#15 Base cabinet 600mm (3 Drawers),600,890,600,base
+wall-cabinet-600mm-2-doors-microwave,Wall cabinet 600mm (2 doors microwave),600,970,400,wall
+wall-cabinet-600mm-microwave,Wall cabinet 600mm (microwave),600,970,400,wall
+wall-cabinet-150mm-1-door,Wall cabinet 150mm (1 door),150,970,400,wall
+l1-2200-loose-panel-draft,L2-2200 Loose Panel (Draft),2200,720,18,panel
+11-base-cabinet-900mm-corner-draft,#12 Base cabinet 900mm Corner (Draft),900,890,900,corner
