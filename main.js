@@ -4064,6 +4064,7 @@ loadShopifyProducts();
         requestAnimationFrame(animate);
         controls.update();
         updateCabinetBoxes();
+        update3DCabinetDims();   // 3D cabinet dims — additive, no-op when nothing selected
         renderer.render(scene, activeCamera);
       }
       // ── GLB Import — button + drag-and-drop ──────────────────────────────────────
@@ -6824,6 +6825,274 @@ document.getElementById('dip-delete').addEventListener('click', () => {
   updateQuote();
   hideDesktopItemPanel();
 });
+
+// ── 3D Cabinet Dimensions (green, click-to-edit) ─────────────────────────────
+// Shows live green dims for the single selected cabinet in the 3D view:
+// 4 horizontal gaps (cabinet face → nearest wall, in its 4 local directions),
+// bottom → floor, and top → ceiling. Labels are HTML pills; clicking one opens
+// an inline input. Commits move the cabinet (position only — size stays
+// product-driven) and push a 'move-item' history entry, so undo/redo works.
+// Entirely additive: state is cleared automatically when nothing is selected.
+
+const CAB3D_DIM_MAX_GAP = 10;                    // metres — skip dims longer than this
+const cabDim3DMaterial = new THREE.LineBasicMaterial({
+  color: 0x00ff88, depthTest: false, transparent: true, opacity: 0.95
+});
+
+const cabDim3D = {
+  target: null,            // mesh dims are currently built for
+  group: null,             // THREE.Group of green lines
+  dims: [],                // [{ key, kind, valueM, dir, anchor }]
+  labels: [],              // pooled HTML label divs
+  input: null,             // active inline input (if any)
+  lastPos: new THREE.Vector3(),
+  lastRot: 0
+};
+
+// Which single cabinet (if any) should show 3D dims right now.
+function cabDim3DTarget() {
+  let m = null;
+  if (touchSelectedModel) m = touchSelectedModel;
+  else if (selectedCabinets.length === 1) m = selectedCabinets[0];
+  if (!m) return null;
+  if (!m.visible) return null;
+  if (!m.userData?.product) return null;          // imported GLBs have no dims
+  if (!placedItems.includes(m)) return null;      // deleted
+  return m;
+}
+
+function cabDim3DLabelEl(i) {
+  while (cabDim3D.labels.length <= i) {
+    const el = document.createElement('div');
+    el.style.cssText =
+      'position:fixed;display:none;z-index:380;padding:2px 7px;border-radius:4px;' +
+      'background:#0c2418;color:#00ff88;border:1px solid #00ff88;' +
+      'font:bold 11px Arial;cursor:pointer;user-select:none;transform:translate(-50%,-50%);' +
+      'box-shadow:0 1px 4px rgba(0,0,0,0.5);touch-action:manipulation;';
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(el.dataset.dimIdx);
+      const d = cabDim3D.dims[idx];
+      if (d) openCabDim3DInput(d, el);
+    });
+    document.body.appendChild(el);
+    cabDim3D.labels.push(el);
+  }
+  return cabDim3D.labels[i];
+}
+
+function clearCabDim3D() {
+  if (cabDim3D.group) {
+    cabDim3D.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    scene.remove(cabDim3D.group);
+    cabDim3D.group = null;
+  }
+  cabDim3D.dims = [];
+  cabDim3D.labels.forEach(el => { el.style.display = 'none'; });
+  removeCabDim3DInput();
+  cabDim3D.target = null;
+}
+
+function removeCabDim3DInput() {
+  if (cabDim3D.input) { cabDim3D.input.remove(); cabDim3D.input = null; }
+}
+
+// Recompute the 6 dims + rebuild the green lines for the current target.
+function buildCabDim3D(mesh) {
+  if (cabDim3D.group) {
+    cabDim3D.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    scene.remove(cabDim3D.group);
+    cabDim3D.group = null;
+  }
+  cabDim3D.dims = [];
+
+  const product = mesh.userData.product;
+  const w = mm(product.width), h = mm(product.height), d = mm(product.depth);
+  const pos = mesh.position;
+  const yaw = mesh.rotation.y;
+
+  // Cabinet local axes in world space (rotation about Y).
+  const ux = Math.cos(yaw), uz = -Math.sin(yaw);   // local +x
+  const fx = Math.sin(yaw), fz = Math.cos(yaw);    // local +z
+
+  const group = new THREE.Group();
+  group.renderOrder = 998;
+  const dims = [];
+
+  // Side rays cast at mid-height of the cabinet, but never below the wall base.
+  const rayY = Math.max(pos.y, SLAB_H + 0.05);
+  const wallMeshes = walls.map(wd => wd.mesh).filter(Boolean);
+  const ray = new THREE.Raycaster();
+
+  const sides = [
+    { key: 'right', dx: ux,  dz: uz,  half: w / 2 },
+    { key: 'left',  dx: -ux, dz: -uz, half: w / 2 },
+    { key: 'front', dx: fx,  dz: fz,  half: d / 2 },
+    { key: 'back',  dx: -fx, dz: -fz, half: d / 2 }
+  ];
+
+  sides.forEach(s => {
+    if (!wallMeshes.length) return;
+    const origin = new THREE.Vector3(pos.x, rayY, pos.z);
+    const dir = new THREE.Vector3(s.dx, 0, s.dz).normalize();
+    ray.set(origin, dir);
+    ray.far = CAB3D_DIM_MAX_GAP + Math.max(w, d);
+    const hits = ray.intersectObjects(wallMeshes, false);
+    if (!hits.length) return;
+    const gap = hits[0].distance - s.half;
+    if (gap < -0.001 || gap > CAB3D_DIM_MAX_GAP) return;
+    const from = origin.clone().addScaledVector(dir, s.half);
+    const to   = hits[0].point.clone();
+    const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
+    group.add(new THREE.Line(geo, cabDim3DMaterial));
+    dims.push({
+      key: s.key, kind: 'side', valueM: Math.max(0, gap), dir,
+      anchor: from.clone().lerp(to, 0.5)
+    });
+  });
+
+  // Bottom → floor (cabinet floor reference is y=0, same as elevation view).
+  const bottomY = pos.y - h / 2;
+  {
+    const from = new THREE.Vector3(pos.x, bottomY, pos.z);
+    const to   = new THREE.Vector3(pos.x, 0, pos.z);
+    const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
+    group.add(new THREE.Line(geo, cabDim3DMaterial));
+    dims.push({
+      key: 'bottom', kind: 'bottom', valueM: Math.max(0, bottomY), dir: null,
+      anchor: from.clone().lerp(to, 0.5)
+    });
+  }
+
+  // Top → ceiling (matches elevation D4: ceilingHeight − (floor dist + height)).
+  const ceilY = mm(settings.ceilingHeight);
+  const topGap = ceilY - (bottomY + h);
+  if (topGap > -0.001) {
+    const from = new THREE.Vector3(pos.x, bottomY + h, pos.z);
+    const to   = new THREE.Vector3(pos.x, ceilY, pos.z);
+    const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
+    group.add(new THREE.Line(geo, cabDim3DMaterial));
+    dims.push({
+      key: 'top', kind: 'top', valueM: Math.max(0, topGap), dir: null,
+      anchor: from.clone().lerp(to, 0.5)
+    });
+  }
+
+  scene.add(group);
+  cabDim3D.group = group;
+  cabDim3D.dims = dims;
+  cabDim3D.target = mesh;
+  cabDim3D.lastPos.copy(pos);
+  cabDim3D.lastRot = yaw;
+}
+
+// Per-frame: keep dims in sync with selection + cabinet movement, and pin the
+// HTML labels to their 3D anchors. Called from animate(); no-op when idle.
+function update3DCabinetDims() {
+  const target = cabDim3DTarget();
+  if (!target) {
+    if (cabDim3D.target) clearCabDim3D();
+    return;
+  }
+  const moved = cabDim3D.target === target &&
+    (!cabDim3D.lastPos.equals(target.position) || cabDim3D.lastRot !== target.rotation.y);
+  if (cabDim3D.target !== target || moved) {
+    if (moved) removeCabDim3DInput();   // anchors shift — close stale input
+    buildCabDim3D(target);
+  }
+
+  // Project label anchors to screen space.
+  const halfW = window.innerWidth / 2, halfH = window.innerHeight / 2;
+  cabDim3D.dims.forEach((dim, i) => {
+    const el = cabDim3DLabelEl(i);
+    const v = dim.anchor.clone().project(activeCamera);
+    if (v.z > 1 || v.z < -1) { el.style.display = 'none'; return; }
+    el.style.left = (v.x * halfW + halfW) + 'px';
+    el.style.top  = (-v.y * halfH + halfH) + 'px';
+    el.textContent = Math.round(dim.valueM * 1000) + '';
+    el.dataset.dimIdx = i;
+    el.style.display = 'block';
+  });
+  for (let i = cabDim3D.dims.length; i < cabDim3D.labels.length; i++) {
+    cabDim3D.labels[i].style.display = 'none';
+  }
+}
+
+// Apply a typed mm value for one dim. Returns the clamped mm value actually
+// applied, or null if input was invalid. Pushes a 'move-item' history entry.
+function applyCabDim3DEdit(dim, typedMm) {
+  const mesh = cabDim3D.target;
+  if (!mesh || isNaN(typedMm)) return null;
+
+  const product = mesh.userData.product;
+  const hMm = product.height;
+  let clamped = Math.max(0, Math.round(typedMm));
+  const from = mesh.position.clone();
+
+  if (dim.kind === 'side') {
+    // Moving by +dir shrinks the gap 1:1, so shift by (current − new).
+    const delta = dim.valueM - mm(clamped);
+    mesh.position.addScaledVector(dim.dir, delta);
+  } else if (dim.kind === 'bottom') {
+    clamped = Math.min(clamped, Math.max(0, settings.ceilingHeight - hMm));
+    mesh.position.y = mm(clamped) + mm(hMm) / 2;
+  } else if (dim.kind === 'top') {
+    clamped = Math.min(clamped, Math.max(0, settings.ceilingHeight - hMm));
+    mesh.position.y = mm(settings.ceilingHeight - clamped) - mm(hMm) / 2;
+  }
+
+  pushHistory({ type: 'move-item', data: { mesh, from, to: mesh.position.clone() } });
+  return clamped;
+}
+
+// Inline input over a clicked label — Enter/blur commits, Escape cancels,
+// red flash when the typed value had to be clamped.
+function openCabDim3DInput(dim, labelEl) {
+  removeCabDim3DInput();
+  const rect = labelEl.getBoundingClientRect();
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.value = Math.round(dim.valueM * 1000);
+  input.style.cssText =
+    'position:fixed;z-index:390;width:72px;padding:3px 5px;border:2px solid #00ff88;' +
+    'border-radius:4px;background:#fff;color:#111;font:bold 12px Arial;text-align:center;' +
+    'left:' + (rect.left + rect.width / 2 - 40) + 'px;top:' + (rect.top - 4) + 'px;';
+  document.body.appendChild(input);
+  cabDim3D.input = input;
+  input.focus();
+  input.select();
+
+  let committed = false;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    const typed = parseFloat(input.value);
+    const applied = applyCabDim3DEdit(dim, typed);
+    if (applied !== null && !isNaN(typed) && Math.round(typed) !== applied) {
+      // Clamped — flash red briefly before removing.
+      input.style.borderColor = '#ff4444';
+      input.style.color = '#ff4444';
+      input.value = applied;
+      setTimeout(() => {
+        input.remove();
+        if (cabDim3D.input === input) cabDim3D.input = null;
+      }, 300);
+      return;
+    }
+    input.remove();
+    if (cabDim3D.input === input) cabDim3D.input = null;
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') commit();
+    else if (e.key === 'Escape') {
+      committed = true;
+      input.remove();
+      if (cabDim3D.input === input) cabDim3D.input = null;
+    }
+    e.stopPropagation();
+  });
+  input.addEventListener('blur', commit);
+}
 
 initAuth();
 animate();
