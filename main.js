@@ -1070,6 +1070,10 @@ function updateWallPopupTouchUI() {
   const secSec  = document.getElementById('wp-secondary-section');
   const moreSec = document.getElementById('wp-more-section');
 
+  // #region agent log
+  fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:updateWallPopupTouchUI-entry',message:'updateWallPopupTouchUI called',data:{isQT,IS_TOUCH,drawModeActive,_wpTQMoreOpen,_wpTQPeeked,secSecDisplay:secSec?.style.display,moreSecDisplay:moreSec?.style.display,moreBtnDisplay:moreBtn?.style.display},timestamp:Date.now(),hypothesisId:'A-B-C'})}).catch(()=>{});
+  // #endregion
+
   if (!isQT) {
     handle.style.display  = 'none';
     peekBtn.style.display = 'none';
@@ -1084,11 +1088,17 @@ function updateWallPopupTouchUI() {
       secSec.style.display  = '';
       moreSec.style.display = _wpTQMoreOpen ? '' : 'none';
       moreBtn.textContent   = _wpTQMoreOpen ? '▴ Less' : '▸ More options';
+      // #region agent log
+      fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:updateWallPopupTouchUI-nonQT-touch',message:'non-QT touch branch applied',data:{secSecAfter:secSec.style.display,moreSecAfter:moreSec.style.display,moreBtnAfter:moreBtn.style.display,moreBtnText:moreBtn.textContent,_wpTQMoreOpen},timestamp:Date.now(),hypothesisId:'A-C'})}).catch(()=>{});
+      // #endregion
     } else {
       // Desktop: show everything at once
       moreBtn.style.display = 'none';
       secSec.style.display  = '';
       moreSec.style.display = '';
+      // #region agent log
+      fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:updateWallPopupTouchUI-nonQT-desktop',message:'non-QT desktop branch applied',data:{secSecAfter:secSec.style.display,moreSecAfter:moreSec.style.display,moreBtnAfter:moreBtn.style.display},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
     }
     return;
   }
@@ -1168,7 +1178,11 @@ function initWallPopupTouch() {
 
   // ── More / less toggle ──────────────────────────────────
   moreBtn.addEventListener('click', () => {
+    const before = _wpTQMoreOpen;
     _wpTQMoreOpen = !_wpTQMoreOpen;
+    // #region agent log
+    fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:moreBtn-click',message:'moreBtn clicked',data:{before,after:_wpTQMoreOpen,drawModeActive,isQT:IS_TOUCH&&drawModeActive==='quick'},timestamp:Date.now(),hypothesisId:'B-C'})}).catch(()=>{});
+    // #endregion
     updateWallPopupTouchUI();
   });
 }
@@ -1211,7 +1225,11 @@ function showWallPopup(wallObj, sx, sy) {
     _wpTQPeeked = false;
   } else if (IS_TOUCH) {
     // ── Bottom sheet for Select mode / other touch contexts ──────────────────
+    const _prevMoreOpen = _wpTQMoreOpen;
     _wpTQMoreOpen = false;   // always start collapsed so sheet isn't full-height
+    // #region agent log
+    fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:showWallPopup-bottomSheet',message:'bottom-sheet showWallPopup, reset _wpTQMoreOpen',data:{prevMoreOpen:_prevMoreOpen,drawModeActive,popupWidth:wallPopup.style.width},timestamp:Date.now(),hypothesisId:'B-D'})}).catch(()=>{});
+    // #endregion
     wallPopup.style.left          = '50%';
     wallPopup.style.transform     = 'translateX(-50%)';
     wallPopup.style.top           = '';
@@ -4708,6 +4726,65 @@ document.getElementById('glb-upload-btn').addEventListener('click', () => {
 
   glbModalClose();
 });
+// ── Send to Cart ─────────────────────────────────────────────────────────────
+const CART_CREATE_MUTATION = `
+  mutation cartCreate($input: CartInput!) {
+    cartCreate(input: $input) {
+      cart {
+        id
+        checkoutUrl
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+document.getElementById('btn-send-cart').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-send-cart');
+
+  // Aggregate variantId → quantity, skipping imported GLBs and openings
+  const lineMap = new Map();
+  placedItems.forEach(obj => {
+    if (!obj.userData?.product?.skus) return;
+    if (obj.userData.product.id?.startsWith('imported-')) return;
+    if (obj.userData.type === 'door' || obj.userData.type === 'window') return;
+    const { product, skuIndex } = obj.userData;
+    const sku = product.skus[skuIndex ?? 0];
+    if (!sku?.variantId) return;
+    lineMap.set(sku.variantId, (lineMap.get(sku.variantId) || 0) + 1);
+  });
+
+  if (lineMap.size === 0) {
+    showImportToast('Add cabinets to your plan first.', true);
+    return;
+  }
+
+  const lines = Array.from(lineMap.entries()).map(([variantId, qty]) => ({
+    merchandiseId: variantId,
+    quantity: qty,
+  }));
+
+  btn.disabled = true;
+  btn.textContent = 'Adding to cart…';
+
+  try {
+    const data = await shopifyFetch(CART_CREATE_MUTATION, { input: { lines } });
+    const { cart, userErrors } = data.cartCreate;
+    if (userErrors?.length) {
+      throw new Error(userErrors.map(e => e.message).join('; '));
+    }
+    window.location.href = cart.checkoutUrl;
+  } catch (err) {
+    console.error('cartCreate failed:', err);
+    showImportToast('Cart error: ' + err.message, true);
+    btn.disabled = false;
+    btn.textContent = '🛒 Send to Cart';
+  }
+});
+
 // ✅ FIX 2: export quote as CSV
 document.getElementById('btn-export').addEventListener('click', () => {
   const lines = ['Product,Variant,Price'];

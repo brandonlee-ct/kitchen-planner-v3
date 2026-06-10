@@ -474,6 +474,25 @@ canvas#canvas {
   font-weight: bold;
 }
 
+#btn-send-cart {
+  width: 100%;
+  background: #2a9d2a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 11px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.15s;
+  min-height: 44px;
+  margin-bottom: 8px;
+}
+#btn-send-cart:hover   { background: #34b534; }
+#btn-send-cart:active  { background: #237823; }
+#btn-send-cart:disabled { background: #555; color: #999; cursor: not-allowed; }
+
 #btn-export {
   width: 100%;
   background: #ff9500;
