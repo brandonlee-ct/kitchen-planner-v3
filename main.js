@@ -1648,6 +1648,11 @@ let elevWall = null, elevOpenings = [], elevCabinets = [], selectedOpening = nul
 let elevSelectedKind = null;   // 'opening' | 'cabinet' | null
 let elevSelectedItem = null;   // the selected op or cabinet object
 let elevDragOp = null, elevDragOffsetMm = 0, elevHoveredOp = null, elevHoveredCab = null;
+let elevViewSide = 'interior';   // 'interior' | 'exterior' — which wall face shows cabinets
+// Cabinet drag (2-axis) — committed to 3D + history on release
+let elevDragCab = null, elevDragCabOffX = 0, elevDragCabOffY = 0;
+// Desktop right-mouse pan
+let _elevRMPan = false, _elevRMx = 0, _elevRMy = 0;
 // ── Elevation zoom / pan state (touch pinch) ──────────────
 let elevZoom = 1, elevPanX = 0, elevPanY = 0;
 let _elevPinchActive = false, _elevPinchDist0 = 1;
@@ -1675,6 +1680,28 @@ function elevZoomBy(f) {
     'padding:3px 9px;font-size:13px;cursor:pointer;' +
     'touch-action:manipulation;min-height:36px;min-width:36px';
   const header = elevationPanel.querySelector('#elev-wall-info').parentElement;
+
+  // Let the hint text shrink/ellipsise so the buttons always fit the 520px panel
+  const _hint = header.children[1];
+  if (_hint) {
+    _hint.style.cssText += ';flex:0 1 auto;min-width:0;overflow:hidden;' +
+      'text-overflow:ellipsis;white-space:nowrap';
+  }
+
+  // Side toggle — which wall face shows cabinets (openings pierce both faces)
+  const _side = document.createElement('button');
+  _side.id = 'elev-side-toggle';
+  _side.title = 'Toggle which side of the wall shows cabinets';
+  _side.style.cssText = _zbCss + ';font-size:11px;white-space:nowrap;flex-shrink:0';
+  _side.textContent = '⇄ In';
+  _side.addEventListener('click', () => {
+    elevViewSide = elevViewSide === 'interior' ? 'exterior' : 'interior';
+    _side.textContent = elevViewSide === 'interior' ? '⇄ In' : '⇄ Out';
+    if (elevSelectedKind === 'cabinet') clearElevSelection();   // selected cab may be on the other side
+    collectElevCabinets();
+    if (elevWall) drawElevation();
+  });
+  header.appendChild(_side);
 
   const _zOut = document.createElement('button');
   _zOut.id = 'elev-zoom-out'; _zOut.title = 'Zoom out';
@@ -2088,7 +2115,7 @@ function drawRuler(ctx, info, direction) {
         elevCtx.restore();
       }
 
-      // ── Selection highlight / dim overlay ──
+      // ── Selection highlight / dim overlay (hovered items stay bright) ──
       if (elevSelectedItem) {
         if (isSel) {
           elevCtx.fillStyle = 'rgba(0,255,136,0.35)';
@@ -2096,7 +2123,7 @@ function drawRuler(ctx, info, direction) {
           elevCtx.strokeStyle = '#00ff88';
           elevCtx.lineWidth = 3;
           elevCtx.strokeRect(rx, ry, rw, rh);
-        } else {
+        } else if (!isHov) {
           elevCtx.fillStyle = 'rgba(0,0,0,0.25)';
           elevCtx.fillRect(rx, ry, rw, rh);
         }
@@ -2157,7 +2184,7 @@ function drawRuler(ctx, info, direction) {
         elevCtx.restore();
       }
 
-      // ── Selection highlight / dim overlay ──
+      // ── Selection highlight / dim overlay (hovered items stay bright) ──
       if (elevSelectedItem) {
         if (isCabSel) {
           elevCtx.fillStyle = 'rgba(0,255,136,0.35)';
@@ -2165,7 +2192,7 @@ function drawRuler(ctx, info, direction) {
           elevCtx.strokeStyle = '#00ff88';
           elevCtx.lineWidth = 3;
           elevCtx.strokeRect(rx, ry, rw, rh);
-        } else {
+        } else if (!isCabHov) {
           elevCtx.fillStyle = 'rgba(0,0,0,0.25)';
           elevCtx.fillRect(rx, ry, rw, rh);
         }
@@ -2204,16 +2231,19 @@ function drawRuler(ctx, info, direction) {
       const d4 = wallHMm - (it.floorDist + it.height);           // item top → ceiling
       const d5 = it.floorDist;                                   // floor → item bottom
 
+      // Cabinet size comes from the product — show a padlock on width/height
+      const sizeLock = elevSelectedKind === 'cabinet' ? ' 🔒' : '';
+
       // Horizontal chain — below the wall total and the grey item-dist labels
       const gy = oy + drawH + 64;
       drawGreenDim(elevCtx, ox, gy, rx, gy, Math.round(d1) + 'mm', false, 'D1');
-      drawGreenDim(elevCtx, rx, gy, rx + rw, gy, Math.round(it.width) + 'mm', false, 'D6');
+      drawGreenDim(elevCtx, rx, gy, rx + rw, gy, Math.round(it.width) + 'mm' + sizeLock, false, 'D6');
       drawGreenDim(elevCtx, rx + rw, gy, ox + drawW, gy, Math.round(d2) + 'mm', false, 'D2');
 
       // Vertical chain on the free side: floor→bottom, height, top→ceiling
       const vx  = onRight ? rx + rw + 34 : rx - 34;
       drawGreenDim(elevCtx, vx, ry + rh, vx, oy + drawH, Math.round(d5) + 'mm', true, 'D5');
-      drawGreenDim(elevCtx, vx, ry, vx, ry + rh, Math.round(it.height) + 'mm', true, 'D7');
+      drawGreenDim(elevCtx, vx, ry, vx, ry + rh, Math.round(it.height) + 'mm' + sizeLock, true, 'D7');
       drawGreenDim(elevCtx, vx, oy, vx, ry, Math.round(d4) + 'mm', true, 'D4');
 
       // D3 (floor → item top) spans D5+D7, so it gets its own line further out
@@ -2239,38 +2269,31 @@ function drawRuler(ctx, info, direction) {
     elevCanvas.height = Math.floor(rect.height) || 400;
   }
   
-  function openWallElevation(wallObj) {
-    elevWall        = wallObj;
-    elevOpenings    = wallObj.openings ? [...wallObj.openings] : [];
-    selectedOpening = null;
-    elevSelectedKind = null;
-    elevSelectedItem = null;
-    elevDragOp      = null;
-    elevHoveredOp   = null;
-    elevHoveredCab  = null;
-
-    // ── Collect cabinets near this wall ──────────────────────────────────────
-    const wDx = wallObj.end.x - wallObj.start.x;
-    const wDz = wallObj.end.z - wallObj.start.z;
+  // ── Cabinet collection — honours the view-side toggle ─────────────────────
+  function collectElevCabinets() {
+    elevCabinets = [];
+    if (!elevWall) return;
+    const wDx = elevWall.end.x - elevWall.start.x;
+    const wDz = elevWall.end.z - elevWall.start.z;
     const wallLen = Math.sqrt(wDx * wDx + wDz * wDz); // metres
+    if (wallLen < 1e-6) return;
     const ux = wDx / wallLen, uz = wDz / wallLen;      // unit along-wall (XZ)
     const px = -uz, pz = ux;                           // unit perp (XZ)
 
     // Room-interior side of this wall: sign of the room centroid's perpendicular
-    // offset. Shared walls show only cabinets on THIS room's side — a cabinet
-    // snapped to the far face (adjacent room) is excluded.
+    // offset. The toggle flips between this side and the far (exterior) side.
     let cenX = 0, cenZ = 0;
     walls.forEach(w => { cenX += (w.start.x + w.end.x) / 2; cenZ += (w.start.z + w.end.z) / 2; });
     cenX /= walls.length; cenZ /= walls.length;
-    const interiorSide = Math.sign((cenX - wallObj.start.x) * px + (cenZ - wallObj.start.z) * pz);
+    const interiorSide = Math.sign((cenX - elevWall.start.x) * px + (cenZ - elevWall.start.z) * pz);
+    const wantedSide   = elevViewSide === 'interior' ? interiorSide : -interiorSide;
 
-    elevCabinets = [];
     placedItems.forEach(mesh => {
       if (!mesh.userData.product) return;
       if (mesh.userData.type === 'door' || mesh.userData.type === 'window') return;
       const product = mesh.userData.product;
-      const relX = mesh.position.x - wallObj.start.x;
-      const relZ = mesh.position.z - wallObj.start.z;
+      const relX = mesh.position.x - elevWall.start.x;
+      const relZ = mesh.position.z - elevWall.start.z;
       const along      = relX * ux + relZ * uz;       // metres along wall (centre of cabinet)
       const perpSigned = relX * px + relZ * pz;       // signed metres from wall centreline
       const perp       = Math.abs(perpSigned);
@@ -2280,10 +2303,10 @@ function drawRuler(ctx, info, direction) {
       const halfDepth = mm(product.depth) / 2;
       const halfWall  = mm(settings.wallThickness) / 2;
       const faceGap   = perp - halfDepth - halfWall; // ~0 when snapped, negative when buried
-      // Side filter: keep cabinets on the interior side. Centre buried inside the
-      // wall body counts as ours; single isolated walls (no room) keep both sides.
-      const sideOk = interiorSide === 0
-        || Math.sign(perpSigned) === interiorSide
+      // Side filter: keep cabinets on the wanted side. Centre buried inside the
+      // wall body counts for either side; isolated walls (no room) show both sides.
+      const sideOk = wantedSide === 0
+        || Math.sign(perpSigned) === wantedSide
         || perp <= halfWall;
       if (sideOk && faceGap < mm(100) && faceGap > -mm(product.depth) && along >= 0 && along <= wallLen) {
         const widthMm  = product.width;   // mm
@@ -2299,7 +2322,23 @@ function drawRuler(ctx, info, direction) {
         });
       }
     });
-    // ─────────────────────────────────────────────────────────────────────────
+  }
+
+  function openWallElevation(wallObj) {
+    elevWall        = wallObj;
+    elevOpenings    = wallObj.openings ? [...wallObj.openings] : [];
+    selectedOpening = null;
+    elevSelectedKind = null;
+    elevSelectedItem = null;
+    elevDragOp      = null;
+    elevDragCab     = null;
+    elevHoveredOp   = null;
+    elevHoveredCab  = null;
+    _elevRMPan      = false;
+    elevViewSide    = 'interior';
+    const _sb = document.getElementById('elev-side-toggle');
+    if (_sb) _sb.textContent = '⇄ In';
+    collectElevCabinets();
   
     const wallIdx = walls.indexOf(wallObj) + 1;
     document.getElementById('elev-wall-label').textContent = 'Wall ' + wallIdx;
@@ -2316,7 +2355,7 @@ function drawRuler(ctx, info, direction) {
     document.getElementById('pricing-panel').classList.remove('elevation-open');
     elevationPanel.style.display = 'none';
     elevWall = null; selectedOpening = null; elevDragOp = null; elevHoveredOp = null;
-    elevHoveredCab = null;
+    elevHoveredCab = null; elevDragCab = null; _elevRMPan = false;
     elevSelectedKind = null; elevSelectedItem = null;
     if (typeof removeGreenDimInput === 'function') removeGreenDimInput();
     elevCabinets = [];
@@ -2325,14 +2364,31 @@ function drawRuler(ctx, info, direction) {
   }
   
   elevCanvas.addEventListener('mousemove', (e) => {
+    // Right-mouse pan (desktop) — screen-space, mirrors two-finger pan on touch
+    if (_elevRMPan) {
+      elevPanX += e.clientX - _elevRMx;
+      elevPanY += e.clientY - _elevRMy;
+      _elevRMx = e.clientX; _elevRMy = e.clientY;
+      if (elevWall) drawElevation();
+      return;
+    }
     const info = elevCanvas._drawInfo;
     if (!info) return;
     const rect = elevCanvas.getBoundingClientRect();
     // Inverse-transform from element space → draw space (accounts for zoom/pan)
     const cx = (e.clientX - rect.left - elevPanX) / elevZoom;
     const cy = (e.clientY - rect.top  - elevPanY) / elevZoom;
-    const { ox, scale, wallLenMm } = info;
+    const { ox, oy, drawH, scale, wallLenMm, wallHMm } = info;
   
+    if (elevDragCab) {
+      const rawX = (cx - ox) / scale - elevDragCabOffX;
+      const rawY = (oy + drawH - cy) / scale - elevDragCabOffY;
+      elevDragCab.distFromLeft = Math.max(0, Math.min(wallLenMm - elevDragCab.width,  Math.round(rawX / 50) * 50));
+      elevDragCab.floorDist    = Math.max(0, Math.min(wallHMm   - elevDragCab.height, Math.round(rawY / 50) * 50));
+      if (elevSelectedItem === elevDragCab) syncElevEditorFields(elevDragCab);
+      drawElevation();
+      return;
+    }
     if (elevDragOp) {
       const rawMm   = (cx - ox) / scale - elevDragOffsetMm;
       const clamped = Math.max(0, Math.min(wallLenMm - elevDragOp.width, Math.round(rawMm / 50) * 50));
@@ -2347,20 +2403,37 @@ function drawRuler(ctx, info, direction) {
     if (opHit !== elevHoveredOp || cabHit !== elevHoveredCab) {
       elevHoveredOp  = opHit;
       elevHoveredCab = cabHit;
-      elevCanvas.style.cursor = opHit ? 'grab' : (cabHit ? 'pointer' : 'default');
+      elevCanvas.style.cursor = (opHit || cabHit) ? 'grab' : 'default';
       drawElevation();
     }
   });
   
   elevCanvas.addEventListener('mousedown', (e) => {
+    if (e.button === 2) {                  // right mouse → pan
+      _elevRMPan = true;
+      _elevRMx = e.clientX; _elevRMy = e.clientY;
+      elevCanvas.style.cursor = 'move';
+      e.preventDefault();
+      return;
+    }
     if (e.button !== 0) return;
     const info = elevCanvas._drawInfo;
     if (!info) return;
     const rect = elevCanvas.getBoundingClientRect();
     const cx = (e.clientX - rect.left - elevPanX) / elevZoom;
     const cy = (e.clientY - rect.top  - elevPanY) / elevZoom;
-    const { ox, scale } = info;
-  
+    const { ox, oy, drawH, scale } = info;
+
+    // Cabinets first (front-most) — 2-axis drag
+    const cabHit = cabinetHitTest(cx, cy, info);
+    if (cabHit) {
+      elevDragCab     = cabHit;
+      elevDragCabOffX = (cx - ox) / scale - cabHit.distFromLeft;
+      elevDragCabOffY = (oy + drawH - cy) / scale - cabHit.floorDist;
+      elevCanvas.style.cursor = 'grabbing';
+      e.preventDefault();
+      return;
+    }
     const hit = openingHitTest(cx, cy, info);
     if (hit) {
       elevDragOp       = hit;
@@ -2371,6 +2444,16 @@ function drawRuler(ctx, info, direction) {
   });
   
   elevCanvas.addEventListener('mouseup', () => {
+    if (_elevRMPan) {
+      _elevRMPan = false;
+      elevCanvas.style.cursor = 'default';
+    }
+    if (elevDragCab) {
+      writeCabinetTo3D(elevDragCab);       // one move-item history entry per drag
+      elevDragCab = null;
+      elevCanvas.style.cursor = elevHoveredCab ? 'grab' : 'default';
+      drawElevation();
+    }
     if (elevDragOp) {
       syncOpeningsTo3D(elevWall);
       elevDragOp = null;
@@ -2378,6 +2461,10 @@ function drawRuler(ctx, info, direction) {
       drawElevation();
     }
   });
+
+  // Right-mouse pan owns the context menu inside the elevation canvas
+  elevCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  elevCanvas.addEventListener('mouseleave', () => { _elevRMPan = false; });
   
   elevCanvas.addEventListener('click', (e) => {
     if (elevDragOp || _elevPinchJustEnded) return;
@@ -2421,6 +2508,7 @@ function drawRuler(ctx, info, direction) {
     if (e.touches.length === 2) {
       // Cancel ongoing drag then start pinch
       elevDragOp = null;
+      elevDragCab = null;
       elevCanvas.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
       _elevPinchActive = true;
       const t0 = e.touches[0], t1 = e.touches[1];
@@ -2502,7 +2590,20 @@ function drawRuler(ctx, info, direction) {
       el.style.opacity     = disabled ? '0.4' : '';
       el.style.cursor      = disabled ? 'not-allowed' : '';
       el.style.background  = disabled ? '#2a2a2a' : '';
+      // Padlock on the field label while locked
+      const lbl = el.parentElement ? el.parentElement.querySelector('label') : null;
+      if (lbl) {
+        if (!lbl.dataset.baseText) lbl.dataset.baseText = lbl.textContent;
+        lbl.textContent = disabled ? '🔒 ' + lbl.dataset.baseText : lbl.dataset.baseText;
+      }
     });
+    // Cabinets are deleted via the cabinet selection panel, not the elevation editor
+    const del = document.getElementById('elev-delete-opening');
+    if (del) {
+      del.disabled = disabled;
+      del.style.opacity = disabled ? '0.4' : '';
+      del.style.cursor  = disabled ? 'not-allowed' : 'pointer';
+    }
   }
 
   function selectElevItem(kind, item) {
@@ -2748,9 +2849,24 @@ function drawRuler(ctx, info, direction) {
   }
   
   document.getElementById('elev-apply').addEventListener('click', () => {
-    if (elevSelectedKind !== 'opening' || !elevSelectedItem || !elevWall) return;
-    const op = elevSelectedItem;
+    if (!elevSelectedItem || !elevWall) return;
     const wallLenMm = elevWall.start.distanceTo(elevWall.end) * 1000;
+
+    // Cabinets: width/height are read-only — Apply moves distFromLeft/floorDist only
+    if (elevSelectedKind === 'cabinet') {
+      const cab = elevSelectedItem;
+      cab.distFromLeft = Math.max(0, Math.min(wallLenMm - cab.width,
+                                     parseFloat(document.getElementById('elev-dist').value) || 0));
+      cab.floorDist    = Math.max(0, Math.min(settings.ceilingHeight - cab.height,
+                                     parseFloat(document.getElementById('elev-floor-dist').value) || 0));
+      syncElevEditorFields(cab);
+      writeCabinetTo3D(cab);   // moves 3D mesh + pushes move-item history
+      drawElevation();
+      return;
+    }
+
+    if (elevSelectedKind !== 'opening') return;
+    const op = elevSelectedItem;
     op.width        = Math.max(100, parseFloat(document.getElementById('elev-width').value)      || 100);
     op.height       = Math.max(100, parseFloat(document.getElementById('elev-height').value)     || 100);
     op.distFromLeft = Math.max(0, Math.min(wallLenMm - op.width,
