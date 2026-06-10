@@ -874,8 +874,26 @@ function loadProductModel(product, placeholderMesh) {
     product.modelPath,
     (gltf) => {
       if (!placedItems.includes(placeholderMesh)) return;
-      const model = gltf.scene;
-      // Match placeholder position/rotation
+      // ✅ FIX: normalise the raw GLB to the planner.* metafield dims.
+      // GLBs arrive at whatever scale/origin they were authored with, so:
+      //  1. scale per-axis to exactly width/height/depth mm (keeps quote,
+      //     product-list dims and snapToWall consistent with the visual);
+      //  2. centre it inside a wrapper Group so the group origin matches the
+      //     placeholder-box convention (origin = bounding-box centre) that the
+      //     elevation view and 3D dim editing rely on.
+      const raw  = gltf.scene;
+      const box  = new THREE.Box3().setFromObject(raw);
+      const size = new THREE.Vector3(); box.getSize(size);
+      const sx = size.x > 1e-6 ? mm(product.width)  / size.x : 1;
+      const sy = size.y > 1e-6 ? mm(product.height) / size.y : 1;
+      const sz = size.z > 1e-6 ? mm(product.depth)  / size.z : 1;
+      raw.scale.set(sx, sy, sz);
+      const centre = new THREE.Vector3(); box.getCenter(centre);
+      raw.position.set(-centre.x * sx, -centre.y * sy, -centre.z * sz);
+
+      const model = new THREE.Group();
+      model.add(raw);
+      // Match placeholder position/rotation (origin = centre, y = height/2)
       model.position.copy(placeholderMesh.position);
       model.rotation.copy(placeholderMesh.rotation);
       // Copy userData so quote/history still works
@@ -887,17 +905,28 @@ function loadProductModel(product, placeholderMesh) {
         }
       });
       scene.remove(placeholderMesh);
+      disposeModel(placeholderMesh);   // ✅ FIX: free placeholder geometry/material
       placedItems = placedItems.filter(x => x !== placeholderMesh);
       scene.add(model);
       placedItems.push(model);
-      // Update history entry so undo still removes the right object
+      // Update history entries so undo/redo still target the right object
       [undoStack, redoStack].forEach(stack => {
         stack.forEach(entry => {
-          if (entry.type === 'add-item' && entry.data.mesh === placeholderMesh) {
+          if (entry.data && entry.data.mesh === placeholderMesh) {
             entry.data.mesh = model;
           }
         });
       });
+      // ✅ FIX: migrate live selection/drag refs so an in-flight selection or
+      // drag isn't stranded on the removed placeholder when the GLB lands.
+      if (selectedItem === placeholderMesh) selectedItem = model;
+      if (dragTarget === placeholderMesh) dragTarget = model;
+      if (touchSelectedModel === placeholderMesh) touchSelectedModel = model;
+      if (selectedCabinets.includes(placeholderMesh)) {
+        removeCabinetBox(placeholderMesh);
+        selectedCabinets = selectedCabinets.map(m => m === placeholderMesh ? model : m);
+        addCabinetBox(model);
+      }
     },
     undefined,
     (err) => console.warn('GLTF load failed for', product.modelPath, err)
@@ -1070,10 +1099,6 @@ function updateWallPopupTouchUI() {
   const secSec  = document.getElementById('wp-secondary-section');
   const moreSec = document.getElementById('wp-more-section');
 
-  // #region agent log
-  fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:updateWallPopupTouchUI-entry',message:'updateWallPopupTouchUI called',data:{isQT,IS_TOUCH,drawModeActive,_wpTQMoreOpen,_wpTQPeeked,secSecDisplay:secSec?.style.display,moreSecDisplay:moreSec?.style.display,moreBtnDisplay:moreBtn?.style.display},timestamp:Date.now(),hypothesisId:'A-B-C'})}).catch(()=>{});
-  // #endregion
-
   if (!isQT) {
     handle.style.display  = 'none';
     peekBtn.style.display = 'none';
@@ -1088,17 +1113,11 @@ function updateWallPopupTouchUI() {
       secSec.style.display  = '';
       moreSec.style.display = _wpTQMoreOpen ? '' : 'none';
       moreBtn.textContent   = _wpTQMoreOpen ? '▴ Less' : '▸ More options';
-      // #region agent log
-      fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:updateWallPopupTouchUI-nonQT-touch',message:'non-QT touch branch applied',data:{secSecAfter:secSec.style.display,moreSecAfter:moreSec.style.display,moreBtnAfter:moreBtn.style.display,moreBtnText:moreBtn.textContent,_wpTQMoreOpen},timestamp:Date.now(),hypothesisId:'A-C'})}).catch(()=>{});
-      // #endregion
     } else {
       // Desktop: show everything at once
       moreBtn.style.display = 'none';
       secSec.style.display  = '';
       moreSec.style.display = '';
-      // #region agent log
-      fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:updateWallPopupTouchUI-nonQT-desktop',message:'non-QT desktop branch applied',data:{secSecAfter:secSec.style.display,moreSecAfter:moreSec.style.display,moreBtnAfter:moreBtn.style.display},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
     }
     return;
   }
@@ -1178,11 +1197,7 @@ function initWallPopupTouch() {
 
   // ── More / less toggle ──────────────────────────────────
   moreBtn.addEventListener('click', () => {
-    const before = _wpTQMoreOpen;
     _wpTQMoreOpen = !_wpTQMoreOpen;
-    // #region agent log
-    fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:moreBtn-click',message:'moreBtn clicked',data:{before,after:_wpTQMoreOpen,drawModeActive,isQT:IS_TOUCH&&drawModeActive==='quick'},timestamp:Date.now(),hypothesisId:'B-C'})}).catch(()=>{});
-    // #endregion
     updateWallPopupTouchUI();
   });
 }
@@ -1225,11 +1240,7 @@ function showWallPopup(wallObj, sx, sy) {
     _wpTQPeeked = false;
   } else if (IS_TOUCH) {
     // ── Bottom sheet for Select mode / other touch contexts ──────────────────
-    const _prevMoreOpen = _wpTQMoreOpen;
     _wpTQMoreOpen = false;   // always start collapsed so sheet isn't full-height
-    // #region agent log
-    fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:showWallPopup-bottomSheet',message:'bottom-sheet showWallPopup, reset _wpTQMoreOpen',data:{prevMoreOpen:_prevMoreOpen,drawModeActive,popupWidth:wallPopup.style.width},timestamp:Date.now(),hypothesisId:'B-D'})}).catch(()=>{});
-    // #endregion
     wallPopup.style.left          = '50%';
     wallPopup.style.transform     = 'translateX(-50%)';
     wallPopup.style.top           = '';
@@ -1304,6 +1315,7 @@ function hideWallPopup() {
   wallPopup.style.webkitBackdropFilter = 'blur(18px)';
   wallPopup.style.padding = '';  // reset compact-mode padding
   _wpTQPeeked = false;
+  _wpTQMoreOpen = false;  // don't leak an expanded sheet into the next popup (e.g. Quick Draw)
   clearWallHandles();
   dimLabel.style.display = 'none';
   walls.forEach(w => w.mesh.material.color.set(wallBaseColor(w)));

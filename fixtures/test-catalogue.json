@@ -1,0 +1,77 @@
+[
+  {
+    "id": "b3-200", "name": "Base 200mm", "width": 200, "height": 720, "depth": 580,
+    "category": "base", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "b3-200-std", "label": "Standard", "price": 129, "priceDisplay": "NZ$129.00", "variantId": "gid://shopify/ProductVariant/1001", "available": true }]
+  },
+  {
+    "id": "b3-300", "name": "Base 300mm", "width": 300, "height": 720, "depth": 580,
+    "category": "base", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "b3-300-std", "label": "Standard", "price": 169, "priceDisplay": "NZ$169.00", "variantId": "gid://shopify/ProductVariant/1002", "available": true }]
+  },
+  {
+    "id": "b3-400", "name": "Base 400mm", "width": 400, "height": 720, "depth": 580,
+    "category": "base", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "b3-400-std", "label": "Standard", "price": 209, "priceDisplay": "NZ$209.00", "variantId": "gid://shopify/ProductVariant/1003", "available": true }]
+  },
+  {
+    "id": "b3-500", "name": "Base 500mm", "width": 500, "height": 720, "depth": 580,
+    "category": "base", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "b3-500-std", "label": "Standard", "price": 249, "priceDisplay": "NZ$249.00", "variantId": "gid://shopify/ProductVariant/1004", "available": true }]
+  },
+  {
+    "id": "b3-600", "name": "Base 600mm", "width": 600, "height": 720, "depth": 580,
+    "category": "base", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "b3-600-std", "label": "Standard", "price": 289, "priceDisplay": "NZ$289.00", "variantId": "gid://shopify/ProductVariant/1005", "available": true }]
+  },
+  {
+    "id": "b3-800", "name": "Base 800mm", "width": 800, "height": 720, "depth": 580,
+    "category": "base", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "b3-800-std", "label": "Standard", "price": 349, "priceDisplay": "NZ$349.00", "variantId": "gid://shopify/ProductVariant/1006", "available": true }]
+  },
+  {
+    "id": "b3-900", "name": "Base 900mm", "width": 900, "height": 720, "depth": 580,
+    "category": "base", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "b3-900-std", "label": "Standard", "price": 389, "priceDisplay": "NZ$389.00", "variantId": "gid://shopify/ProductVariant/1007", "available": true }]
+  },
+  {
+    "id": "b3-900-crnr", "name": "Base 900mm Corner", "width": 900, "height": 720, "depth": 900,
+    "category": "base", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "b3-900-crnr-std", "label": "Standard", "price": 549, "priceDisplay": "NZ$549.00", "variantId": "gid://shopify/ProductVariant/1008", "available": true }]
+  },
+  {
+    "id": "b3-800-crnr", "name": "Base 800mm Corner", "width": 800, "height": 720, "depth": 800,
+    "category": "base", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "b3-800-crnr-std", "label": "Standard", "price": 499, "priceDisplay": "NZ$499.00", "variantId": "gid://shopify/ProductVariant/1009", "available": true }]
+  },
+  {
+    "id": "w3-300", "name": "Wall 300mm", "width": 300, "height": 350, "depth": 300,
+    "category": "wall", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "w3-300-std", "label": "Standard", "price": 99, "priceDisplay": "NZ$99.00", "variantId": "gid://shopify/ProductVariant/2001", "available": true }]
+  },
+  {
+    "id": "w3-600", "name": "Wall 600mm", "width": 600, "height": 350, "depth": 300,
+    "category": "wall", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "w3-600-std", "label": "Standard", "price": 149, "priceDisplay": "NZ$149.00", "variantId": "gid://shopify/ProductVariant/2002", "available": true }]
+  },
+  {
+    "id": "w3-800", "name": "Wall 800mm", "width": 800, "height": 350, "depth": 300,
+    "category": "wall", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "w3-800-std", "label": "Standard", "price": 189, "priceDisplay": "NZ$189.00", "variantId": "gid://shopify/ProductVariant/2003", "available": true }]
+  },
+  {
+    "id": "w3-900", "name": "Wall 900mm", "width": 900, "height": 350, "depth": 300,
+    "category": "wall", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "w3-900-std", "label": "Standard", "price": 199, "priceDisplay": "NZ$199.00", "variantId": "gid://shopify/ProductVariant/2004", "available": true }]
+  },
+  {
+    "id": "t3-600", "name": "Tall 600mm Pantry", "width": 600, "height": 2100, "depth": 580,
+    "category": "tall", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "t3-600-std", "label": "Standard", "price": 649, "priceDisplay": "NZ$649.00", "variantId": "gid://shopify/ProductVariant/3001", "available": true }]
+  },
+  {
+    "id": "t3-900", "name": "Tall 900mm Pantry", "width": 900, "height": 2100, "depth": 580,
+    "category": "tall", "glbUrl": null, "modelPath": null,
+    "skus": [{ "id": "t3-900-std", "label": "Standard", "price": 749, "priceDisplay": "NZ$749.00", "variantId": "gid://shopify/ProductVariant/3002", "available": true }]
+  }
+]
