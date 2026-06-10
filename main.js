@@ -7001,14 +7001,16 @@ function update3DCabinetDims() {
     buildCabDim3D(target);
   }
 
-  // Project label anchors to screen space.
-  const halfW = window.innerWidth / 2, halfH = window.innerHeight / 2;
+  // Project label anchors to screen space, mapped through the canvas's actual
+  // rect — the canvas is offset by the toolbar/product drawer (desktop), so
+  // window-based math would misplace the labels.
+  const cRect = canvas.getBoundingClientRect();
   cabDim3D.dims.forEach((dim, i) => {
     const el = cabDim3DLabelEl(i);
     const v = dim.anchor.clone().project(activeCamera);
     if (v.z > 1 || v.z < -1) { el.style.display = 'none'; return; }
-    el.style.left = (v.x * halfW + halfW) + 'px';
-    el.style.top  = (-v.y * halfH + halfH) + 'px';
+    el.style.left = (cRect.left + (v.x * 0.5 + 0.5) * cRect.width) + 'px';
+    el.style.top  = (cRect.top + (-v.y * 0.5 + 0.5) * cRect.height) + 'px';
     el.textContent = Math.round(dim.valueM * 1000) + '';
     el.dataset.dimIdx = i;
     el.style.display = 'block';
