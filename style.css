@@ -493,7 +493,8 @@ canvas#canvas {
 #btn-send-cart:active  { background: #237823; }
 #btn-send-cart:disabled { background: #555; color: #999; cursor: not-allowed; }
 
-#btn-export {
+#btn-export,
+#btn-export-pdf {
   width: 100%;
   background: #ff9500;
   color: #fff;
@@ -509,6 +510,16 @@ canvas#canvas {
 }
 #btn-export:hover  { background: #ffaa33; }
 #btn-export:active { background: #e08000; }
+
+/* PDF export: secondary/outlined variant so it reads distinct from CSV */
+#btn-export-pdf {
+  margin-top: 8px;
+  background: transparent;
+  color: #ff9500;
+  border: 1px solid #ff9500;
+}
+#btn-export-pdf:hover  { background: rgba(255, 149, 0, 0.12); }
+#btn-export-pdf:active { background: rgba(255, 149, 0, 0.22); }
 
 /* ── Wall dim input ────────────────────────────────────── */
 #wall-dim-input {

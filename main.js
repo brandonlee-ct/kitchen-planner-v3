@@ -1,9 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { initAuth, signInWithGoogle, signOut, getUser, saveProject, listProjects, loadProject, deleteProject } from './auth.js';
+import { initAuth, signInWithGoogle, signOut, getUser, saveProject, listProjects, loadProject, deleteProject, uploadThumbnail } from './auth.js';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
 const mm = v => v / 1000;
+// Tracks the most recently saved/loaded project name for the Quote PDF (optional).
+let currentProjectName = '';
 const SLAB_H = mm(300);   // floor slab height — walls sit on top of this
 const settings = { ceilingHeight: 2400, wallThickness: 110, gridSize: 100 };
 
@@ -4972,6 +4976,136 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
   }
 });
 
+// ── Quote PDF: aggregate placed items into priced rows ──
+// Skips imported GLBs and opening meshes (door/window/gpo). Groups identical
+// SKUs by Shopify variantId when present, else by product name + sku label.
+function buildQuoteRows() {
+  const rowMap = new Map();
+  placedItems.forEach(obj => {
+    const ud = obj.userData;
+    // Skip openings and any non-catalog / imported GLB items.
+    if (ud?.type === 'door' || ud?.type === 'window' || ud?.type === 'gpo') return;
+    if (!ud?.product?.skus) return;
+    const { product, skuIndex } = ud;
+    const sku = product.skus[skuIndex ?? 0];
+    if (!sku) return;
+    const key = sku.variantId || `${product.name}|${sku.label}`;
+    const existing = rowMap.get(key);
+    if (existing) {
+      existing.qty += 1;
+      existing.total += sku.price;
+    } else {
+      rowMap.set(key, {
+        name: product.name,
+        variant: sku.label || '',
+        qty: 1,
+        unitPrice: sku.price,
+        total: sku.price,
+      });
+    }
+  });
+  return Array.from(rowMap.values());
+}
+
+// ── Quote PDF: NZD currency formatter (NZ$0.00) ──
+function fmtNZD(v) {
+  return 'NZ$' + (Number(v) || 0).toLocaleString('en-NZ', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+// ── Quote PDF: build a branded jsPDF document from aggregated rows ──
+// snapshot: optional { dataUrl, aspect } (aspect = width / height).
+// projectName: optional string shown under the header.
+function buildQuotePDF(rows, snapshot, projectName) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  let y = 18;
+
+  // Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(34, 34, 34);
+  doc.text('Brown Box Kit', margin, y);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(12);
+  doc.setTextColor(120, 120, 120);
+  y += 7;
+  doc.text('Kitchen Planner Quote', margin, y);
+
+  // Date + optional project name (right-aligned)
+  const dateStr = new Date().toLocaleDateString('en-NZ', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+  doc.setFontSize(10);
+  doc.setTextColor(90, 90, 90);
+  doc.text('Date: ' + dateStr, pageW - margin, 18, { align: 'right' });
+  if (projectName) {
+    doc.text('Project: ' + projectName, pageW - margin, 24, { align: 'right' });
+  }
+
+  y += 8;
+
+  // Optional planner snapshot
+  if (snapshot?.dataUrl) {
+    const imgW = pageW - margin * 2;
+    const aspect = snapshot.aspect && snapshot.aspect > 0 ? snapshot.aspect : 16 / 9;
+    const imgH = imgW / aspect;
+    try {
+      doc.addImage(snapshot.dataUrl, 'PNG', margin, y, imgW, imgH);
+      y += imgH + 8;
+    } catch (err) {
+      console.warn('PDF snapshot failed:', err);
+    }
+  }
+
+  // Itemised table
+  let grandTotal = 0;
+  const body = rows.map(r => {
+    grandTotal += r.total;
+    return [
+      r.name,
+      r.variant || '—',
+      String(r.qty),
+      fmtNZD(r.unitPrice),
+      fmtNZD(r.total),
+    ];
+  });
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Product', 'Variant', 'Qty', 'Unit Price', 'Total']],
+    body,
+    foot: [['', '', '', 'Grand Total', fmtNZD(grandTotal)]],
+    margin: { left: margin, right: margin },
+    styles: { fontSize: 9, cellPadding: 2.5, textColor: [40, 40, 40] },
+    headStyles: { fillColor: [255, 149, 0], textColor: [255, 255, 255], fontStyle: 'bold' },
+    footStyles: { fillColor: [240, 240, 240], textColor: [20, 20, 20], fontStyle: 'bold' },
+    columnStyles: {
+      2: { halign: 'center' },
+      3: { halign: 'right' },
+      4: { halign: 'right' },
+    },
+  });
+
+  // Footer disclaimer
+  const afterTableY = (doc.lastAutoTable?.finalY ?? y) + 12;
+  const pageH = doc.internal.pageSize.getHeight();
+  const footerY = Math.min(afterTableY, pageH - 14);
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8);
+  doc.setTextColor(140, 140, 140);
+  doc.text(
+    'Quote generated from planner. Final pricing and availability subject to confirmation.',
+    margin, footerY
+  );
+
+  return doc;
+}
+
 // ✅ FIX 2: export quote as CSV
 document.getElementById('btn-export').addEventListener('click', () => {
   const lines = ['Product,Variant,Price'];
@@ -4999,6 +5133,37 @@ document.getElementById('btn-export').addEventListener('click', () => {
       URL.revokeObjectURL(url);
     }, 100);
   }, 0);
+});
+
+// ── Quote PDF: capture a planner snapshot from the WebGL canvas ──
+// The renderer is created without preserveDrawingBuffer, so force a fresh
+// render immediately before reading the pixels.
+function captureSnapshot() {
+  try {
+    renderer.render(scene, activeCamera);
+    const dataUrl = renderer.domElement.toDataURL('image/png');
+    const w = renderer.domElement.width || 16;
+    const h = renderer.domElement.height || 9;
+    return { dataUrl, aspect: w / h };
+  } catch (err) {
+    console.warn('Snapshot capture failed:', err);
+    return null;
+  }
+}
+
+// ── Quote PDF: download button handler ──
+document.getElementById('btn-export-pdf').addEventListener('click', () => {
+  const rows = buildQuoteRows();
+  if (rows.length === 0) {
+    showImportToast('Add cabinets to your plan first.', true);
+    return;
+  }
+  const snapshot = captureSnapshot();
+  const projectName = currentProjectName || '';
+  const doc = buildQuotePDF(rows, snapshot, projectName);
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; // local YYYY-MM-DD
+  doc.save(`brown-box-kit-quote-${dateStr}.pdf`);
 });
 
 
@@ -7823,12 +7988,15 @@ document.getElementById('btn-save-project').addEventListener('click', async () =
   const { sceneJson, thumbnail, skippedImportedCount } = serialiseScene();
   // Close the auth modal so the toast is visible
   document.getElementById('auth-modal').style.display = 'none';
-  const { id, error } = await saveProject(name.trim(), sceneJson, thumbnail);
+  // ✅ FIX: store thumbnail in Supabase Storage (URL), fall back to base64 if upload fails
+  const thumbUrl = await uploadThumbnail(thumbnail);
+  const { id, error } = await saveProject(name.trim(), sceneJson, thumbUrl ?? thumbnail);
   if (error) {
     showImportToast('Save failed: ' + error, true);
     return;
   }
   sceneDirty = false;
+  currentProjectName = name.trim();
   showImportToast('Saved ✓');
   if (skippedImportedCount > 0) {
     setTimeout(() => {
@@ -7955,6 +8123,7 @@ async function handleLoadProject(id) {
   }
 
   loadScene(data.scene_json);
+  currentProjectName = data.name || '';
   closeProjectsModal();
   showImportToast('Loaded ✓');
 }
