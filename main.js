@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { initAuth, signInWithGoogle, signOut, saveProject, listProjects, loadProject, deleteProject } from './auth.js';
+import { initAuth, signInWithGoogle, signOut, saveProject, listProjects, loadProject, deleteProject, uploadThumbnail } from './auth.js';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
 const mm = v => v / 1000;
 const SLAB_H = mm(300);   // floor slab height — walls sit on top of this
@@ -7222,7 +7222,9 @@ document.getElementById('btn-save-project').addEventListener('click', async () =
   const { sceneJson, thumbnail, skippedImportedCount } = serialiseScene();
   // Close the auth modal so the toast is visible
   document.getElementById('auth-modal').style.display = 'none';
-  const { id, error } = await saveProject(name.trim(), sceneJson, thumbnail);
+  // Upload PNG to Storage; fall back to data URL if upload fails
+  const thumbUrl = (await uploadThumbnail(thumbnail)) ?? thumbnail;
+  const { id, error } = await saveProject(name.trim(), sceneJson, thumbUrl);
   if (error) {
     showImportToast('Save failed: ' + error, true);
     return;
