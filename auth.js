@@ -76,6 +76,34 @@ function updateAuthUI() {
   }
 }
 
+// ── Thumbnail storage ─────────────────────────────────────
+
+/**
+ * Upload a thumbnail data URL to the public `thumbnails` bucket.
+ * Stored at `${user.id}/${uuid}.png`; bucket RLS scopes writes to owner.
+ * @param {string} dataUrl — base64 PNG data URL from canvas.toDataURL()
+ * @returns {Promise<string|null>} public URL, or null on any failure (caller falls back)
+ */
+export async function uploadThumbnail(dataUrl) {
+  if (!_user || !_client) return null;
+  if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) return null;
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    const path = `${_user.id}/${crypto.randomUUID()}.png`;
+    const { error } = await _client.storage
+      .from('thumbnails')
+      .upload(path, blob, { upsert: true, contentType: 'image/png' });
+    if (error) {
+      console.warn('[auth] thumbnail upload failed:', error.message);
+      return null;
+    }
+    return _client.storage.from('thumbnails').getPublicUrl(path).data.publicUrl;
+  } catch (e) {
+    console.warn('[auth] thumbnail upload error:', e?.message || e);
+    return null;
+  }
+}
+
 // ── Project helpers ───────────────────────────────────────
 
 /**
