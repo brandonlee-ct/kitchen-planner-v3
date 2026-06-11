@@ -3,6 +3,14 @@
 > Planning document. No application code is changed by this file.
 > Tip: read this with Markdown Preview (`Ctrl+Shift+V`) for full-width formatting.
 
+> **Revision (aligned with the simplified model in `FEASIBILITY.md`):** the wider business
+> is a **single entity** with **all customer money via Shopify standard checkout** (no Stripe
+> rail / credit / interest). Planner build state updated: **Send-to-Cart, thumbnails->Storage,
+> and power points in elevation are done.** Shopify embed for P1 = **subdomain link** to
+> `planner.brownboxkit.co.nz`; **App Proxy + the one-login JWT bridge move to Phase 2**
+> (raw iframe rejected). Share links use **Option B** (a `security definer` RPC, no broad
+> public-select policy). White-label SaaS is a far-future re-architecture, not planned work.
+
 ---
 
 ## 1. Product vision (one paragraph)
@@ -41,17 +49,19 @@ first-person walkthrough, PDF construction docs, and eventually a white-label Sa
   State held in two arrays: `walls[]` and `placedItems[]`, serialised to JSON.
 - **Commerce:** Shopify Storefront API. Products carry `planner.*` metafields
   (`glb_url`, `width_mm`, `height_mm`, `depth_mm`, `category`). Token is public-safe.
-- **Auth + data:** Supabase (Google OAuth today; Shopify customer bridge planned).
-  `projects` table stores `scene_json` (jsonb) + thumbnail, keyed by `user_id`.
+- **Auth + data:** Supabase (Google OAuth today; Shopify customer one-login bridge is Phase 2).
+  `projects` table stores `scene_json` (jsonb) + thumbnail (Storage URL), keyed by `user_id`.
 - **Hosting:** Vercel, auto-deploy from GitHub `main` (`brandonlee-ct/kitchen-planner-v3`).
 
-### Recommended near-term architecture (deltas)
+### Near-term architecture (status)
 
-1. **Enable RLS + roles in Supabase** (security-critical — see §4).
-2. **Add `cartCreate` → checkout** (commerce loop; not yet in code).
-3. **Move thumbnails to Supabase Storage** (DB rows stay light).
-4. **Shopify Customer Account → Supabase JWT bridge** (so storefront login = planner login).
-5. **Embed via App Block** (iframe acceptable for testing).
+1. **RLS + roles in Supabase** — ✅ enabled (security-critical, see §4).
+2. **`cartCreate` → checkout** — ✅ done (commerce loop live).
+3. **Thumbnails in Supabase Storage** — ✅ done (`uploadThumbnail`, DB rows stay light).
+4. **Shopify embed** — P1: **subdomain link** to `planner.brownboxkit.co.nz`. Phase 2:
+   **App Proxy** (`/apps/planner`, first-party). Raw iframe rejected (breaks auth/checkout on mobile).
+5. **Shopify Customer Account → Supabase JWT bridge** — **Phase 2** (Opus design; needs an
+   Edge Function to verify the App Proxy HMAC and mint a session).
 
 I am **not** recommending splitting `main.js` before launch. Keep the monolith for speed;
 modularise only if it becomes a maintenance blocker post-launch.
@@ -75,16 +85,18 @@ projects
      scene_json  jsonb         (walls[] + placedItems[])
      thumbnail   text          → later: Storage path, not base64
      is_public   bool default false   (for share links)
-     share_slug  text unique          (for /p/abc123)
+     share_slug  text unique          (random token; share URL = /?p=<share_slug>)
      created_at / updated_at  timestamptz
 
 analytics_events           (Task 1.12)
      id, user_id (nullable), event text, payload jsonb, created_at
 ```
 
-- **Storage bucket** `thumbnails/` (Task 1.9) — public-read, owner-write.
-- **Share links** (Task 1.11): a row with `is_public = true` + `share_slug`; a read-only
-  RLS policy exposes only public rows by slug.
+- **Storage bucket** `thumbnails/` (Task 1.9, done) — public-read, owner-write.
+- **Share links** (Task 1.11, Option B): a row with `is_public = true` + a random
+  `share_slug`; anonymous read goes only through a `security definer` RPC
+  `get_shared_project(slug)` — **no broad public-select policy**, so shared projects can't
+  be enumerated.
 
 ---
 
@@ -101,7 +113,9 @@ enabled.** This is the #1 task before sharing with real, account-creating tester
 
 **RLS policy shape (conceptual):**
 - `projects` SELECT/INSERT/UPDATE/DELETE → `auth.uid() = user_id` **OR** caller is admin.
-- Public read → `is_public = true` (for share links only; exposes safe columns).
+- Public/share read → **not** a broad `is_public` select policy; instead a `security
+  definer` RPC `get_shared_project(slug)` returns a single row by `share_slug` (Option B,
+  no enumeration).
 - `profiles` → users read/update own row; admins read all.
 
 I will provide **copy-paste SQL** for all of this (you approved Supabase access).
@@ -114,13 +128,13 @@ You run it in the Supabase SQL editor — no dashboard guesswork.
 | Concern | Approach | Owner |
 |---|---|---|
 | Catalog + GLB + dims | Storefront API + `planner.*` metafields (done) | done |
-| Live pricing | Read variant price, sum in quote panel (done for placed items) | mostly done |
-| Send to Cart | `cartCreate` mutation → redirect to `cart.checkoutUrl` (**not built**) | me |
-| Embed in storefront | **App Block** (proper) / iframe (fast test) | me + you (Shopify admin) |
-| Customer login = planner login | **Customer Account → Supabase JWT bridge** (hard) | **Opus design** → me |
+| Live pricing | Read variant price, sum in quote panel (done for placed items) | done |
+| Send to Cart | `cartCreate` mutation → redirect to `cart.checkoutUrl` — ✅ **done** | done |
+| Embed in storefront | P1: **subdomain link** to `planner.brownboxkit.co.nz`. Phase 2: **App Proxy** `/apps/planner` (first-party) | me + you (Shopify admin) |
+| Customer login = planner login | **App Proxy HMAC → Edge Function → Supabase session** — **Phase 2** | **Opus design** → me |
 
 **Your part (only you can):** add/verify `planner.*` metafields on products in Shopify
-admin, confirm the Storefront token + scopes, and install the App Block on the theme.
+admin, confirm the Storefront token + scopes, and (Phase 2) create the custom app + App Proxy.
 
 ---
 
@@ -130,19 +144,20 @@ admin, confirm the Storefront token + scopes, and install the App Block on the t
 Live · Shopify catalog · Google auth · Save/Load via Supabase.
 
 ### Phase 1 — Shopify MVP Launch
-Re-ordered by **critical path** (not by number):
+Status against the current build (see `TASKS.md` for the live board):
 
-| Order | Task | Owner | Notes / blocks |
-|---|---|---|---|
-| 1 | 1.1 Bug-fix sweep (wall selection regression, toasts, 2D labels) | me | Unblocks real testing |
-| 2 | **Security**: RLS + `profiles`/roles | me + you (run SQL) | Before public sign-ups |
-| 3 | 1.2 Drawing UX overhaul (snap guides, mm inputs, weld fix, auto-floor) | me | Your stated #1 pain |
-| 4 | 1.3 Mobile toolbar (44px icons, hamburger, camera capture) | me | Multi-device goal |
-| 5 | Send-to-Cart + 1.6 embed | me + you | Completes funnel |
-| 6 | 1.8 Quote PDF · 1.9 thumbnails→Storage · 1.11 share links | me | |
-| 7 | 1.4 power points · 1.5 5-dim editor | Opus design → me | three.js math |
-| 8 | 1.7 auth bridge · 1.10 snap rules · 1.14 review | Opus-led | Architectural |
-| 9 | 1.12 analytics · 1.13 privacy/T&Cs/export | me + you (legal) | Late |
+| Task | Status |
+|---|---|
+| 1.1 Bug-fix sweep · Security (RLS + `profiles`/roles) | ✅ done |
+| 1.2 Drawing UX overhaul · 1.3 Mobile toolbar · 1.5 elevation editor | ✅ done |
+| Send-to-Cart (`cartCreate`) · 1.4 power points · 1.9 thumbnails→Storage | ✅ done |
+| 1.8 Quote PDF (Tier 0) | ⏳ partial (deps installed; button/handler/photos remain) |
+| 1.11 share links (Option B) · 1.12 analytics · 1.13 privacy/T&Cs/export | ⬜ remaining |
+| 1.10 snap rules (Opus design first) | ⬜ remaining |
+| 1.6 embed = subdomain link · 1.14 pre-launch review (Opus) | ⬜ remaining |
+
+**Deferred to Phase 2:** App Proxy + one-login JWT bridge (was 1.7), Quote PDF Tier 1
+(settings panel) and Tier 2 (drag-and-drop canvas designer).
 
 ### Phase 2 — Pro Features (parked until launch ships)
 Realistic rendering (HDRI/PBR/shadows), first-person walkthrough, gamepad, Bluetooth
@@ -151,20 +166,22 @@ offline mode, Apple Pencil, per-wall thickness, multi-room, 4K/AI render + LED s
 construction-plan PDF, elevation A/B/C/D sheets, cross-section, lighting, drag colour,
 wall-cut tool, plan underlay import.
 
-### Phase 3 — White-Label SaaS (future)
-Multi-tenant data model, CSS theming, admin dashboard, Stripe Billing, per-tenant Shopify
-connect, usage metering, project versioning, team accounts, public API, marketing site.
+### Phase 3 — White-Label SaaS (far future, NOT planned)
+The business is now a **single entity** (per `FEASIBILITY.md`), so multi-tenancy is **not**
+day-one work. If ever pursued, it is an explicit re-architecture: multi-tenant data model,
+CSS theming, admin dashboard, SaaS subscription billing (B2B, not customer payments),
+per-tenant Shopify connect, usage metering, versioning, team accounts, public API.
 
 ---
 
 ## 7. Milestones (clarified)
 
-- **Milestone A — Harden the live prototype (≈1 day).** Fix 1.1 + visible toasts + 2D
-  labels after load; deploy. *Add RLS/roles in parallel before opening sign-ups.* The link
-  already exists — this makes it safe + smooth for testers and your trainee.
-- **Milestone B — Shopify MVP launch (≈1–2 weeks).** Drawing UX overhaul, mobile toolbar,
-  Send-to-Cart, embed, PDF quote, thumbnails→Storage, share links.
-- **Milestone C — Auth bridge + polish + pre-launch review.** 1.7, 1.10, 1.14.
+- **Milestone A — Harden the live prototype.** ✅ done (1.1 fixes, RLS/roles, toasts, 2D labels).
+- **Milestone B — Shopify MVP launch.** Mostly done (drawing UX, mobile toolbar, Send-to-Cart,
+  thumbnails→Storage, power points). **Remaining:** finish Quote PDF (Tier 0), share links,
+  analytics, snap rules, subdomain-link embed, privacy/T&Cs/export, pre-launch review.
+- **Milestone C — Phase 2 onward.** App Proxy + one-login JWT bridge, Quote PDF Tier 1/2,
+  then the monorepo apps (Trade, Academy, KPI, Inventory) per `FEASIBILITY.md`.
 
 ---
 
@@ -187,20 +204,21 @@ connect, usage metering, project versioning, team accounts, public API, marketin
 
 ## 9. Risks & open decisions
 
-1. **Security must land before public sign-ups** (RLS). Highest risk if skipped.
-2. **Auth bridge (1.7)** is the trickiest piece — design with Opus before coding.
-3. **`main.js` size** — fine for now; watch for it slowing iteration.
-4. **Real-device testing** — I can't tap a physical screen; trainee/you must verify touch.
-5. **Decisions needed from you:**
-   - Role tiers: `admin/user` only, or add `staff`? (affects RLS now)
-   - Approve creating the `executor`/`reviewer` subagents + `TASKS.md`?
-   - Confirm Milestone A scope (harden, not rebuild).
+1. **Security must land before public sign-ups** (RLS). ✅ enabled — keep it that way.
+2. **One-login bridge (Phase 2)** is the trickiest piece — Opus design + an Edge Function
+   that verifies the App Proxy HMAC server-side; never trust a client-supplied customer id.
+3. **`main.js` size** (~8400 lines) — fine for now; watch for it slowing iteration.
+4. **Real-device testing** — I can't tap a physical screen; trainee/you must verify touch
+   (incl. the "done" items: power points, thumbnails, Send-to-Cart).
+5. **Share-link enumeration** — must use the Option B RPC, not a broad public-select policy.
 
 ---
 
-## 10. Immediate next steps (on your approval)
+## 10. Immediate next steps
 
-1. Root-cause + fix **1.1** wall-selection regression (touch raycast path).
-2. Provide **RLS + roles SQL** for you to paste into Supabase.
-3. Create **`executor` + `reviewer` subagents** and a **`TASKS.md`** board.
-4. Deploy hardened build; you + trainee test on real devices and log feedback.
+1. Finish **1.8 Quote PDF (Tier 0)** — button + handler + `featuredImage` photo fetch.
+2. **1.11 share links (Option B)** — `get_shared_project` RPC SQL (you run) + Share/unshare
+   UI + read-only `?p=<slug>` load.
+3. **1.12 analytics** (table SQL + `trackEvent` hooks), then **1.10 snap rules** (Opus
+   design first), **1.6 subdomain-link embed**, **1.13 privacy/T&Cs/export**.
+4. **1.14 pre-launch review** (Opus), then begin Phase 2 (App Proxy + bridge, monorepo).
