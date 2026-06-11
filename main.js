@@ -1673,7 +1673,7 @@ document.getElementById('wp-angle-apply').addEventListener('click', () => {
     new THREE.MeshStandardMaterial({ color: 0xff9500 })
   );
   selectedWall.mesh.position.set(
-    (selectedWall.start.x + newEnd.x) / 2, h / 2,
+    (selectedWall.start.x + newEnd.x) / 2, SLAB_H + h / 2,   // ✅ FIX: sit on slab, not grid
     (selectedWall.start.z + newEnd.z) / 2
   );
   selectedWall.mesh.rotation.y = -Math.atan2(dz, dx);
@@ -2412,7 +2412,7 @@ function drawRuler(ctx, info, direction) {
           width:        widthMm,
           height:       heightMm,
           distFromLeft: (along - mm(widthMm) / 2) * 1000, // mm, left edge
-          floorDist:    (mesh.position.y - mm(heightMm) / 2) * 1000, // mm, bottom edge
+          floorDist:    (mesh.position.y - SLAB_H - mm(heightMm) / 2) * 1000, // ✅ FIX: mm above slab top, bottom edge
           kind:         'cabinet',
         });
       }
@@ -2767,7 +2767,7 @@ function drawRuler(ctx, info, direction) {
     const along = mm(cab.distFromLeft + cab.width / 2);   // centre of cabinet
     mesh.position.x = elevWall.start.x + ux * along + px * perpSigned;
     mesh.position.z = elevWall.start.z + uz * along + pz * perpSigned;
-    mesh.position.y = mm(cab.floorDist) + mm(cab.height) / 2;
+    mesh.position.y = SLAB_H + mm(cab.floorDist) + mm(cab.height) / 2;   // ✅ FIX: floorDist measured from slab top
 
     if (from.distanceTo(mesh.position) > 0.001) {
       pushHistory({ type: 'move-item', data: { mesh, from, to: mesh.position.clone() } });
@@ -3421,7 +3421,7 @@ lastMouseY = e.clientY;
       new THREE.MeshStandardMaterial({ color: 0xff9500 })
     );
     wallObj.mesh.position.set(
-      (wallObj.start.x + wallObj.end.x) / 2, h / 2,
+      (wallObj.start.x + wallObj.end.x) / 2, SLAB_H + h / 2,   // ✅ FIX: sit on slab, not grid
       (wallObj.start.z + wallObj.end.z) / 2
     );
     wallObj.mesh.rotation.y = -Math.atan2(dz, dx);
@@ -4144,7 +4144,7 @@ loadShopifyProducts();
           new THREE.BoxGeometry(w, h, d),
           new THREE.MeshStandardMaterial({ color: 0x8B7355 })
         );
-        mesh.position.set(0, h / 2, 0);
+        mesh.position.set(0, SLAB_H + h / 2, 0);   // ✅ FIX: stand on the 300mm slab, not the grid
         mesh.castShadow = true;
         mesh.userData = { product, skuIndex: 0 };
         scene.add(mesh);
@@ -5145,7 +5145,7 @@ canvas.addEventListener('touchmove', (e) => {
         new THREE.MeshStandardMaterial({ color: 0xff9500 })
       );
       wallObj.mesh.position.set(
-        (wallObj.start.x + wallObj.end.x) / 2, h / 2,
+        (wallObj.start.x + wallObj.end.x) / 2, SLAB_H + h / 2,   // ✅ FIX: sit on slab, not grid
         (wallObj.start.z + wallObj.end.z) / 2
       );
       wallObj.mesh.rotation.y = -Math.atan2(dz, dx);
@@ -6794,7 +6794,9 @@ function serialiseScene() {
   });
 
   const sceneJson = {
-    version: 1,
+    // v2: cabinet position.y is referenced to the slab top (SLAB_H). v1 saves
+    // referenced the grid (y=0); loadScene migrates those by lifting +SLAB_H.
+    version: 2,
     settings: {
       ceilingHeight: settings.ceilingHeight,
       wallThickness: settings.wallThickness,
@@ -6879,10 +6881,14 @@ function clearScene() {
 }
 
 function loadScene(sceneJson) {
-  if (!sceneJson || sceneJson.version !== 1) {
+  if (!sceneJson || (sceneJson.version !== 1 && sceneJson.version !== 2)) {
     console.warn('[loadScene] unrecognised scene version', sceneJson?.version);
     return;
   }
+
+  // v1 stored cabinet y against the grid (y=0); v2 stores it against the slab
+  // top. Lift legacy items so they stand on the raised floor like new ones.
+  const cabinetYOffset = (sceneJson.version === 1) ? SLAB_H : 0;
 
   clearScene();
 
@@ -6930,8 +6936,8 @@ function loadScene(sceneJson) {
     const mesh = placedItems[placedItems.length - 1];
     if (!mesh) return;
 
-    // Restore transform
-    mesh.position.set(item.position.x, item.position.y, item.position.z);
+    // Restore transform (cabinetYOffset migrates legacy grid-referenced saves)
+    mesh.position.set(item.position.x, item.position.y + cabinetYOffset, item.position.z);
     mesh.rotation.y = item.rotationY;
     mesh.userData.skuIndex = item.skuIndex ?? 0;
   });
@@ -7273,23 +7279,25 @@ function buildCabDim3D(mesh) {
     });
   });
 
-  // Bottom → floor (cabinet floor reference is y=0, same as elevation view).
-  // ✅ FIX: use the true bottom edge from the local bbox, not pos.y − h/2.
+  // Bottom → floor. ✅ FIX: floor reference is the slab top (SLAB_H), so cabinets
+  // measure to the raised floor like walls/openings do (was y=0 / grid).
+  // (Bottom edge itself still comes from the true local bbox.)
   const bottomY = pos.y - exBot;
   {
     const from = new THREE.Vector3(pos.x, bottomY, pos.z);
-    const to   = new THREE.Vector3(pos.x, 0, pos.z);
+    const to   = new THREE.Vector3(pos.x, SLAB_H, pos.z);
     const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
     group.add(new THREE.Line(geo, cabDim3DMaterial));
     dims.push({
-      key: 'bottom', kind: 'bottom', valueM: Math.max(0, bottomY), dir: null,
+      key: 'bottom', kind: 'bottom', valueM: Math.max(0, bottomY - SLAB_H), dir: null,
       anchor: from.clone().lerp(to, 0.5)
     });
   }
 
   // Top → ceiling (matches elevation D4: ceilingHeight − (floor dist + height)).
-  // ✅ FIX: true top edge from the local bbox.
-  const ceilY = mm(settings.ceilingHeight);
+  // ✅ FIX: ceiling sits at slab top + ceilingHeight (the real wall top), and the
+  // top edge comes from the true local bbox.
+  const ceilY = SLAB_H + mm(settings.ceilingHeight);
   const topY = pos.y + exTop;
   const topGap = ceilY - topY;
   if (topGap > -0.001) {
