@@ -945,6 +945,9 @@ function loadProductModel(product, placeholderMesh) {
       model.rotation.copy(placeholderMesh.rotation);
       // Copy userData so quote/history still works
       model.userData = { ...placeholderMesh.userData };
+      // #region agent log
+      fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28266b'},body:JSON.stringify({sessionId:'28266b',hypothesisId:'BC',location:'main.js:944',message:'loadProductModel GLB swap Y',data:{rawSizeY:size.y,sy:sy,heightM:mm(product.height),boxMinY:box.min.y,boxMaxY:box.max.y,modelPosY:model.position.y,glbBottom:model.position.y-mm(product.height)/2,SLAB_H:SLAB_H,title:product.title},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       model.traverse(child => {
         if (child.isMesh) {
           child.castShadow = true;
@@ -1115,6 +1118,7 @@ wallPopup.innerHTML = [
   '<div style="display:flex;gap:8px;margin-top:4px">',
   '<button id="wp-door" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px;touch-action:manipulation">Door</button>',
   '<button id="wp-window" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px;touch-action:manipulation">Window</button>',
+  '<button id="wp-gpo" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px;touch-action:manipulation">GPO</button>',
   '</div>',
   '</div>',
 
@@ -1693,6 +1697,14 @@ document.getElementById('wp-angle-apply').addEventListener('click', () => {
 
 document.getElementById('wp-door').addEventListener('click', () => { if (selectedWall) addOpening(selectedWall, 'door'); hideWallPopup(); });
 document.getElementById('wp-window').addEventListener('click', () => { if (selectedWall) addOpening(selectedWall, 'window'); hideWallPopup(); });
+document.getElementById('wp-gpo').addEventListener('click', () => {
+  if (!selectedWall) return;
+  const wall = selectedWall;
+  const op = addOpening(wall, 'gpo');
+  hideWallPopup();
+  openWallElevation(wall);
+  if (op) selectElevItem('opening', op);
+});
 document.getElementById('wp-view').addEventListener('click', () => { if (selectedWall) openWallElevation(selectedWall); hideWallPopup(); });
 
 // Initialise touch Quick Draw popup controls (once)
@@ -1711,6 +1723,7 @@ elevationPanel.innerHTML = [
   '<div style="display:flex;gap:8px;align-items:center">',
   '<button id="elev-add-door" style="background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">＋ Door</button>',
   '<button id="elev-add-window" style="background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">＋ Window</button>',
+  '<button id="elev-add-gpo" style="background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">＋ Power Point</button>',
   '<button id="elev-close" style="background:none;border:none;color:#aaa;font-size:20px;cursor:pointer;line-height:1;padding:0 4px" title="Close (Esc)">✕</button>',
   '</div></div>',
   '<div style="padding:8px 16px;border-bottom:1px solid #222;flex-shrink:0;display:flex;align-items:center;justify-content:space-between">',
@@ -2159,7 +2172,31 @@ function drawRuler(ctx, info, direction) {
       const isDrag = elevDragOp      === op;
   
       elevCtx.clearRect(rx, ry, rw, rh);
-  
+
+      // ── Power point: black rounded square with a white GPO circle ──
+      if (op.type === 'gpo') {
+        const r = Math.min(rw, rh) * 0.25;
+        elevCtx.save();
+        elevCtx.beginPath();
+        elevCtx.moveTo(rx + r, ry);
+        elevCtx.arcTo(rx + rw, ry,      rx + rw, ry + rh, r);
+        elevCtx.arcTo(rx + rw, ry + rh, rx,      ry + rh, r);
+        elevCtx.arcTo(rx,      ry + rh, rx,      ry,      r);
+        elevCtx.arcTo(rx,      ry,      rx + rw, ry,      r);
+        elevCtx.closePath();
+        elevCtx.fillStyle = '#111';
+        elevCtx.fill();
+        elevCtx.strokeStyle = (isSel || isDrag) ? '#ffdd00' : isHov ? '#ffffff' : '#000';
+        elevCtx.lineWidth = (isSel || isDrag) ? 2.5 : isHov ? 2 : 1.5;
+        elevCtx.stroke();
+        elevCtx.beginPath();
+        elevCtx.arc(rx + rw / 2, ry + rh / 2, Math.min(rw, rh) * 0.28, 0, Math.PI * 2);
+        elevCtx.fillStyle = '#fff';
+        elevCtx.fill();
+        elevCtx.restore();
+        // Selection tint + dimension lines render below via the shared blocks.
+      } else {
+
       elevCtx.fillStyle = op.type === 'door'
         ? 'rgba(90,50,15,0.75)'
         : 'rgba(80,150,195,0.45)';
@@ -2209,6 +2246,7 @@ function drawRuler(ctx, info, direction) {
         );
         elevCtx.restore();
       }
+      }   // end else (door/window visual block)
 
       // ── Selection highlight / dim overlay (hovered items stay bright) ──
       if (elevSelectedItem) {
@@ -2385,7 +2423,7 @@ function drawRuler(ctx, info, direction) {
 
     placedItems.forEach(mesh => {
       if (!mesh.userData.product) return;
-      if (mesh.userData.type === 'door' || mesh.userData.type === 'window') return;
+      if (mesh.userData.type === 'door' || mesh.userData.type === 'window' || mesh.userData.type === 'gpo') return;
       const product = mesh.userData.product;
       const relX = mesh.position.x - elevWall.start.x;
       const relZ = mesh.position.z - elevWall.start.z;
@@ -2671,7 +2709,8 @@ function drawRuler(ctx, info, direction) {
   }
   
   function showElevOpeningEditor(op) {
-    document.getElementById('elev-editor-title').textContent = op.type === 'door' ? 'Edit Door' : 'Edit Window';
+    document.getElementById('elev-editor-title').textContent =
+      op.type === 'door' ? 'Edit Door' : op.type === 'gpo' ? 'Edit Power Point' : 'Edit Window';
     syncElevEditorFields(op);
     document.getElementById('elev-opening-editor').style.display = 'block';
   }
@@ -2707,7 +2746,7 @@ function drawRuler(ctx, info, direction) {
     selectedOpening  = kind === 'opening' ? item : null;
     const title = kind === 'cabinet'
       ? (item.productName || 'Cabinet')
-      : (item.type === 'door' ? 'Edit Door' : 'Edit Window');
+      : (item.type === 'door' ? 'Edit Door' : item.type === 'gpo' ? 'Edit Power Point' : 'Edit Window');
     document.getElementById('elev-editor-title').textContent = title;
     syncElevEditorFields(item);
     setElevDimInputsDisabled(kind === 'cabinet');   // width/height read-only for cabinets
@@ -3019,6 +3058,18 @@ function drawRuler(ctx, info, direction) {
     selectElevItem('opening', op);
     drawElevation();
   });
+
+  document.getElementById('elev-add-gpo').addEventListener('click', () => {
+    if (!elevWall) return;
+    const wallLenMm = elevWall.start.distanceTo(elevWall.end) * 1000;
+    const op = { type: 'gpo', width: 100, height: 100, distFromLeft: 200, floorDist: 300 };
+    op.distFromLeft = Math.min(op.distFromLeft, wallLenMm - op.width - 100);
+    elevOpenings.push(op);
+    elevWall.openings = elevOpenings;
+    syncOpeningsTo3D(elevWall);
+    selectElevItem('opening', op);
+    drawElevation();
+  });
   
   document.getElementById('elev-close').addEventListener('click', closeWallElevation);
   
@@ -3035,11 +3086,39 @@ function drawRuler(ctx, info, direction) {
     (wallObj.openings || []).forEach(op => {
       const iw = mm(op.width), ih = mm(op.height);
       const iy = SLAB_H + mm(op.floorDist) + ih / 2;
-      const color = op.type === 'door' ? 0x8B4513 : 0x87CEEB;
       const t = mm(op.distFromLeft) + iw / 2;
       const dx = wallObj.end.x - wallObj.start.x, dz = wallObj.end.z - wallObj.start.z;
       const len = Math.sqrt(dx * dx + dz * dz);
       const nx = dx / len, nz = dz / len;
+
+      // ── Power point: a thin flat black square sitting on the wall face ──
+      // (does not cut through the wall like a door/window).
+      if (op.type === 'gpo') {
+        const baseX = wallObj.start.x + nx * t;
+        const baseZ = wallObj.start.z + nz * t;
+        const depth = 0.02;
+        const off   = mm(settings.wallThickness) / 2 + depth / 2;
+        let px = -nz, pz = nx;   // wall perpendicular
+        // Face the room interior when the wall loop is closed.
+        if (walls.length) {
+          let cx = 0, cz = 0;
+          walls.forEach(w => { cx += w.start.x; cz += w.start.z; });
+          cx /= walls.length; cz /= walls.length;
+          if ((cx - baseX) * px + (cz - baseZ) * pz < 0) { px = -px; pz = -pz; }
+        }
+        const gpoMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(iw, ih, depth),
+          new THREE.MeshStandardMaterial({ color: 0x111111 })
+        );
+        gpoMesh.position.set(baseX + px * off, iy, baseZ + pz * off);
+        gpoMesh.rotation.y = angle;
+        gpoMesh.userData = { type: 'gpo', parentWall: wallObj, opening: op };
+        scene.add(gpoMesh);
+        placedItems.push(gpoMesh);
+        return;
+      }
+
+      const color = op.type === 'door' ? 0x8B4513 : 0x87CEEB;
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(iw, ih, mm(settings.wallThickness) + 0.05),
         new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.75 })
@@ -3059,10 +3138,13 @@ function drawRuler(ctx, info, direction) {
     const wallLenMm = wallObj.start.distanceTo(wallObj.end) * 1000;
     const op = type === 'door'
       ? { type: 'door',   distFromLeft: 200, floorDist: 0,   width: 900,  height: 2100 }
+      : type === 'gpo'
+      ? { type: 'gpo',    distFromLeft: 200, floorDist: 300, width: 100,  height: 100 }
       : { type: 'window', distFromLeft: 200, floorDist: 900, width: 1200, height: 1200 };
     op.distFromLeft = Math.min(op.distFromLeft, wallLenMm - op.width - 100);
     wallObj.openings.push(op);
     syncOpeningsTo3D(wallObj);
+    return op;
   }
   
   function lockRoom() {
@@ -3259,7 +3341,7 @@ canvas.addEventListener('mousedown', (e) => {
   // (They were excluded from click-select but not from drag, so they could be
   // dragged off the wall and desync from wallObj.openings.)
   const dragCandidates = placedItems.filter(item =>
-    item.userData?.type !== 'door' && item.userData?.type !== 'window');
+    item.userData?.type !== 'door' && item.userData?.type !== 'window' && item.userData?.type !== 'gpo');
   const itemHits = raycaster.intersectObjects(dragCandidates, true);
   if (itemHits.length > 0) {
     let hit = itemHits[0].object;
@@ -3513,7 +3595,7 @@ lastMouseY = e.clientY;
             // Cabinet hit-test (raycast the meshes inside each placed item).
             const targets = [];
             placedItems.forEach(item => {
-              if (item.userData?.type === 'door' || item.userData?.type === 'window') return;
+              if (item.userData?.type === 'door' || item.userData?.type === 'window' || item.userData?.type === 'gpo') return;
               item.traverse(child => { if (child.isMesh) targets.push(child); });
             });
             const itemHits = raycaster.intersectObjects(targets, false);
@@ -3521,7 +3603,7 @@ lastMouseY = e.clientY;
             // Door/window hit-test — openings are selectable (blue wireframe +
             // green dims) but never draggable; position is edited via the dims.
             const openingMeshes = placedItems.filter(it =>
-              it.userData?.type === 'door' || it.userData?.type === 'window');
+              it.userData?.type === 'door' || it.userData?.type === 'window' || it.userData?.type === 'gpo');
             const openingHits = raycaster.intersectObjects(openingMeshes, false);
 
             // Whichever is physically closer to the camera wins (cabinets sit in
@@ -4145,6 +4227,9 @@ loadShopifyProducts();
           new THREE.MeshStandardMaterial({ color: 0x8B7355 })
         );
         mesh.position.set(0, SLAB_H + h / 2, 0);   // ✅ FIX: stand on the 300mm slab, not the grid
+        // #region agent log
+        fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28266b'},body:JSON.stringify({sessionId:'28266b',hypothesisId:'A',location:'main.js:4147',message:'placeProduct placeholder Y',data:{SLAB_H:SLAB_H,h:h,posY:mesh.position.y,bottom:mesh.position.y-h/2,title:product.title},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         mesh.castShadow = true;
         mesh.userData = { product, skuIndex: 0 };
         scene.add(mesh);
@@ -4320,6 +4405,9 @@ function addImportedProductToPanel(product) {
     const clone = original.clone(true);
     const box = new THREE.Box3().setFromObject(clone);
     clone.position.set(0, -box.min.y, 0);
+    // #region agent log
+    fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28266b'},body:JSON.stringify({sessionId:'28266b',hypothesisId:'D',location:'main.js:4328',message:'imported GLB re-placed from panel',data:{posY:clone.position.y,boxMinY:box.min.y,SLAB_H:SLAB_H,name:product.name},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     clone.userData = { product, skuIndex: 0 };
     clone.traverse(child => {
       if (child.isMesh) { child.castShadow = true; child.userData = clone.userData; }
@@ -4787,6 +4875,9 @@ document.getElementById('glb-upload-btn').addEventListener('click', () => {
 
   const finalModel = glbModalScene.clone(true);
   centreAndFloor(finalModel);
+  // #region agent log
+  fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28266b'},body:JSON.stringify({sessionId:'28266b',hypothesisId:'E',location:'main.js:4795',message:'GLB import upload placed via centreAndFloor',data:{posY:finalModel.position.y,SLAB_H:SLAB_H,name:name},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   finalModel.traverse(child => {
     if (child.isMesh) {
       const mats = Array.isArray(child.material) ? child.material : [child.material];
@@ -4846,7 +4937,7 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
   placedItems.forEach(obj => {
     if (!obj.userData?.product?.skus) return;
     if (obj.userData.product.id?.startsWith('imported-')) return;
-    if (obj.userData.type === 'door' || obj.userData.type === 'window') return;
+    if (obj.userData.type === 'door' || obj.userData.type === 'window' || obj.userData.type === 'gpo') return;
     const { product, skuIndex } = obj.userData;
     const sku = product.skus[skuIndex ?? 0];
     if (!sku?.variantId) return;
@@ -5235,7 +5326,7 @@ function fireLongPress(x, y) {
   const targets = [];
   placedItems.forEach(item => {
     // Skip door/window opening meshes — they belong to walls, not products
-    if (item.userData?.type === 'door' || item.userData?.type === 'window') return;
+    if (item.userData?.type === 'door' || item.userData?.type === 'window' || item.userData?.type === 'gpo') return;
     item.traverse(child => { if (child.isMesh) targets.push(child); });
   });
 
@@ -5243,7 +5334,7 @@ function fireLongPress(x, y) {
 
   // Door/window hit-test — selectable via long-press (blue wireframe + dims).
   const openingMeshes = placedItems.filter(it =>
-    it.userData?.type === 'door' || it.userData?.type === 'window');
+    it.userData?.type === 'door' || it.userData?.type === 'window' || it.userData?.type === 'gpo');
   const openingHits = ray.intersectObjects(openingMeshes, false);
   const wallHits = ray.intersectObjects(walls.map(w => w.mesh));
 
@@ -5327,7 +5418,7 @@ canvas.addEventListener('touchend', (e) => {
   const targets = [];
   placedItems.forEach(item => {
     // Skip door/window opening meshes — they belong to walls, not products
-    if (item.userData?.type === 'door' || item.userData?.type === 'window') return;
+    if (item.userData?.type === 'door' || item.userData?.type === 'window' || item.userData?.type === 'gpo') return;
     item.traverse(child => { if (child.isMesh) targets.push(child); });
   });
 
@@ -6775,7 +6866,7 @@ function serialiseScene() {
       return;
     }
     // Skip opening meshes (doors/windows — they're reconstructed from wall data)
-    if (mesh.userData.type === 'door' || mesh.userData.type === 'window') return;
+    if (mesh.userData.type === 'door' || mesh.userData.type === 'window' || mesh.userData.type === 'gpo') return;
     // Skip items with no variantId (can't round-trip to Shopify)
     const sku = product.skus?.[mesh.userData.skuIndex ?? 0];
     if (!sku?.variantId) return;
