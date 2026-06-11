@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { initAuth, signInWithGoogle, signOut, saveProject, listProjects, loadProject, deleteProject } from './auth.js';
+import { initAuth, signInWithGoogle, signOut, getUser, saveProject, listProjects, loadProject, deleteProject } from './auth.js';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
 const mm = v => v / 1000;
 const SLAB_H = mm(300);   // floor slab height — walls sit on top of this
@@ -48,11 +48,44 @@ controls.dampingFactor = 0.05;
 controls.minDistance = 0.3;
 controls.maxDistance = 50;
 
+// ✅ FIX: 2D zoom is now proportional + anchored at the cursor/pinch point, and
+// pan is pixel-accurate (the world point under the pointer follows the drag at
+// any zoom level). Previously zoom used a fixed absolute step centred on the
+// screen and pan speed was tied to a hardcoded 400px, which made working close
+// to a cabinet feel sluggish and imprecise.
+const ORTHO_MIN = 0.2, ORTHO_MAX = 30;
+
+// World point on the floor plane under a client coordinate (2D ortho view).
+function ortho2DWorldPoint(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  camera2D.updateMatrixWorld();
+  return new THREE.Vector3(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1,
+    0
+  ).unproject(camera2D);
+}
+
+// Scale orthoSize by `factor`, keeping the world point under (clientX, clientY) fixed.
+function zoom2DAt(clientX, clientY, factor) {
+  const before = ortho2DWorldPoint(clientX, clientY);
+  orthoSize = Math.max(ORTHO_MIN, Math.min(ORTHO_MAX, orthoSize * factor));
+  updateOrtho();
+  const after = ortho2DWorldPoint(clientX, clientY);
+  camera2D.position.x += before.x - after.x;
+  camera2D.position.z += before.z - after.z;
+}
+
+// World metres per screen pixel at the current zoom (for pixel-accurate pan).
+function ortho2DMetresPerPixel() {
+  const h = canvas.clientHeight || window.innerHeight;
+  return (orthoSize * 2) / h;
+}
+
 window.addEventListener('wheel', (e) => {
   if (is3D) return;
   const normDelta = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
-  orthoSize = Math.max(0.5, Math.min(30, orthoSize + normDelta * 0.005));
-  updateOrtho();
+  zoom2DAt(e.clientX, e.clientY, Math.exp(normDelta * 0.001));
 }, { passive: true });
 
 let isPanning2D = false;
@@ -62,7 +95,7 @@ canvas.addEventListener('mousedown', (e) => {
 });
 window.addEventListener('mousemove', (e) => {
   if (!isPanning2D) return;
-  const s = orthoSize / 400;
+  const s = ortho2DMetresPerPixel();
   camera2D.position.x -= (e.clientX - panStart.x) * s;
   camera2D.position.z -= (e.clientY - panStart.y) * s;
   panStart.set(e.clientX, e.clientY);
@@ -121,16 +154,18 @@ canvas.addEventListener('touchmove', (e) => {
     const pts = Array.from(activeTouches.values());
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
     if (lastPinchDist !== null && !is3D) {
+      // ✅ FIX: proportional pinch zoom anchored at the pinch midpoint.
       const delta = lastPinchDist - dist;
-      orthoSize = Math.max(0.5, Math.min(30, orthoSize + delta * 0.01));
-      updateOrtho();
+      const midX = (pts[0].x + pts[1].x) / 2;
+      const midY = (pts[0].y + pts[1].y) / 2;
+      zoom2DAt(midX, midY, Math.exp(delta * 0.002));
     }
     lastPinchDist = dist;
     return;
   }
   if (isPanning2D && activeTouches.size === 1 && mode !== 'draw-wall') {
     const t = e.changedTouches[0];
-    const s = orthoSize / 400;
+    const s = ortho2DMetresPerPixel();   // ✅ FIX: pixel-accurate pan at any zoom
     camera2D.position.x -= (t.clientX - panStart.x) * s;
     camera2D.position.z -= (t.clientY - panStart.y) * s;
     panStart.set(t.clientX, t.clientY);
@@ -183,8 +218,14 @@ const MAX_HISTORY = 20;
 let undoStack = [];
 let redoStack = [];
 
+// ── Unsaved-work tracking ──
+// Any mutating action goes through pushHistory, so it doubles as a dirty flag.
+// Cleared on successful save and on project load.
+let sceneDirty = false;
+
 function pushHistory(entry) {
   console.log('PUSH:', entry.type, undoStack.length + 1);
+  sceneDirty = true;
   undoStack.push(entry);
   if (undoStack.length > MAX_HISTORY) undoStack.shift();
   redoStack = [];
@@ -276,7 +317,10 @@ function executeUndo(entry) {
       applyWallVisual(it.wall);
     });
     rebuildAllCaps();
-  }  
+  } else if (entry.type === 'edit-opening') {
+    Object.assign(entry.data.op, entry.data.before);
+    if (walls.includes(entry.data.wallObj)) syncOpeningsTo3D(entry.data.wallObj);
+  }
 }
 function executeRedo(entry) {
   if (entry.type === 'add-wall') {
@@ -336,7 +380,10 @@ function executeRedo(entry) {
       applyWallVisual(it.wall);
     });
     rebuildAllCaps();
-  }  
+  } else if (entry.type === 'edit-opening') {
+    Object.assign(entry.data.op, entry.data.after);
+    if (walls.includes(entry.data.wallObj)) syncOpeningsTo3D(entry.data.wallObj);
+  }
 }
 
 let glbModalFile        = null;
@@ -921,7 +968,11 @@ function loadProductModel(product, placeholderMesh) {
       // drag isn't stranded on the removed placeholder when the GLB lands.
       if (selectedItem === placeholderMesh) selectedItem = model;
       if (dragTarget === placeholderMesh) dragTarget = model;
-      if (touchSelectedModel === placeholderMesh) touchSelectedModel = model;
+      if (touchSelectedModel === placeholderMesh) {
+        touchSelectedModel = model;
+        removeCabinetBox(placeholderMesh);   // ✅ migrate cyan wireframe too
+        addCabinetBox(model);
+      }
       if (selectedCabinets.includes(placeholderMesh)) {
         removeCabinetBox(placeholderMesh);
         selectedCabinets = selectedCabinets.map(m => m === placeholderMesh ? model : m);
@@ -1388,6 +1439,11 @@ function deselectCabinet(model) {
   selectedCabinets = selectedCabinets.filter(m => m !== model);
 }
 function updateCabinetBoxes() {
+  // Touch-selected model also carries a helper (see showTouchOverlay).
+  if (touchSelectedModel) {
+    const h = cabinetBoxHelpers.get(touchSelectedModel);
+    if (h) h.update();
+  }
   if (!selectedCabinets.length) return;
   selectedCabinets.forEach(m => { const h = cabinetBoxHelpers.get(m); if (h) h.update(); });
 }
@@ -2990,7 +3046,9 @@ function drawRuler(ctx, info, direction) {
       );
       mesh.position.set(wallObj.start.x + nx * t, iy, wallObj.start.z + nz * t);
       mesh.rotation.y = angle;
-      mesh.userData = { type: op.type, parentWall: wallObj };
+      // `opening` links the mesh back to its authoritative record so 3D
+      // selection/dims survive rebuilds (meshes are recreated on every sync).
+      mesh.userData = { type: op.type, parentWall: wallObj, opening: op };
       scene.add(mesh);
       placedItems.push(mesh);
     });
@@ -3197,7 +3255,12 @@ canvas.addEventListener('mousedown', (e) => {
   updateMouse(e);
   raycaster.setFromCamera(mouse, activeCamera);
 
-  const itemHits = raycaster.intersectObjects(placedItems, true);
+  // ✅ FIX: doors/windows are locked to their wall — never draggable in 3D.
+  // (They were excluded from click-select but not from drag, so they could be
+  // dragged off the wall and desync from wallObj.openings.)
+  const dragCandidates = placedItems.filter(item =>
+    item.userData?.type !== 'door' && item.userData?.type !== 'window');
+  const itemHits = raycaster.intersectObjects(dragCandidates, true);
   if (itemHits.length > 0) {
     let hit = itemHits[0].object;
     while (hit.parent && !placedItems.includes(hit)) hit = hit.parent;
@@ -3455,12 +3518,30 @@ lastMouseY = e.clientY;
             });
             const itemHits = raycaster.intersectObjects(targets, false);
 
+            // Door/window hit-test — openings are selectable (blue wireframe +
+            // green dims) but never draggable; position is edited via the dims.
+            const openingMeshes = placedItems.filter(it =>
+              it.userData?.type === 'door' || it.userData?.type === 'window');
+            const openingHits = raycaster.intersectObjects(openingMeshes, false);
+
             // Whichever is physically closer to the camera wins (cabinets sit in
             // front of the walls they're against, so they must be able to beat a wall).
             const wallDist = wallHits.length ? wallHits[0].distance : Infinity;
             const itemDist = itemHits.length ? itemHits[0].distance : Infinity;
+            const openingDist = openingHits.length ? openingHits[0].distance : Infinity;
+
+            if (openingHits.length > 0 && openingDist <= wallDist && openingDist <= itemDist) {
+              hideWallPopup();
+              hideDesktopItemPanel();
+              selectedItem = null;
+              clearWallMultiSelect();
+              clearCabinetSelection();
+              selectOpening3D(openingHits[0].object);
+              return;
+            }
 
             if (itemHits.length > 0 && itemDist <= wallDist) {
+              clearOpening3DSelection();
               let obj = itemHits[0].object;
               while (obj.parent && !placedItems.includes(obj)) obj = obj.parent;
               selectedItem = obj;
@@ -3483,6 +3564,7 @@ lastMouseY = e.clientY;
             }
 
             if (wallHits.length > 0) {
+              clearOpening3DSelection();
               const wHit = wallHits[0].object.userData.wallObj;
               // Ctrl/Cmd + click (desktop) OR touch + Shift → toggle wall in multi-selection.
               if (e.ctrlKey || e.metaKey || (IS_TOUCH && isShiftModifierActive())) {
@@ -3502,6 +3584,7 @@ lastMouseY = e.clientY;
             selectedItem = null;
             clearWallMultiSelect();
             clearCabinetSelection();
+            clearOpening3DSelection();
           }
         });
 
@@ -4104,6 +4187,7 @@ loadShopifyProducts();
         controls.update();
         updateCabinetBoxes();
         update3DCabinetDims();   // 3D cabinet dims — additive, no-op when nothing selected
+        update3DOpeningDims();   // 3D door/window dims — additive, no-op when nothing selected
         renderer.render(scene, activeCamera);
       }
       // ── GLB Import — button + drag-and-drop ──────────────────────────────────────
@@ -4852,11 +4936,20 @@ let floatDragOffsetY    = 0;
 let rulerActive         = false;
 
 function showTouchOverlay(model) {
+  // ✅ Touch selection shows the same cyan wireframe as desktop selection.
+  if (touchSelectedModel && touchSelectedModel !== model &&
+      !selectedCabinets.includes(touchSelectedModel)) {
+    removeCabinetBox(touchSelectedModel);
+  }
   touchSelectedModel = model;
+  addCabinetBox(model);
   touchOverlay.style.display = 'block';
 }
 
 function hideTouchOverlay() {
+  if (touchSelectedModel && !selectedCabinets.includes(touchSelectedModel)) {
+    removeCabinetBox(touchSelectedModel);
+  }
   touchSelectedModel = null;
   touchOverlay.style.display = 'none';
   touchDragActive = false;
@@ -5109,12 +5202,113 @@ document.addEventListener('touchend', () => {
   floatPanelDragging = false;
 });
 
+// ─── Long-press to select (touch only) ───────────────────────────────────────
+// Press and hold ~450 ms on a cabinet or wall to select it. A quick tap no
+// longer selects — it only clears the current selection on empty space. The
+// timer is cancelled by movement (>10 px), multi-touch, drag handles, or
+// lifting the finger early, so pan/pinch/orbit gestures are unaffected.
+
+const LONG_PRESS_MS      = 450;
+const LONG_PRESS_SLOP_PX = 10;
+let longPressTimer = null;
+let longPressStart = { x: 0, y: 0 };
+let longPressFired = false;
+
+function cancelLongPress() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+}
+
+function fireLongPress(x, y) {
+  longPressTimer = null;
+  if (mode !== 'select' || touchDragActive || canvas._draggingHandle) return;
+  longPressFired = true;
+  if (navigator.vibrate) { try { navigator.vibrate(30); } catch (_) {} }
+
+  const rect  = canvas.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((x - rect.left) / rect.width)  * 2 - 1,
+   -((y - rect.top)  / rect.height) * 2 + 1
+  );
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(ndc, activeCamera);
+
+  const targets = [];
+  placedItems.forEach(item => {
+    // Skip door/window opening meshes — they belong to walls, not products
+    if (item.userData?.type === 'door' || item.userData?.type === 'window') return;
+    item.traverse(child => { if (child.isMesh) targets.push(child); });
+  });
+
+  const hits = ray.intersectObjects(targets, false);
+
+  // Door/window hit-test — selectable via long-press (blue wireframe + dims).
+  const openingMeshes = placedItems.filter(it =>
+    it.userData?.type === 'door' || it.userData?.type === 'window');
+  const openingHits = ray.intersectObjects(openingMeshes, false);
+  const wallHits = ray.intersectObjects(walls.map(w => w.mesh));
+
+  const itemDist    = hits.length ? hits[0].distance : Infinity;
+  const openingDist = openingHits.length ? openingHits[0].distance : Infinity;
+
+  // Precedence matches the original tap behaviour: cabinets/openings always
+  // beat walls; between the two, the closer one wins.
+  if (openingHits.length > 0 && openingDist <= itemDist) {
+    hideTouchOverlay();
+    hideFloatPanel();
+    selectOpening3D(openingHits[0].object);
+    return;
+  }
+
+  if (hits.length > 0) {
+    clearOpening3DSelection();
+    let obj = hits[0].object;
+    while (obj.parent && !placedItems.includes(obj)) obj = obj.parent;
+    showTouchOverlayAndPanel(obj);
+    return;
+  }
+
+  if (wallHits.length > 0) {
+    clearOpening3DSelection();
+    const tappedWall = wallHits[0].object.userData.wallObj;
+    if (tappedWall) showWallPopup(tappedWall, x, y);
+  }
+}
+
+canvas.addEventListener('touchstart', (e) => {
+  if (!IS_TOUCH) return;
+  longPressFired = false;
+  cancelLongPress();
+  if (mode !== 'select') return;
+  if (e.touches.length !== 1) return;
+  if (touchDragActive || canvas._draggingHandle) return;
+  const t = e.touches[0];
+  longPressStart.x = t.clientX;
+  longPressStart.y = t.clientY;
+  longPressTimer = setTimeout(
+    () => fireLongPress(longPressStart.x, longPressStart.y), LONG_PRESS_MS);
+}, { passive: true });
+
+canvas.addEventListener('touchmove', (e) => {
+  if (!longPressTimer) return;
+  if (e.touches.length !== 1) { cancelLongPress(); return; }
+  const t = e.touches[0];
+  if (Math.hypot(t.clientX - longPressStart.x, t.clientY - longPressStart.y) > LONG_PRESS_SLOP_PX) {
+    cancelLongPress();
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchcancel', cancelLongPress, { passive: true });
+
 // ─── Tap canvas to select model ───────────────────────────────────────────────
 
 canvas.addEventListener('touchend', (e) => {
   console.log('[tap] touchend fired, mode=', mode, 'dragActive=', touchDragActive);
+  cancelLongPress();
   if (typeof isTouchDevice === 'function' && !isTouchDevice()) return;
   console.log('[tap] passed isTouchDevice check');
+
+  // Long-press already handled this gesture — don't also run the tap logic.
+  if (longPressFired) { longPressFired = false; return; }
 
   if (touchDragActive) return;
   if (mode !== 'select') return;
@@ -5140,21 +5334,13 @@ canvas.addEventListener('touchend', (e) => {
   const hits = raycaster.intersectObjects(targets, false);
     // Also check for wall taps on iPad
     const wallTapHits = raycaster.intersectObjects(walls.map(w => w.mesh));
-    if (wallTapHits.length > 0 && hits.length === 0) {
-      const tappedWall = wallTapHits[0].object.userData.wallObj;
-      if (tappedWall) {
-        showWallPopup(tappedWall, touch.clientX, touch.clientY);
-        return;
-      }
-    }
-  
-  if (hits.length > 0) {
-    let obj = hits[0].object;
-    while (obj.parent && !placedItems.includes(obj)) obj = obj.parent;
-    showTouchOverlayAndPanel(obj);
-  } else {
+
+  // ✅ Selection now requires press-and-hold (see long-press handler above).
+  // A quick tap only clears the current selection when it lands on empty space.
+  if (hits.length === 0 && wallTapHits.length === 0) {
     hideTouchOverlay();
     hideFloatPanel();
+    clearOpening3DSelection();
   }
 }, { passive: true });
 
@@ -6804,6 +6990,7 @@ function loadScene(sceneJson) {
   // Force back to select mode so taps work immediately after load
   mode = 'select';
   canvas.style.cursor = 'default';
+  sceneDirty = false;   // freshly loaded project = nothing unsaved
 }
 
 
@@ -6995,6 +7182,28 @@ function removeCabDim3DInput() {
   if (cabDim3D.input) { cabDim3D.input.remove(); cabDim3D.input = null; }
 }
 
+// ✅ FIX: measure green dims from the cabinet's true mesh edges, not catalog
+// half-extents. GLB pivots/extents can drift slightly from the planner.*
+// metafield dims, which made the cabinet-side endpoint inconsistent in 3D
+// (the elevation popup was already edge-based and correct). This computes the
+// bounding box in the cabinet's local frame so each face position is real.
+function cabDim3DLocalBox(mesh) {
+  mesh.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+  const box = new THREE.Box3();
+  const tmp = new THREE.Box3();
+  const mat = new THREE.Matrix4();
+  mesh.traverse(child => {
+    if (!child.isMesh || !child.geometry) return;
+    if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+    tmp.copy(child.geometry.boundingBox);
+    mat.multiplyMatrices(inv, child.matrixWorld);
+    tmp.applyMatrix4(mat);
+    box.union(tmp);
+  });
+  return box.isEmpty() ? null : box;
+}
+
 // Recompute the 6 dims + rebuild the green lines for the current target.
 function buildCabDim3D(mesh) {
   if (cabDim3D.group) {
@@ -7013,6 +7222,21 @@ function buildCabDim3D(mesh) {
   const ux = Math.cos(yaw), uz = -Math.sin(yaw);   // local +x
   const fx = Math.sin(yaw), fz = Math.cos(yaw);    // local +z
 
+  // ✅ FIX: true per-face extents from the mesh's local bounding box, so the
+  // cabinet-side endpoint always sits on the real cabinet edge. Falls back to
+  // catalog half-extents when a bbox axis drifts wildly (>10%) from the
+  // product dims (e.g. stray geometry in an imported GLB).
+  const lb = cabDim3DLocalBox(mesh);
+  const within = (bboxLen, prodLen) =>
+    prodLen > 1e-6 && Math.abs(bboxLen - prodLen) / prodLen <= 0.10;
+  let exR = w / 2, exL = w / 2, exF = d / 2, exB = d / 2;
+  let exBot = h / 2, exTop = h / 2;
+  if (lb) {
+    if (within(lb.max.x - lb.min.x, w)) { exR = lb.max.x; exL = -lb.min.x; }
+    if (within(lb.max.z - lb.min.z, d)) { exF = lb.max.z; exB = -lb.min.z; }
+    if (within(lb.max.y - lb.min.y, h)) { exBot = -lb.min.y; exTop = lb.max.y; }
+  }
+
   const group = new THREE.Group();
   group.renderOrder = 998;
   const dims = [];
@@ -7023,10 +7247,10 @@ function buildCabDim3D(mesh) {
   const ray = new THREE.Raycaster();
 
   const sides = [
-    { key: 'right', dx: ux,  dz: uz,  half: w / 2 },
-    { key: 'left',  dx: -ux, dz: -uz, half: w / 2 },
-    { key: 'front', dx: fx,  dz: fz,  half: d / 2 },
-    { key: 'back',  dx: -fx, dz: -fz, half: d / 2 }
+    { key: 'right', dx: ux,  dz: uz,  half: exR },
+    { key: 'left',  dx: -ux, dz: -uz, half: exL },
+    { key: 'front', dx: fx,  dz: fz,  half: exF },
+    { key: 'back',  dx: -fx, dz: -fz, half: exB }
   ];
 
   sides.forEach(s => {
@@ -7050,7 +7274,8 @@ function buildCabDim3D(mesh) {
   });
 
   // Bottom → floor (cabinet floor reference is y=0, same as elevation view).
-  const bottomY = pos.y - h / 2;
+  // ✅ FIX: use the true bottom edge from the local bbox, not pos.y − h/2.
+  const bottomY = pos.y - exBot;
   {
     const from = new THREE.Vector3(pos.x, bottomY, pos.z);
     const to   = new THREE.Vector3(pos.x, 0, pos.z);
@@ -7063,10 +7288,12 @@ function buildCabDim3D(mesh) {
   }
 
   // Top → ceiling (matches elevation D4: ceilingHeight − (floor dist + height)).
+  // ✅ FIX: true top edge from the local bbox.
   const ceilY = mm(settings.ceilingHeight);
-  const topGap = ceilY - (bottomY + h);
+  const topY = pos.y + exTop;
+  const topGap = ceilY - topY;
   if (topGap > -0.001) {
-    const from = new THREE.Vector3(pos.x, bottomY + h, pos.z);
+    const from = new THREE.Vector3(pos.x, topY, pos.z);
     const to   = new THREE.Vector3(pos.x, ceilY, pos.z);
     const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
     group.add(new THREE.Line(geo, cabDim3DMaterial));
@@ -7134,11 +7361,13 @@ function applyCabDim3DEdit(dim, typedMm) {
     const delta = dim.valueM - mm(clamped);
     mesh.position.addScaledVector(dim.dir, delta);
   } else if (dim.kind === 'bottom') {
+    // ✅ FIX: delta-based so edits agree with the bbox-measured bottom edge.
     clamped = Math.min(clamped, Math.max(0, settings.ceilingHeight - hMm));
-    mesh.position.y = mm(clamped) + mm(hMm) / 2;
+    mesh.position.y += mm(clamped) - dim.valueM;
   } else if (dim.kind === 'top') {
+    // ✅ FIX: delta-based so edits agree with the bbox-measured top edge.
     clamped = Math.min(clamped, Math.max(0, settings.ceilingHeight - hMm));
-    mesh.position.y = mm(settings.ceilingHeight - clamped) - mm(hMm) / 2;
+    mesh.position.y += dim.valueM - mm(clamped);
   }
 
   pushHistory({ type: 'move-item', data: { mesh, from, to: mesh.position.clone() } });
@@ -7194,6 +7423,296 @@ function openCabDim3DInput(dim, labelEl) {
   input.addEventListener('blur', commit);
 }
 
+// ── 3D Opening Dimensions (doors/windows — blue wireframe + green dims) ──────
+// Selecting a door/window in 3D shows a blue BoxHelper plus green dims derived
+// from the authoritative wallObj.openings[] record (exact by construction):
+// width + height (read-only), distance to left/right wall ends (editable),
+// distance to floor and ceiling (editable). Edits update the opening record,
+// push an 'edit-opening' history entry and rebuild via syncOpeningsTo3D().
+
+const OPENING_SELECT_COLOR = 0x2196f3;   // blue wireframe for selected opening
+
+const opDim3D = {
+  sel: null,        // { wallObj, op } — survives mesh rebuilds
+  mesh: null,       // resolved 3D mesh for sel.op
+  helper: null,     // blue THREE.BoxHelper
+  group: null,      // THREE.Group of green lines
+  dims: [],         // [{ key, editable, valueM, anchor }]
+  labels: [],       // pooled HTML label divs
+  input: null,
+  lastSig: ''       // rebuild signature (op values + wall geometry)
+};
+
+function selectOpening3D(mesh) {
+  const op = mesh.userData?.opening;
+  const wallObj = mesh.userData?.parentWall;
+  if (!op || !wallObj) return;
+  clearOpening3DSelection();
+  opDim3D.sel = { wallObj, op };
+}
+
+function clearOpening3DSelection() {
+  if (opDim3D.helper) {
+    scene.remove(opDim3D.helper);
+    if (opDim3D.helper.geometry) opDim3D.helper.geometry.dispose();
+    if (opDim3D.helper.material) opDim3D.helper.material.dispose();
+    opDim3D.helper = null;
+  }
+  if (opDim3D.group) {
+    opDim3D.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    scene.remove(opDim3D.group);
+    opDim3D.group = null;
+  }
+  opDim3D.dims = [];
+  opDim3D.labels.forEach(el => { el.style.display = 'none'; });
+  removeOpeningDim3DInput();
+  opDim3D.sel = null;
+  opDim3D.mesh = null;
+  opDim3D.lastSig = '';
+}
+
+function removeOpeningDim3DInput() {
+  if (opDim3D.input) { opDim3D.input.remove(); opDim3D.input = null; }
+}
+
+function openingDim3DLabelEl(i) {
+  while (opDim3D.labels.length <= i) {
+    const el = document.createElement('div');
+    el.style.cssText =
+      'position:fixed;display:none;z-index:380;padding:2px 7px;border-radius:4px;' +
+      'background:#0c2418;color:#00ff88;border:1px solid #00ff88;' +
+      'font:bold 11px Arial;cursor:pointer;user-select:none;transform:translate(-50%,-50%);' +
+      'box-shadow:0 1px 4px rgba(0,0,0,0.5);touch-action:manipulation;';
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(el.dataset.dimIdx);
+      const d = opDim3D.dims[idx];
+      if (d && d.editable) openOpeningDim3DInput(d, el);
+    });
+    document.body.appendChild(el);
+    opDim3D.labels.push(el);
+  }
+  return opDim3D.labels[i];
+}
+
+// Rebuild the green lines + dims for the selected opening's current mesh.
+function buildOpeningDim3D(mesh) {
+  if (opDim3D.group) {
+    opDim3D.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    scene.remove(opDim3D.group);
+    opDim3D.group = null;
+  }
+  opDim3D.dims = [];
+
+  const { wallObj, op } = opDim3D.sel;
+  const wallLenMm = wallObj.start.distanceTo(wallObj.end) * 1000;
+  const wallHMm   = settings.ceilingHeight;
+  const dLeft  = op.distFromLeft;
+  const dRight = wallLenMm - (op.distFromLeft + op.width);
+  const dFloor = op.floorDist;
+  const dCeil  = wallHMm - (op.floorDist + op.height);
+
+  const dx = wallObj.end.x - wallObj.start.x;
+  const dz = wallObj.end.z - wallObj.start.z;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  if (len < 1e-6) return;
+  const nx = dx / len, nz = dz / len;     // unit along-wall
+
+  const pos = mesh.position;
+  const halfW = mm(op.width) / 2, halfH = mm(op.height) / 2;
+  const leftEdge  = new THREE.Vector3(pos.x - nx * halfW, pos.y, pos.z - nz * halfW);
+  const rightEdge = new THREE.Vector3(pos.x + nx * halfW, pos.y, pos.z + nz * halfW);
+  const bottomY = pos.y - halfH, topY = pos.y + halfH;
+
+  const group = new THREE.Group();
+  group.renderOrder = 998;
+  const dims = [];
+  const addLine = (from, to, key, valueMm, editable) => {
+    const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
+    group.add(new THREE.Line(geo, cabDim3DMaterial));
+    dims.push({
+      key, editable, valueM: Math.max(0, mm(valueMm)),
+      anchor: from.clone().lerp(to, 0.5)
+    });
+  };
+
+  // Left/right: opening edge → wall end, at the opening's mid-height.
+  addLine(leftEdge.clone(),
+    new THREE.Vector3(wallObj.start.x, pos.y, wallObj.start.z), 'left', dLeft, true);
+  addLine(rightEdge.clone(),
+    new THREE.Vector3(wallObj.end.x, pos.y, wallObj.end.z), 'right', dRight, true);
+
+  // Floor/ceiling: from the opening's bottom/top edge, lengths exact from the
+  // opening record so they always match the elevation view.
+  addLine(new THREE.Vector3(pos.x, bottomY, pos.z),
+    new THREE.Vector3(pos.x, bottomY - mm(dFloor), pos.z), 'floor', dFloor, true);
+  addLine(new THREE.Vector3(pos.x, topY, pos.z),
+    new THREE.Vector3(pos.x, topY + Math.max(0, mm(dCeil)), pos.z), 'ceil', Math.max(0, dCeil), true);
+
+  // Width along the bottom edge + height along the left edge (read-only).
+  addLine(new THREE.Vector3(leftEdge.x, bottomY, leftEdge.z),
+    new THREE.Vector3(rightEdge.x, bottomY, rightEdge.z), 'width', op.width, false);
+  addLine(new THREE.Vector3(leftEdge.x, bottomY, leftEdge.z),
+    new THREE.Vector3(leftEdge.x, topY, leftEdge.z), 'height', op.height, false);
+
+  scene.add(group);
+  opDim3D.group = group;
+  opDim3D.dims = dims;
+}
+
+function openingDim3DSig(mesh) {
+  const { wallObj, op } = opDim3D.sel;
+  return [op.distFromLeft, op.floorDist, op.width, op.height,
+    wallObj.start.x, wallObj.start.z, wallObj.end.x, wallObj.end.z,
+    settings.ceilingHeight, mesh.id].join(',');
+}
+
+// Per-frame: resolve the mesh for the selected opening (meshes are recreated on
+// every syncOpeningsTo3D), keep the helper + dims fresh, pin labels to screen.
+function update3DOpeningDims() {
+  const sel = opDim3D.sel;
+  if (!sel) {
+    if (opDim3D.group || opDim3D.helper) clearOpening3DSelection();
+    return;
+  }
+  if (!walls.includes(sel.wallObj) ||
+      !(sel.wallObj.openings || []).includes(sel.op)) {
+    clearOpening3DSelection();
+    return;
+  }
+  const mesh = placedItems.find(m => m.userData?.opening === sel.op);
+  if (!mesh) { clearOpening3DSelection(); return; }
+
+  if (opDim3D.mesh !== mesh) {
+    opDim3D.mesh = mesh;
+    if (opDim3D.helper) {
+      scene.remove(opDim3D.helper);
+      if (opDim3D.helper.geometry) opDim3D.helper.geometry.dispose();
+      if (opDim3D.helper.material) opDim3D.helper.material.dispose();
+    }
+    opDim3D.helper = new THREE.BoxHelper(mesh, OPENING_SELECT_COLOR);
+    if (opDim3D.helper.material) {
+      opDim3D.helper.material.depthTest = false;
+      opDim3D.helper.material.transparent = true;
+    }
+    opDim3D.helper.renderOrder = 999;
+    scene.add(opDim3D.helper);
+  }
+
+  const sig = openingDim3DSig(mesh);
+  if (sig !== opDim3D.lastSig) {
+    removeOpeningDim3DInput();   // anchors shift — close stale input
+    buildOpeningDim3D(mesh);
+    opDim3D.lastSig = sig;
+  }
+
+  const cRect = canvas.getBoundingClientRect();
+  opDim3D.dims.forEach((dim, i) => {
+    const el = openingDim3DLabelEl(i);
+    const v = dim.anchor.clone().project(activeCamera);
+    if (v.z > 1 || v.z < -1) { el.style.display = 'none'; return; }
+    el.style.left = (cRect.left + (v.x * 0.5 + 0.5) * cRect.width) + 'px';
+    el.style.top  = (cRect.top + (-v.y * 0.5 + 0.5) * cRect.height) + 'px';
+    el.textContent = Math.round(dim.valueM * 1000) + (dim.editable ? '' : ' 🔒');
+    el.style.cursor = dim.editable ? 'pointer' : 'default';
+    el.dataset.dimIdx = i;
+    el.style.display = 'block';
+  });
+  for (let i = opDim3D.dims.length; i < opDim3D.labels.length; i++) {
+    opDim3D.labels[i].style.display = 'none';
+  }
+}
+
+// Apply a typed mm value to one editable opening dim. Mirrors the elevation
+// clamping rules (applyGreenDimEdit D1/D2/D4/D5). Pushes 'edit-opening'.
+function applyOpeningDim3DEdit(dim, typedMm) {
+  const sel = opDim3D.sel;
+  if (!sel || isNaN(typedMm)) return null;
+  const { wallObj, op } = sel;
+  const wallLenMm = wallObj.start.distanceTo(wallObj.end) * 1000;
+  const wallHMm   = settings.ceilingHeight;
+  const typed = Math.round(typedMm);
+  const before = { distFromLeft: op.distFromLeft, floorDist: op.floorDist };
+  let clamped;
+
+  if (dim.key === 'left') {
+    clamped = Math.max(0, Math.min(wallLenMm - op.width, typed));
+    op.distFromLeft = clamped;
+  } else if (dim.key === 'right') {
+    const target = wallLenMm - op.width - typed;
+    const dl = Math.max(0, Math.min(wallLenMm - op.width, target));
+    op.distFromLeft = dl;
+    clamped = wallLenMm - (dl + op.width);
+  } else if (dim.key === 'floor') {
+    clamped = Math.max(0, Math.min(wallHMm - op.height, typed));
+    op.floorDist = clamped;
+  } else if (dim.key === 'ceil') {
+    const target = wallHMm - typed - op.height;
+    const fd = Math.max(0, Math.min(wallHMm - op.height, target));
+    op.floorDist = fd;
+    clamped = wallHMm - (fd + op.height);
+  } else {
+    return null;
+  }
+
+  if (op.distFromLeft !== before.distFromLeft || op.floorDist !== before.floorDist) {
+    pushHistory({ type: 'edit-opening', data: {
+      wallObj, op, before,
+      after: { distFromLeft: op.distFromLeft, floorDist: op.floorDist }
+    }});
+  }
+  syncOpeningsTo3D(wallObj);
+  if (typeof drawElevation === 'function' && elevWall === wallObj) drawElevation();
+  return Math.round(clamped);
+}
+
+// Inline input over a clicked opening label — same UX as the cabinet dims.
+function openOpeningDim3DInput(dim, labelEl) {
+  removeOpeningDim3DInput();
+  const rect = labelEl.getBoundingClientRect();
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.value = Math.round(dim.valueM * 1000);
+  input.style.cssText =
+    'position:fixed;z-index:390;width:72px;padding:3px 5px;border:2px solid #00ff88;' +
+    'border-radius:4px;background:#fff;color:#111;font:bold 12px Arial;text-align:center;' +
+    'left:' + (rect.left + rect.width / 2 - 40) + 'px;top:' + (rect.top - 4) + 'px;';
+  document.body.appendChild(input);
+  opDim3D.input = input;
+  input.focus();
+  input.select();
+
+  let committed = false;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    const typed = parseFloat(input.value);
+    const applied = applyOpeningDim3DEdit(dim, typed);
+    if (applied !== null && !isNaN(typed) && Math.round(typed) !== applied) {
+      input.style.borderColor = '#ff4444';
+      input.style.color = '#ff4444';
+      input.value = applied;
+      setTimeout(() => {
+        input.remove();
+        if (opDim3D.input === input) opDim3D.input = null;
+      }, 300);
+      return;
+    }
+    input.remove();
+    if (opDim3D.input === input) opDim3D.input = null;
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') commit();
+    else if (e.key === 'Escape') {
+      committed = true;
+      input.remove();
+      if (opDim3D.input === input) opDim3D.input = null;
+    }
+    e.stopPropagation();
+  });
+  input.addEventListener('blur', commit);
+}
+
 initAuth();
 animate();
 
@@ -7210,6 +7729,7 @@ document.getElementById('btn-save-project').addEventListener('click', async () =
     showImportToast('Save failed: ' + error, true);
     return;
   }
+  sceneDirty = false;
   showImportToast('Saved ✓');
   if (skippedImportedCount > 0) {
     setTimeout(() => {
@@ -7428,6 +7948,45 @@ document.getElementById('hmenu-wall-xray').addEventListener('click', () => {
 document.getElementById('hmenu-import-glb').addEventListener('click', () => {
   closeHamburgerMenu();
   glbFileInput.click();
+});
+
+// ── Hamburger: Save Project ──
+// Signed in → reuse the existing save flow; signed out → open the auth modal.
+document.getElementById('hmenu-save-project').addEventListener('click', () => {
+  closeHamburgerMenu();
+  if (getUser()) {
+    document.getElementById('btn-save-project').click();
+  } else {
+    authModal.style.display = 'flex';
+  }
+});
+
+// ── Hamburger: Restart Planner (confirm modal → hard reload) ──
+const refreshModal = document.getElementById('refresh-confirm-modal');
+
+document.getElementById('hmenu-refresh').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('refresh-confirm-msg').innerHTML = sceneDirty
+    ? '⚠️ <b>You have unsaved changes.</b><br>Restarting reloads the planner back to a blank start and your work will be lost.'
+    : 'This reloads the planner back to a blank start.';
+  refreshModal.style.display = 'flex';
+});
+document.getElementById('btn-refresh-cancel').addEventListener('click', () => {
+  refreshModal.style.display = 'none';
+});
+refreshModal.addEventListener('click', (e) => {
+  if (e.target === refreshModal) refreshModal.style.display = 'none';
+});
+document.getElementById('btn-refresh-confirm').addEventListener('click', () => {
+  sceneDirty = false;   // user confirmed — don't double-warn via beforeunload
+  location.reload();
+});
+
+// Warn before closing/reloading the tab with unsaved work.
+window.addEventListener('beforeunload', (e) => {
+  if (!sceneDirty) return;
+  e.preventDefault();
+  e.returnValue = '';
 });
 
 // ── Touch Modifier Dock ──────────────────────────────────────────────────────
