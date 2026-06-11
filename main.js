@@ -5152,7 +5152,8 @@ function captureSnapshot() {
 }
 
 // ── Quote PDF: download button handler ──
-document.getElementById('btn-export-pdf').addEventListener('click', () => {
+// Guard the lookup so a missing element can never break later wiring.
+document.getElementById('btn-export-pdf')?.addEventListener('click', () => {
   const rows = buildQuoteRows();
   if (rows.length === 0) {
     showImportToast('Add cabinets to your plan first.', true);
