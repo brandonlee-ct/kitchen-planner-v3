@@ -129,6 +129,8 @@ window.addEventListener('mouseup', () => { isPanning2D = false; });
 // ✅ FIX: Touch support — pointer events for pan, pinch-zoom, and wall drawing
 let activeTouches = new Map();
 let lastPinchDist = null;
+let lastPinchMid = null;     // pinch midpoint — drives two-finger pan in 2D
+let qdTapTimer = null;       // Quick Draw tap is deferred briefly so a 2nd finger can turn it into a pinch
 
 canvas.addEventListener('touchstart', (e) => {
   if (mode === 'draw-glide') return;
@@ -154,16 +156,25 @@ canvas.addEventListener('touchstart', (e) => {
     isPanning2D = true;
   }  if (activeTouches.size === 2) {
     isPanning2D = false;
+    // 2nd finger landed — this is a pinch, not a draw tap. Cancel any pending tap.
+    if (qdTapTimer) { clearTimeout(qdTapTimer); qdTapTimer = null; }
     const pts = Array.from(activeTouches.values());
     lastPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    lastPinchMid  = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
   }
   if (activeTouches.size === 1 && (mode === 'draw-wall' || mode === 'draw-freehand' || mode === 'draw-twopoint')) {
     const t = e.changedTouches[0];
     if (mode === 'draw-freehand' || mode === 'draw-twopoint') {
       handleDrawClick(t.clientX, t.clientY);
     } else {
-      const synth = new MouseEvent('click', { clientX: t.clientX, clientY: t.clientY, bubbles: true });
-      canvas.dispatchEvent(synth);
+      // Quick Draw: defer the tap ~140ms so a 2nd finger arriving can pinch-zoom
+      // instead of placing a stray wall point. Single taps fire as before.
+      const cx = t.clientX, cy = t.clientY;
+      if (qdTapTimer) clearTimeout(qdTapTimer);
+      qdTapTimer = setTimeout(() => {
+        qdTapTimer = null;
+        canvas.dispatchEvent(new MouseEvent('click', { clientX: cx, clientY: cy, bubbles: true }));
+      }, 140);
     }
   }
   
@@ -177,14 +188,28 @@ canvas.addEventListener('touchmove', (e) => {
   if (activeTouches.size === 2) {
     const pts = Array.from(activeTouches.values());
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    const midX = (pts[0].x + pts[1].x) / 2;
+    const midY = (pts[0].y + pts[1].y) / 2;
     if (lastPinchDist !== null && !is3D) {
       // ✅ FIX: proportional pinch zoom anchored at the pinch midpoint.
       const delta = lastPinchDist - dist;
-      const midX = (pts[0].x + pts[1].x) / 2;
-      const midY = (pts[0].y + pts[1].y) / 2;
       zoom2DAt(midX, midY, Math.exp(delta * 0.002));
+      // Two-finger drag also pans the 2D view (works mid-draw / joystick mode too)
+      if (lastPinchMid) {
+        const s = ortho2DMetresPerPixel();
+        camera2D.position.x -= (midX - lastPinchMid.x) * s;
+        camera2D.position.z -= (midY - lastPinchMid.y) * s;
+      }
+    } else if (lastPinchDist !== null && is3D && mode === 'draw-wall') {
+      // 3D pinch dolly while drawing — OrbitControls is disabled in Quick Draw,
+      // so zoom the camera toward/away from its target manually.
+      const delta = lastPinchDist - dist;
+      const off = camera3D.position.clone().sub(controls.target);
+      const newLen = Math.max(1.5, Math.min(60, off.length() * Math.exp(delta * 0.002)));
+      camera3D.position.copy(controls.target).addScaledVector(off.normalize(), newLen);
     }
     lastPinchDist = dist;
+    lastPinchMid  = { x: midX, y: midY };
     return;
   }
   if (isPanning2D && activeTouches.size === 1 && mode !== 'draw-wall') {
@@ -216,7 +241,7 @@ canvas.addEventListener('touchend', (e) => {
     }
   
   Array.from(e.changedTouches).forEach(t => activeTouches.delete(t.identifier));
-  if (activeTouches.size < 2) lastPinchDist = null;
+  if (activeTouches.size < 2) { lastPinchDist = null; lastPinchMid = null; }
   if (activeTouches.size === 0) isPanning2D = false;
 }, { passive: false });
 
@@ -3449,14 +3474,15 @@ function hideHoverWallDistances() {
   if (hoverSplitLabel) hoverSplitLabel.style.display = 'none';
 }
 
-function updateHoverWallDistances(e) {
-  if (!hoveredWall) { hideHoverWallDistances(); return; }
+function updateHoverWallDistances(e, w) {
+  w = w || hoveredWall;
+  if (!w) { hideHoverWallDistances(); return; }
   const pt = getFloorPosFromRay(e);
   if (!pt) { hideHoverWallDistances(); return; }
-  const proj  = fdProjectOntoWall(hoveredWall, pt);
-  const trims = wallInteriorTrims(hoveredWall);
-  const dA = Math.max(0, Math.round((proj.distanceTo(hoveredWall.start) - trims.start) * 1000));
-  const dB = Math.max(0, Math.round((proj.distanceTo(hoveredWall.end)   - trims.end)   * 1000));
+  const proj  = fdProjectOntoWall(w, pt);
+  const trims = wallInteriorTrims(w);
+  const dA = Math.max(0, Math.round((proj.distanceTo(w.start) - trims.start) * 1000));
+  const dB = Math.max(0, Math.round((proj.distanceTo(w.end)   - trims.end)   * 1000));
   if (!hoverSplitLabel) {
     hoverSplitLabel = document.createElement('div');
     hoverSplitLabel.className = 'fd-split-label';
@@ -3496,6 +3522,16 @@ lastMouseY = e.clientY;
       canvas.style.cursor = 'default';
       hideHoverWallDistances();
     }
+  } else if (joyActive) {
+    // Joystick mode (2D + 3D): when the crosshair passes over a wall, show the
+    // cursor → interior-end distances for that wall. Read-only — doesn't touch
+    // hoveredWall, so select-mode highlight logic is unaffected.
+    updateMouse(e);
+    raycaster.setFromCamera(mouse, activeCamera);
+    const jHits = raycaster.intersectObjects(walls.map(w => w.mesh))
+      .filter(h => walls.includes(h.object.userData.wallObj));
+    if (jHits.length > 0) updateHoverWallDistances(e, jHits[0].object.userData.wallObj);
+    else hideHoverWallDistances();
   } else {
     hideHoverWallDistances();
   }
@@ -7975,9 +8011,9 @@ function openCabDim3DInput(dim, labelEl) {
 // ── 3D Opening Dimensions (doors/windows — blue wireframe + green dims) ──────
 // Selecting a door/window in 3D shows a blue BoxHelper plus green dims derived
 // from the authoritative wallObj.openings[] record (exact by construction):
-// width + height (read-only), distance to left/right wall ends (editable),
-// distance to floor and ceiling (editable). Edits update the opening record,
-// push an 'edit-opening' history entry and rebuild via syncOpeningsTo3D().
+// width + height, distance to left/right wall ends, and distance to floor and
+// ceiling — all editable. Edits update the opening record, push an
+// 'edit-opening' history entry and rebuild via syncOpeningsTo3D().
 
 const OPENING_SELECT_COLOR = 0x2196f3;   // blue wireframe for selected opening
 
@@ -8098,11 +8134,12 @@ function buildOpeningDim3D(mesh) {
   addLine(new THREE.Vector3(pos.x, topY, pos.z),
     new THREE.Vector3(pos.x, topY + Math.max(0, mm(dCeil)), pos.z), 'ceil', Math.max(0, dCeil), true);
 
-  // Width along the bottom edge + height along the left edge (read-only).
+  // Width along the bottom edge + height along the left edge (editable —
+  // mirrors elevation D6/D7: left edge anchored / bottom edge anchored).
   addLine(new THREE.Vector3(leftEdge.x, bottomY, leftEdge.z),
-    new THREE.Vector3(rightEdge.x, bottomY, rightEdge.z), 'width', op.width, false);
+    new THREE.Vector3(rightEdge.x, bottomY, rightEdge.z), 'width', op.width, true);
   addLine(new THREE.Vector3(leftEdge.x, bottomY, leftEdge.z),
-    new THREE.Vector3(leftEdge.x, topY, leftEdge.z), 'height', op.height, false);
+    new THREE.Vector3(leftEdge.x, topY, leftEdge.z), 'height', op.height, true);
 
   scene.add(group);
   opDim3D.group = group;
@@ -8173,7 +8210,7 @@ function update3DOpeningDims() {
 }
 
 // Apply a typed mm value to one editable opening dim. Mirrors the elevation
-// clamping rules (applyGreenDimEdit D1/D2/D4/D5). Pushes 'edit-opening'.
+// clamping rules (applyGreenDimEdit D1/D2/D4–D7). Pushes 'edit-opening'.
 function applyOpeningDim3DEdit(dim, typedMm) {
   const sel = opDim3D.sel;
   if (!sel || isNaN(typedMm)) return null;
@@ -8181,7 +8218,8 @@ function applyOpeningDim3DEdit(dim, typedMm) {
   const wallLenMm = wallObj.start.distanceTo(wallObj.end) * 1000;
   const wallHMm   = wallObj.height || settings.ceilingHeight;   // per-wall height (v3)
   const typed = Math.round(typedMm);
-  const before = { distFromLeft: op.distFromLeft, floorDist: op.floorDist };
+  const before = { distFromLeft: op.distFromLeft, floorDist: op.floorDist,
+                   width: op.width, height: op.height };
   let clamped;
 
   if (dim.key === 'left') {
@@ -8200,14 +8238,24 @@ function applyOpeningDim3DEdit(dim, typedMm) {
     const fd = Math.max(0, Math.min(wallHMm - op.height, target));
     op.floorDist = fd;
     clamped = wallHMm - (fd + op.height);
+  } else if (dim.key === 'width') {
+    // Mirrors elevation D6 — left edge anchored, grows toward the wall's end.
+    clamped = Math.max(100, Math.min(wallLenMm - op.distFromLeft, typed));
+    op.width = clamped;
+  } else if (dim.key === 'height') {
+    // Mirrors elevation D7 — bottom edge anchored, grows toward the ceiling.
+    clamped = Math.max(100, Math.min(wallHMm - op.floorDist, typed));
+    op.height = clamped;
   } else {
     return null;
   }
 
-  if (op.distFromLeft !== before.distFromLeft || op.floorDist !== before.floorDist) {
+  if (op.distFromLeft !== before.distFromLeft || op.floorDist !== before.floorDist ||
+      op.width !== before.width || op.height !== before.height) {
     pushHistory({ type: 'edit-opening', data: {
       wallObj, op, before,
-      after: { distFromLeft: op.distFromLeft, floorDist: op.floorDist }
+      after: { distFromLeft: op.distFromLeft, floorDist: op.floorDist,
+               width: op.width, height: op.height }
     }});
   }
   syncOpeningsTo3D(wallObj);
@@ -8514,9 +8562,10 @@ function openWallDim3DInput(dim, labelEl) {
 // re-dispatched as synthetic mouse events on the canvas, the same pattern the
 // touch path already uses, so preview/snap/undo behave exactly like a mouse.
 
-const JOY_SPEED = 4;                  // cursor px per frame at full deflection
+const JOY_SPEED = 240;                // cursor px per SECOND at full deflection (frame-rate independent)
 let joyActive  = false;
 let joyPrevXray = false;              // wall x-ray state to restore on exit
+let joyLastT = 0;                     // timestamp of last cursor update (ms)
 let joyVecX = 0, joyVecY = 0;         // joystick deflection, -1..1
 let joyCursorX = 0, joyCursorY = 0;   // virtual cursor position (CSS px)
 let joyPointerId = null;
@@ -8663,11 +8712,16 @@ function joySyntheticMove() {
 // a synthetic mousemove so the Quick Draw preview/snap logic runs unchanged.
 function updateJoystickFrame() {
   if (!joyActive) return;
+  // Time-based movement: identical speed at 60Hz and 120Hz (fullscreen/landscape
+  // can run at a higher refresh rate, which made the cursor twice as fast).
+  const now = performance.now();
+  const dt = joyLastT ? Math.min(0.05, (now - joyLastT) / 1000) : 0;
+  joyLastT = now;
   const mag = Math.hypot(joyVecX, joyVecY);
-  if (mag < 0.08) return;
+  if (mag < 0.08 || dt === 0) return;
   // Quadratic response: small deflections move the cursor extra slowly for precision.
-  joyCursorX = Math.max(0, Math.min(window.innerWidth,  joyCursorX + joyVecX * mag * JOY_SPEED));
-  joyCursorY = Math.max(0, Math.min(window.innerHeight, joyCursorY + joyVecY * mag * JOY_SPEED));
+  joyCursorX = Math.max(0, Math.min(window.innerWidth,  joyCursorX + joyVecX * mag * JOY_SPEED * dt));
+  joyCursorY = Math.max(0, Math.min(window.innerHeight, joyCursorY + joyVecY * mag * JOY_SPEED * dt));
   joyCursorEl.style.left = joyCursorX + 'px';
   joyCursorEl.style.top  = joyCursorY + 'px';
   joySyntheticMove();
@@ -8686,6 +8740,7 @@ async function startJoystickMode() {
   ensureJoystickUI();
   joyActive = true;
   joyVecX = joyVecY = 0;
+  joyLastT = 0;
   joyCursorX = window.innerWidth / 2;
   joyCursorY = window.innerHeight / 2;
   joyOverlay.style.display = 'block';
