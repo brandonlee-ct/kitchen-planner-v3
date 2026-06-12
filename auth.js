@@ -156,7 +156,7 @@ export async function listProjects() {
   if (!_user) return { data: null, error: 'Not signed in' };
   const { data, error } = await _client
     .from('projects')
-    .select('id, name, thumbnail, updated_at')
+    .select('id, name, thumbnail, updated_at, is_public, share_slug')
     .eq('user_id', _user.id)
     .order('updated_at', { ascending: false });
   if (error) return { data: null, error: error.message };
@@ -193,4 +193,36 @@ export async function deleteProject(id) {
     .eq('id', id)
     .eq('user_id', _user.id);
   return { error: error ? error.message : null };
+}
+
+/**
+ * Mark a project public and assign a share slug.
+ * @param {string} id
+ * @param {string} slug — unique short string for the share URL
+ * @returns {{ error: string|null }}
+ */
+export async function setProjectPublic(id, slug) {
+  if (!_user) return { error: 'Not signed in' };
+  const { error } = await _client
+    .from('projects')
+    .update({ is_public: true, share_slug: slug })
+    .eq('id', id)
+    .eq('user_id', _user.id);
+  return { error: error ? error.message : null };
+}
+
+/**
+ * Load a public project by share slug — no auth required.
+ * @param {string} slug
+ * @returns {{ data: object|null, error: string|null }}
+ */
+export async function loadPublicProject(slug) {
+  const { data, error } = await _client
+    .from('projects')
+    .select('id, name, scene_json')
+    .eq('share_slug', slug)
+    .eq('is_public', true)
+    .single();
+  if (error) return { data: null, error: error.message };
+  return { data, error: null };
 }

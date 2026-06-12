@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { initAuth, signInWithGoogle, signOut, getUser, saveProject, listProjects, loadProject, deleteProject, uploadThumbnail } from './auth.js';
+import { initAuth, signInWithGoogle, signOut, getUser, saveProject, listProjects, loadProject, deleteProject, uploadThumbnail, setProjectPublic, loadPublicProject } from './auth.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
@@ -28,6 +28,14 @@ function applyUrlMode() {
 }
 // Tracks the most recently saved/loaded project name for the Quote PDF (optional).
 let currentProjectName = '';
+// ── Share / read-only mode ────────────────────────────────────────────────────
+let readOnlyMode = false;
+
+// ── Analytics stub ────────────────────────────────────────────────────────────
+// Phase 1: console log only. Swap body for a real provider (PostHog, etc.) later.
+function trackEvent(name, props = {}) {
+  console.log('[analytics]', name, props);
+}
 const SLAB_H = mm(300);   // floor slab height — walls sit on top of this
 const settings = { ceilingHeight: 2400, wallThickness: 110, gridSize: 100 };
 
@@ -1128,79 +1136,78 @@ function rebuild2DWallOverlays() {
 
 const wallPopup = document.createElement('div');
 wallPopup.id = 'wall-edit-popup';
-wallPopup.style.cssText = 'display:none;position:fixed;z-index:200;background:rgba(42,42,42,0.1);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid #ff9500;border-radius:10px;padding:16px;width:260px;font-family:Arial;font-size:13px;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+wallPopup.style.cssText = 'display:none;position:fixed;z-index:200;background:rgba(42,42,42,0.1);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid #ff9500;border-radius:10px;padding:10px 12px;width:240px;font-family:Arial;font-size:12px;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
 wallPopup.innerHTML = [
   // ── Touch Quick Draw: drag handle (hidden on desktop via CSS/JS) ──────────
   '<div id="wp-drag-handle" style="display:none;align-items:center;gap:8px;',
   'background:rgba(255,149,0,0.1);border-radius:8px;padding:6px 8px;',
-  'margin-bottom:8px;cursor:grab;touch-action:none;',
+  'margin-bottom:6px;cursor:grab;touch-action:none;',
   'user-select:none;-webkit-user-select:none">',
   '<span style="color:rgba(255,255,255,0.3);font-size:17px;letter-spacing:-3px">⠿</span>',
   '<span id="wp-touch-label" style="flex:1;color:#ccc;font-size:12px;font-weight:bold"></span>',
   '</div>',
 
   // ── Title ─────────────────────────────────────────────────────────────────
-  '<div style="color:#ff9500;font-weight:bold;margin-bottom:8px">Edit Wall</div>',
+  '<div style="color:#ff9500;font-weight:bold;margin-bottom:6px">Edit Wall</div>',
 
   // ── Length (always visible) ───────────────────────────────────────────────
-  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Length (mm)</label>',
-  '<div style="display:flex;gap:6px;margin:4px 0 10px;align-items:center">',
-  '<input id="wp-length" type="number" step="100" min="100" style="flex:1;background:#333;border:1px solid #ff9500;border-radius:6px;color:#fff;padding:8px 10px;font-size:15px;box-sizing:border-box"/>',
-  '<button id="wp-bt" style="background:none;border:1px solid #555;border-radius:6px;padding:7px 9px;cursor:pointer;font-size:15px;touch-action:manipulation" title="Bluetooth">BT</button>',
-  '<button id="wp-confirm" style="background:#ff9500;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:bold;touch-action:manipulation">OK</button>',
+  '<label style="color:#aaa;font-size:10px;text-transform:uppercase">Length (mm)</label>',
+  '<div style="display:flex;gap:5px;margin:3px 0 8px;align-items:center">',
+  '<input id="wp-length" type="number" step="100" min="100" style="flex:1;min-width:0;background:#333;border:1px solid #ff9500;border-radius:6px;color:#fff;padding:6px 8px;font-size:14px;box-sizing:border-box"/>',
+  '<button id="wp-bt" style="background:none;border:1px solid #555;border-radius:6px;padding:6px 8px;cursor:pointer;font-size:13px;touch-action:manipulation" title="Bluetooth">BT</button>',
+  '<button id="wp-confirm" style="background:#ff9500;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:bold;touch-action:manipulation">OK</button>',
   '</div>',
 
   // ── Anchor row ────────────────────────────────────────────────────────────
-  '<div id="wp-fd-anchor-row" style="display:none;margin:-4px 0 10px">',
+  '<div id="wp-fd-anchor-row" style="display:none;margin:-3px 0 8px">',
   '<button id="wp-fd-anchor" title="Switch which end stays locked when resizing" ',
   'style="width:100%;background:#333;color:#fff;border:1px solid #555;border-radius:6px;',
-  'padding:7px 8px;cursor:pointer;font-size:12px;touch-action:manipulation">⇄ Anchor: start</button>',
+  'padding:6px 8px;cursor:pointer;font-size:11px;touch-action:manipulation">⇄ Anchor: start</button>',
   '</div>',
 
-  // ── Secondary section (thickness / height / type) ─────────────────────────
-  // Hidden in compact touch mode; visible on desktop and in expanded touch mode
+  // ── Primary section (angle + openings — always visible outside Quick Draw) ─
   '<div id="wp-secondary-section">',
-  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Wall Thickness (mm)</label>',
-  '<div style="display:flex;gap:6px;margin:4px 0 10px;align-items:center">',
-  '<input id="wp-thickness" type="number" step="10" min="50" max="500" style="flex:1;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:8px 10px;font-size:14px;box-sizing:border-box"/>',
-  '<span style="color:#aaa;font-size:12px">mm</span>',
+  '<label style="color:#aaa;font-size:10px;text-transform:uppercase">Wall Angle (degrees)</label>',
+  '<div style="display:flex;gap:5px;margin:3px 0 8px;align-items:center">',
+  '<input id="wp-angle" type="number" step="1" min="-360" max="360" style="flex:1;min-width:0;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:6px 8px;font-size:13px;box-sizing:border-box"/>',
+  '<span style="color:#aaa;font-size:11px">°</span>',
+  '<button id="wp-angle-apply" style="background:#2980b9;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:bold;touch-action:manipulation">Apply</button>',
   '</div>',
-  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Ceiling Height</label>',
-  '<select id="wp-height" style="width:100%;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:7px 8px;font-size:13px;margin:4px 0 10px;box-sizing:border-box">',
-  '<option value="2400">2400mm</option><option value="2700">2700mm</option>',
-  '</select>',
-  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Wall Type</label>',
-  '<select id="wp-type" style="width:100%;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:7px 8px;font-size:13px;margin:4px 0 10px;box-sizing:border-box">',
-  '<option value="110">Interior 110mm</option><option value="150">Exterior 150mm</option>',
-  '</select>',
+  '<label style="color:#aaa;font-size:10px;text-transform:uppercase">Add Opening</label>',
+  '<div style="display:flex;gap:5px;margin:3px 0 8px">',
+  '<button id="wp-door" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 4px;cursor:pointer;font-size:11px;touch-action:manipulation">＋ Door</button>',
+  '<button id="wp-window" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 4px;cursor:pointer;font-size:11px;touch-action:manipulation">＋ Window</button>',
+  '<button id="wp-gpo" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 4px;cursor:pointer;font-size:11px;touch-action:manipulation">＋ GPO</button>',
+  '</div>',
   '</div>',
 
   // ── Actions (Delete / View Wall — always visible) ─────────────────────────
-  '<div style="display:flex;gap:8px;margin-bottom:8px">',
-  '<button id="wp-delete" style="flex:1;background:#c0392b;color:#fff;border:none;border-radius:6px;padding:9px;cursor:pointer;font-size:13px;touch-action:manipulation">Delete</button>',
-  '<button id="wp-view" style="flex:1;background:#2980b9;color:#fff;border:none;border-radius:6px;padding:9px;cursor:pointer;font-size:13px;touch-action:manipulation">View Wall</button>',
+  '<div style="display:flex;gap:6px;margin-bottom:6px">',
+  '<button id="wp-delete" style="flex:1;background:#c0392b;color:#fff;border:none;border-radius:6px;padding:6px;cursor:pointer;font-size:12px;touch-action:manipulation">Delete</button>',
+  '<button id="wp-view" style="flex:1;background:#2980b9;color:#fff;border:none;border-radius:6px;padding:6px;cursor:pointer;font-size:12px;touch-action:manipulation">View Wall</button>',
   '</div>',
 
-  // ── More-options toggle (touch Quick Draw only; hidden on desktop) ─────────
+  // ── More-options toggle (all platforms) ───────────────────────────────────
   '<button id="wp-more-btn" style="display:none;width:100%;background:none;',
-  'border:1px solid #444;color:#888;border-radius:6px;padding:7px;font-size:12px;',
-  'cursor:pointer;margin-bottom:6px;touch-action:manipulation">▸ More options</button>',
+  'border:1px solid #444;color:#888;border-radius:6px;padding:5px;font-size:11px;',
+  'cursor:pointer;margin-bottom:4px;touch-action:manipulation">▸ More options</button>',
 
-  // ── Advanced section (angle + openings) ───────────────────────────────────
+  // ── More section (thickness / ceiling height / wall type) ─────────────────
   '<div id="wp-more-section">',
-  '<hr style="border-color:#444;margin:2px 0 10px"/>',
-  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Wall Angle (degrees)</label>',
-  '<div style="display:flex;gap:6px;margin:4px 0 10px;align-items:center">',
-  '<input id="wp-angle" type="number" step="1" min="-360" max="360" style="flex:1;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:8px 10px;font-size:14px;box-sizing:border-box"/>',
-  '<span style="color:#aaa;font-size:12px">°</span>',
-  '<button id="wp-angle-apply" style="background:#2980b9;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:bold;touch-action:manipulation">Apply</button>',
+  '<hr style="border-color:#444;margin:2px 0 8px"/>',
+  '<label style="color:#aaa;font-size:10px;text-transform:uppercase">Wall Thickness (mm)</label>',
+  '<div style="display:flex;gap:5px;margin:3px 0 8px;align-items:center">',
+  '<input id="wp-thickness" type="number" step="10" min="50" max="500" style="flex:1;min-width:0;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:6px 8px;font-size:13px;box-sizing:border-box"/>',
+  '<span style="color:#aaa;font-size:11px">mm</span>',
   '</div>',
-  '<label style="color:#aaa;font-size:11px;text-transform:uppercase">Add Opening</label>',
-  '<div style="display:flex;gap:8px;margin-top:4px">',
-  '<button id="wp-door" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px;touch-action:manipulation">Door</button>',
-  '<button id="wp-window" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px;touch-action:manipulation">Window</button>',
-  '<button id="wp-gpo" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px;touch-action:manipulation">GPO</button>',
-  '</div>',
+  '<label style="color:#aaa;font-size:10px;text-transform:uppercase">Ceiling Height</label>',
+  '<select id="wp-height" style="width:100%;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:6px 8px;font-size:12px;margin:3px 0 8px;box-sizing:border-box">',
+  '<option value="2400">2400mm</option><option value="2700">2700mm</option>',
+  '</select>',
+  '<label style="color:#aaa;font-size:10px;text-transform:uppercase">Wall Type</label>',
+  '<select id="wp-type" style="width:100%;background:#333;border:1px solid #555;border-radius:6px;color:#fff;padding:6px 8px;font-size:12px;margin:3px 0 4px;box-sizing:border-box">',
+  '<option value="110">Interior 110mm</option><option value="150">Exterior 150mm</option>',
+  '</select>',
   '</div>',
 
   // ── Close button (absolute, always) ───────────────────────────────────────
@@ -1242,19 +1249,13 @@ function updateWallPopupTouchUI() {
     wallPopup.style.backdropFilter = 'blur(18px)';
     wallPopup.style.webkitBackdropFilter = 'blur(18px)';
     wallPopup.style.background = 'rgba(42,42,42,0.1)';
-    if (IS_TOUCH) {
-      // Bottom-sheet (Select mode): secondary fields visible, but angle/openings
-      // hidden behind "More options" so the sheet doesn't swallow the whole screen.
-      moreBtn.style.display = '';
-      secSec.style.display  = '';
-      moreSec.style.display = _wpTQMoreOpen ? '' : 'none';
-      moreBtn.textContent   = _wpTQMoreOpen ? '▴ Less' : '▸ More options';
-    } else {
-      // Desktop: show everything at once
-      moreBtn.style.display = 'none';
-      secSec.style.display  = '';
-      moreSec.style.display = '';
-    }
+    // Desktop + touch bottom-sheet: angle/openings always visible; thickness,
+    // ceiling height and wall type live behind "More options" so the popup
+    // stays compact on every platform.
+    moreBtn.style.display = '';
+    secSec.style.display  = '';
+    moreSec.style.display = _wpTQMoreOpen ? '' : 'none';
+    moreBtn.textContent   = _wpTQMoreOpen ? '▴ Less' : '▸ More options';
     return;
   }
 
@@ -1272,8 +1273,8 @@ function updateWallPopupTouchUI() {
     // CSS hides everything except handle + absolute buttons
   } else {
     wallPopup.classList.remove('wep-peeked');
-    // Secondary (thickness/height/type) + advanced (angle/openings) both
-    // live behind ▸ More options so the default view is minimal
+    // Angle/openings + thickness/height/type both live behind ▸ More options
+    // so the mid-draw view stays minimal (length + OK only)
     secSec.style.display  = _wpTQMoreOpen ? '' : 'none';
     moreSec.style.display = _wpTQMoreOpen ? '' : 'none';
   }
@@ -1389,26 +1390,38 @@ function showWallPopup(wallObj, sx, sy) {
     wallPopup.style.transform     = 'translateX(-50%)';
     wallPopup.style.top           = '';
     wallPopup.style.bottom        = '0';
-    wallPopup.style.width         = 'min(440px, 100vw)';
-    wallPopup.style.maxHeight     = '82dvh';
+    wallPopup.style.width         = 'min(420px, 100vw)';
+    wallPopup.style.maxHeight     = '60dvh';
     wallPopup.style.overflowY     = 'auto';
     wallPopup.style.borderRadius  = '14px 14px 0 0';
-    wallPopup.style.padding       = '16px';   // restore base padding (compact mode overwrites the shorthand)
-    wallPopup.style.paddingBottom = 'calc(16px + env(safe-area-inset-bottom, 0px))';
+    wallPopup.style.padding       = '10px 12px';   // restore base padding (compact mode overwrites the shorthand)
+    wallPopup.style.paddingBottom = 'calc(10px + env(safe-area-inset-bottom, 0px))';
   } else {
     // ── Desktop: positioned near click ───────────────────────────────────────
-    const pw = 260, ph = 420;
+    _wpTQMoreOpen = false;   // start collapsed — thickness/height/type behind More
+    const pw = 240, ph = 330;
     let x = sx + 15, y = sy - 10;
     if (x + pw > window.innerWidth)  x = sx - pw - 15;
     if (y + ph > window.innerHeight) y = window.innerHeight - ph - 10;
     wallPopup.style.left = x + 'px'; wallPopup.style.top = y + 'px';
     wallPopup.style.transform = ''; wallPopup.style.bottom = '';
-    wallPopup.style.width = '260px'; wallPopup.style.maxHeight = '';
-    wallPopup.style.overflowY = ''; wallPopup.style.borderRadius = '10px';
-    wallPopup.style.padding = '16px';   // restore base padding (compact mode overwrites the shorthand)
+    wallPopup.style.width = '240px'; wallPopup.style.maxHeight = '94vh';
+    wallPopup.style.overflowY = 'auto'; wallPopup.style.borderRadius = '10px';
+    wallPopup.style.padding = '10px 12px';   // restore base padding (compact mode overwrites the shorthand)
   }
   updateWallPopupTouchUI();
   wallPopup.style.display = 'block';
+  // Desktop: re-clamp with the real rendered size so the popup is never cut
+  // off at the bottom/right edge (the ph estimate above is only a first guess).
+  if (!IS_TOUCH) {
+    const r = wallPopup.getBoundingClientRect();
+    if (r.right > window.innerWidth - 8) {
+      wallPopup.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    }
+    if (r.bottom > window.innerHeight - 8) {
+      wallPopup.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    }
+  }
   walls.forEach(w => w.mesh.material.color.set(wallBaseColor(w)));
   wallObj.mesh.material.color.set(0xff9500);
   // Desktop only: auto-select length for quick typing. On touch this would pop
@@ -5178,6 +5191,7 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
     if (userErrors?.length) {
       throw new Error(userErrors.map(e => e.message).join('; '));
     }
+    trackEvent('send_to_cart', { itemCount: lines.length });
     window.location.href = cart.checkoutUrl;
   } catch (err) {
     console.error('cartCreate failed:', err);
@@ -8794,9 +8808,36 @@ if (joyToggleBtn) joyToggleBtn.addEventListener('click', () => {
 applyUrlMode();
 initAuth();
 animate();
+trackEvent('planner_opened', { mode: URL_MODE });
+
+// ── Shared project load (read-only mode) ─────────────────────────────────────
+(async () => {
+  const shareSlug = new URLSearchParams(location.search).get('share');
+  if (!shareSlug) return;
+
+  const badge = document.getElementById('readonly-badge');
+  if (badge) badge.style.display = 'flex';
+  readOnlyMode = true;
+
+  // Hide owner controls that don't apply to viewers
+  ['btn-save-project', 'hmenu-save-project', 'btn-my-projects'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  const { data, error } = await loadPublicProject(shareSlug);
+  if (error || !data?.scene_json) {
+    showImportToast('Shared project not found', true);
+    return;
+  }
+  loadScene(data.scene_json);
+  currentProjectName = data.name || '';
+  showImportToast('Viewing: ' + currentProjectName);
+})();
 
 // ── Save Project button wiring ────────────────────────────────────────────────
 document.getElementById('btn-save-project').addEventListener('click', async () => {
+  if (readOnlyMode) { showImportToast('Read-only: cannot save shared project', true); return; }
   const defaultName = 'Kitchen - ' + new Date().toLocaleDateString('en-NZ');
   const name = prompt('Project name:', defaultName);
   if (!name || !name.trim()) return;
@@ -8812,6 +8853,7 @@ document.getElementById('btn-save-project').addEventListener('click', async () =
   }
   sceneDirty = false;
   currentProjectName = name.trim();
+  trackEvent('project_saved', { name: name.trim() });
   showImportToast('Saved ✓');
   if (skippedImportedCount > 0) {
     setTimeout(() => {
@@ -8885,6 +8927,12 @@ function renderProjectsList(rows) {
     loadBtn.textContent = 'Load';
     loadBtn.addEventListener('click', () => handleLoadProject(row.id));
 
+    const shareBtn = document.createElement('button');
+    shareBtn.className = 'proj-btn-share';
+    shareBtn.textContent = row.share_slug ? '🔗 Shared' : '🔗 Share';
+    shareBtn.title = row.share_slug ? 'View or copy share link' : 'Create a share link';
+    shareBtn.addEventListener('click', () => handleShareProject(row.id, row.name, row.share_slug));
+
     const delBtn = document.createElement('button');
     delBtn.className = 'proj-btn-delete';
     delBtn.textContent = '🗑';
@@ -8892,6 +8940,7 @@ function renderProjectsList(rows) {
     delBtn.addEventListener('click', () => handleDeleteProject(row.id, row.name));
 
     actions.appendChild(loadBtn);
+    actions.appendChild(shareBtn);
     actions.appendChild(delBtn);
 
     div.appendChild(thumb);
@@ -8940,6 +8989,7 @@ async function handleLoadProject(id) {
   loadScene(data.scene_json);
   currentProjectName = data.name || '';
   closeProjectsModal();
+  trackEvent('project_loaded', { name: currentProjectName });
   showImportToast('Loaded ✓');
 }
 
@@ -8963,6 +9013,50 @@ async function handleDeleteProject(id, name) {
   }
   renderProjectsList(data);
 }
+
+async function handleShareProject(id, name, existingSlug) {
+  let slug = existingSlug;
+  if (!slug) {
+    slug = crypto.randomUUID().replace(/-/g, '').slice(0, 10);
+    const { error } = await setProjectPublic(id, slug);
+    if (error) {
+      showImportToast('Share failed: ' + error, true);
+      return;
+    }
+    trackEvent('share_link_created', { projectId: id });
+  }
+  const shareUrl = window.location.origin + window.location.pathname + '?share=' + slug;
+  const input = document.getElementById('share-url-input');
+  const modal = document.getElementById('share-modal');
+  if (input) input.value = shareUrl;
+  if (modal)  modal.style.display = 'flex';
+}
+
+const shareModal   = document.getElementById('share-modal');
+const shareUrlInput = document.getElementById('share-url-input');
+const btnCopyShare = document.getElementById('btn-copy-share');
+const btnShareClose = document.getElementById('btn-share-close');
+
+if (btnCopyShare) btnCopyShare.addEventListener('click', () => {
+  if (!shareUrlInput) return;
+  navigator.clipboard.writeText(shareUrlInput.value).then(() => {
+    btnCopyShare.textContent = 'Copied!';
+    setTimeout(() => { btnCopyShare.textContent = 'Copy'; }, 2000);
+  }).catch(() => {
+    shareUrlInput.select();
+    document.execCommand('copy');
+    btnCopyShare.textContent = 'Copied!';
+    setTimeout(() => { btnCopyShare.textContent = 'Copy'; }, 2000);
+  });
+});
+
+if (btnShareClose) btnShareClose.addEventListener('click', () => {
+  if (shareModal) shareModal.style.display = 'none';
+});
+
+if (shareModal) shareModal.addEventListener('click', (e) => {
+  if (e.target === shareModal) shareModal.style.display = 'none';
+});
 
 btnMyProjects.addEventListener('click', openProjectsModal);
 btnProjectsClose.addEventListener('click', closeProjectsModal);

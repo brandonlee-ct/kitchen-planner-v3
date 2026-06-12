@@ -1112,6 +1112,22 @@ canvas#canvas {
 }
 .proj-btn-delete:active { background: #3a2020; }
 
+.proj-btn-share {
+  background: #2a2a2a;
+  color: #4a9eff;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+.proj-btn-share:active { background: #1a2a3a; }
+
 /* ── Free Draw ruler bar ─────────────────────────────── */
 /* ── Floating camera button ──────────────────────────────────────────── */
 #float-camera {

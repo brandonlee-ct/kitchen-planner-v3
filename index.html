@@ -44,6 +44,13 @@
   <button id="hmenu-wall-xray">👁 X-Ray Walls</button>
   <button id="hmenu-import-glb">📦 Import GLB</button>
   <button id="hmenu-refresh" title="Restart planner from a blank scene">🔄 Restart Planner</button>
+  <div style="border-top:1px solid #333;margin:4px 0"></div>
+  <a href="https://brownboxkit.co.nz/pages/privacy-policy" target="_blank" rel="noopener"
+    style="display:block;padding:10px 16px;color:#888;font-size:12px;
+    text-decoration:none;font-family:Arial">🔒 Privacy Policy</a>
+  <a href="https://brownboxkit.co.nz/pages/terms-of-service" target="_blank" rel="noopener"
+    style="display:block;padding:10px 16px;padding-top:0;color:#888;font-size:12px;
+    text-decoration:none;font-family:Arial">📄 Terms of Service</a>
 </div>
 
 <!-- ── Restart Confirm Modal ───────────────────────────── -->
@@ -82,6 +89,16 @@
 
   <!-- Canvas fills remaining space -->
   <canvas id="canvas"></canvas>
+
+  <!-- Read-only badge (shown when viewing a shared project) -->
+  <div id="readonly-badge" style="display:none;position:absolute;top:12px;left:50%;
+    transform:translateX(-50%);background:rgba(0,0,0,0.75);
+    border:1px solid #ff9500;border-radius:20px;
+    padding:6px 16px;color:#ff9500;font-size:12px;font-weight:bold;
+    font-family:Arial;pointer-events:none;z-index:500;
+    align-items:center;gap:6px;white-space:nowrap">
+    👁 Read-only shared project
+  </div>
 
   <!-- Room area chip -->
   <div id="room-area"></div>
@@ -416,6 +433,31 @@
         text-align:center;">Loading…</div>
     </div>
 
+  </div>
+</div>
+
+<!-- ── Share Link Modal ─────────────────────────────────── -->
+<div id="share-modal" style="display:none;position:fixed;inset:0;
+  z-index:2100;background:rgba(0,0,0,0.85);align-items:center;
+  justify-content:center;font-family:Arial;">
+  <div style="background:#1e1e1e;border:2px solid #ff9500;border-radius:12px;
+    width:min(420px,92vw);padding:24px;color:#fff;box-sizing:border-box;">
+    <div style="color:#ff9500;font-weight:bold;font-size:16px;
+      margin-bottom:8px">🔗 Share Project</div>
+    <div style="color:#aaa;font-size:12px;margin-bottom:16px;line-height:1.5">
+      Anyone with this link can view this kitchen design in read-only mode.
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <input id="share-url-input" readonly style="flex:1;background:#2a2a2a;
+        border:1px solid #555;color:#ddd;border-radius:6px;
+        padding:9px 10px;font-size:12px;min-width:0;font-family:monospace" />
+      <button id="btn-copy-share" style="background:#ff9500;color:#000;
+        border:none;border-radius:6px;padding:9px 16px;font-size:13px;
+        font-weight:bold;cursor:pointer;white-space:nowrap">Copy</button>
+    </div>
+    <button id="btn-share-close" style="width:100%;background:none;
+      border:1px solid #444;color:#aaa;border-radius:8px;
+      padding:10px;font-size:13px;cursor:pointer">Close</button>
   </div>
 </div>
 
