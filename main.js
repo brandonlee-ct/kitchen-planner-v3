@@ -6,6 +6,14 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
 const mm = v => v / 1000;
+
+// ── URL Mode ─────────────────────────────────────────────────────────────────
+// Returns 'embed' when ?embed=1 is present, otherwise 'standalone'.
+// Used by applyUrlMode() to adjust the UI for storefront embedding.
+function getUrlMode() {
+  return new URLSearchParams(location.search).get('embed') === '1' ? 'embed' : 'standalone';
+}
+const URL_MODE = getUrlMode();
 // Tracks the most recently saved/loaded project name for the Quote PDF (optional).
 let currentProjectName = '';
 const SLAB_H = mm(300);   // floor slab height — walls sit on top of this
@@ -4099,13 +4107,24 @@ drawPresetThumbnails();
       }
 
       // ── Task N: category-based placement/snap rules ───────────────────────────
+      function placementText(product) {
+        return ((product.category || '') + ' ' + (product.productType || '') + ' ' + (product.name || '')).toLowerCase();
+      }
       function getPlacementCategory(product) {
-        const txt = ((product.category || '') + ' ' + (product.productType || '') + ' ' + (product.name || '')).toLowerCase();
+        const txt = placementText(product);
         if (txt.includes('island')) return 'island';
         if (txt.includes('corner')) return 'corner';
         if (txt.includes('tall') || txt.includes('pantry')) return 'tall';
         if (txt.includes('wall')) return 'wall';
         return 'base';
+      }
+
+      // Wall-hung? True for 'wall' category, and for corner cabinets whose text
+      // says wall (e.g. "Corner Wall Cabinet") — those keep the corner drop
+      // preference but mount at wall-cabinet height.
+      function isWallMounted(product) {
+        const cat = getPlacementCategory(product);
+        return cat === 'wall' || (cat === 'corner' && placementText(product).includes('wall'));
       }
 
       // Nearest room corner (wall endpoint shared by 2+ walls) within maxDist of
@@ -4114,6 +4133,7 @@ drawPresetThumbnails();
       function findCornerDropPoint(defaultPos, itemW, itemD, maxDist) {
         const cornerMap = new Map();
         walls.forEach(w => {
+          if (w.start.distanceTo(w.end) < 0.001) return;   // degenerate wall — not a corner
           [w.start, w.end].forEach(p => {
             const k = cornerKey(p);
             if (!cornerMap.has(k)) cornerMap.set(k, []);
@@ -4140,7 +4160,10 @@ drawPresetThumbnails();
         });
         const bLen = Math.hypot(bx, bz);
         if (bLen < 0.001) return null;   // collinear walls — not a real corner
-        const inset = Math.hypot(itemW, itemD) / 2 + mm(settings.wallThickness) / 2;
+        // Inset so the footprint clears both wall faces at a right-angle corner:
+        // the bisector's per-axis component is inset/√2, which must reach
+        // half the longer side plus half the wall thickness.
+        const inset = (Math.max(itemW, itemD) + mm(settings.wallThickness)) / Math.SQRT2;
         return new THREE.Vector3(best.x + (bx / bLen) * inset, 0, best.z + (bz / bLen) * inset);
       }
 
@@ -4371,7 +4394,7 @@ loadShopifyProducts();
         // Task N: category placement rules — wall cabinets start at 1500mm AFFL,
         // corner cabinets prefer the nearest room corner; everything else on the slab.
         const cat = getPlacementCategory(product);
-        const y = cat === 'wall' ? SLAB_H + mm(1500) + h / 2 : SLAB_H + h / 2;
+        const y = isWallMounted(product) ? SLAB_H + mm(1500) + h / 2 : SLAB_H + h / 2;
         let dropX = 0, dropZ = 0;
         if (cat === 'corner') {
           const spot = findCornerDropPoint(new THREE.Vector3(0, 0, 0), w, d, 3.0);
@@ -5562,7 +5585,7 @@ canvas.addEventListener('touchmove', (e) => {
   if (!pt) return;
   let s = snapToGrid(new THREE.Vector3(pt.x, 0, pt.z));
   const product = touchSelectedModel.userData?.product;
-  if (product) s = snapToWall(s, mm(product.depth));
+  if (product) s = snapToWallByCategory(s, product);   // Task N: islands resist wall snap
   touchSelectedModel.position.x = s.x;
   touchSelectedModel.position.z = s.z;
 }, { passive: false });
