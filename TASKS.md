@@ -12,15 +12,21 @@ Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 ## Milestone B — Shopify MVP Launch (Phase 1 remaining)
 - [x] ✅ 1.2 Free Draw (desktop): new mode, camera lock, free-angle + 90° snap, select wall, pick locked anchor, resize (angle preserved), slide parallel; undo/redo + save/load verified
 - [x] ✅ Quick Draw: camera lock during drawing (touch-friendly), keeps 90° snap + tap-to-place
-- [ ] ⬜ 1.2b Drawing UX polish (green/blue parallel guides, custom mm ceiling/thickness inputs, Preset Room on desktop, live dims + angles, freehand weld fix, auto-floor) — brief ready (`briefs/task-H-drawing-ux.md`), candidate for Cloud Agent
-- [ ] ⬜ 1.3 Mobile toolbar (44px icons, ☰ hamburger, 📷 camera capture) — brief ready (`briefs/1.3-mobile-toolbar.md`)
-- [ ] ⬜ Send-to-Cart (Shopify `cartCreate` → `checkoutUrl`) — not yet in code
+- [x] ✅ 1.2b Drawing UX polish (largely done via Quick Draw popups, touch modifier dock, theme switcher, auto-floor)
+- [x] ✅ 1.3 Mobile toolbar (44px icons, ☰ hamburger, 📷 camera capture)
+- [x] ✅ Send-to-Cart (Shopify `cartCreate` → `checkoutUrl`)
+- [x] ✅ 1.8 Quote PDF (jsPDF + autoTable)
+- [x] ✅ 1.9 Thumbnails → Supabase Storage (`uploadThumbnail` in auth.js)
+- [x] ✅ 1.4 Power points (GPOs) in elevation view + wall popup
+- [x] ✅ 1.5 Elevation/3D dimension editor (Task K: 7 green dims, click-to-edit, doors/windows/cabinets, undo)
+- [x] ✅ Tasks B–F bundle: save/restart hamburger menu, touch long-press select, wall-locked openings with 3D dims, 2D zoom/pan fix, 300mm slab (scene_json v2 + v1 migration)
+- [ ] ⬜ K polish: opening selection highlight to bright green; editable opening width/height in 3D
 - [ ] ⬜ 1.6 Embed planner in Shopify storefront (iframe for test → App Block) 👤
-- [ ] ⬜ 1.8 Quote PDF (SKU, photos, qty, prices, total) 🧠→build
-- [ ] ⬜ 1.9 Thumbnails → Supabase Storage (bucket created by security.sql)
 - [ ] ⬜ 1.11 Read-only share links (`/p/abc123`)
-- [ ] ⬜ 1.4 Power points in elevation view
-- [ ] ⬜ 1.5 Elevation 5-dimension editor 🧠→build
+
+## Parked (built but not wired in)
+- Auto-design solver module (`auto-design.js`, `auto-design-rules.js`, test harness, fixtures) —
+  isolated, not imported by `main.js`, no UI. Connect later via a single `runAutoDesign()` seam.
 
 ## Milestone C — Bridge + review
 - [ ] ⬜ 1.7 Shopify Customer Account → Supabase JWT bridge 🧠

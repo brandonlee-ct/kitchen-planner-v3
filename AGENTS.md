@@ -87,3 +87,32 @@ is to **implement tasks cleanly without re-architecting**.
 - Commit-message style: short imperative, phase/bug prefixed —
   e.g. `Task F: save/load projects via Supabase`, `Bug 1: fix wall taps on touch`, `Checkpoint: ...`.
 - Checkpoint (commit + push) before risky changes; that's the safety net.
+
+## Branch & release discipline — MANDATORY
+
+(Added after the June 2026 incident where a day of core work was stranded on
+`feature/auto-design` and never deployed.)
+
+- **Before your first commit, run `git branch --show-current` and confirm you are on the
+  branch the task expects.** Core planner tasks belong on `main` (or a short-lived branch
+  named for that task). NEVER commit core planner work onto an unrelated feature branch.
+- The live site deploys from `main` only. **A task is not "done" until it is merged to
+  `main`, pushed, and verified on planner.brownboxkit.co.nz** — not in a local preview.
+- Merge or delete feature branches the same day the work is accepted. Don't leave
+  unmerged branches or Cursor worktrees lying around.
+- Never commit debug instrumentation (e.g. `fetch('http://127.0.0.1:...')` log calls).
+  Strip it before committing.
+- Wrap new top-level button wiring in a null-safe pattern (`const el =
+  document.getElementById(...); if (el) el.addEventListener(...)`). A missing element must
+  not throw and kill every handler wired after it.
+- If `scene_json` shape changes, bump the version, keep a migration for older saves, and
+  deploy the reader and writer together — never let a build that writes the new version
+  coexist with a live build that can't read it.
+
+## Post-task smoke checklist
+
+After ANY task, verify these still work before declaring done (desktop + touch):
+Save Project & Restart Planner in hamburger · long-press select on touch ·
+cabinets sit on the 300mm slab (place, save, reload) · power point button in elevation ·
+Quote CSV + PDF export · door/window select + drag along wall with dims ·
+undo/redo · zoom speed normal with a cabinet selected.
