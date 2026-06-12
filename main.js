@@ -1243,7 +1243,7 @@ function updateWallPopupTouchUI() {
   const moreSec = document.getElementById('wp-more-section');
 
   if (!isQT) {
-    handle.style.display  = 'none';
+    handle.style.display  = 'flex';   // drag grip available on desktop + touch sheet too
     peekBtn.style.display = 'none';
     wallPopup.classList.remove('wep-tq', 'wep-peeked');
     wallPopup.style.backdropFilter = 'blur(18px)';
@@ -1307,6 +1307,17 @@ function initWallPopupTouch() {
       return;
     }
     e.preventDefault();
+    // The bottom sheet (and desktop popup) may be positioned via bottom/transform.
+    // Convert to left/top from the rendered rect so one drag path serves all variants.
+    const r = wallPopup.getBoundingClientRect();
+    const wasSheet = wallPopup.style.bottom !== '';
+    wallPopup.style.transform = '';
+    wallPopup.style.bottom    = '';
+    wallPopup.style.left = r.left + 'px';
+    wallPopup.style.top  = r.top  + 'px';
+    if (wasSheet) wallPopup.style.borderRadius = '14px';   // un-dock: round all corners
+    _wpTQPopLeft = r.left;
+    _wpTQPopTop  = r.top;
     _wpTQDragging = true;
     _wpTQDragSX = e.clientX - _wpTQPopLeft;
     _wpTQDragSY = e.clientY - _wpTQPopTop;
@@ -1385,9 +1396,6 @@ function showWallPopup(wallObj, sx, sy) {
     _wpTQPopTop  = Math.max(56, Math.min(window.innerHeight - popH - 8, py));
     wallPopup.style.left = _wpTQPopLeft + 'px';
     wallPopup.style.top  = _wpTQPopTop  + 'px';
-    // Update label with wall length
-    const lenMm = Math.round(wallObj.start.distanceTo(wallObj.end) * 1000);
-    document.getElementById('wp-touch-label').textContent = lenMm + ' mm';
     // Reset peek on new wall selection
     _wpTQPeeked = false;
   } else if (IS_TOUCH) {
@@ -1397,7 +1405,7 @@ function showWallPopup(wallObj, sx, sy) {
     wallPopup.style.transform     = 'translateX(-50%)';
     wallPopup.style.top           = '';
     wallPopup.style.bottom        = '0';
-    wallPopup.style.width         = 'min(420px, 100vw)';
+    wallPopup.style.width         = 'min(300px, calc(100vw - 16px))';   // skinnier sheet on touch
     wallPopup.style.maxHeight     = '60dvh';
     wallPopup.style.overflowY     = 'auto';
     wallPopup.style.borderRadius  = '14px 14px 0 0';
@@ -1416,6 +1424,9 @@ function showWallPopup(wallObj, sx, sy) {
     wallPopup.style.overflowY = 'auto'; wallPopup.style.borderRadius = '10px';
     wallPopup.style.padding = '10px 12px';   // restore base padding (compact mode overwrites the shorthand)
   }
+  // Grip label shows the wall length in every variant (desktop / sheet / Quick Draw)
+  document.getElementById('wp-touch-label').textContent =
+    Math.round(wallObj.start.distanceTo(wallObj.end) * 1000) + ' mm';
   updateWallPopupTouchUI();
   wallPopup.style.display = 'block';
   // Desktop: re-clamp with the real rendered size so the popup is never cut
