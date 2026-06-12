@@ -8517,8 +8517,9 @@ function openWallDim3DInput(dim, labelEl) {
 // re-dispatched as synthetic mouse events on the canvas, the same pattern the
 // touch path already uses, so preview/snap/undo behave exactly like a mouse.
 
-const JOY_SPEED = 9;                  // cursor px per frame at full deflection
+const JOY_SPEED = 4;                  // cursor px per frame at full deflection
 let joyActive  = false;
+let joyPrevXray = false;              // wall x-ray state to restore on exit
 let joyVecX = 0, joyVecY = 0;         // joystick deflection, -1..1
 let joyCursorX = 0, joyCursorY = 0;   // virtual cursor position (CSS px)
 let joyPointerId = null;
@@ -8665,9 +8666,11 @@ function joySyntheticMove() {
 // a synthetic mousemove so the Quick Draw preview/snap logic runs unchanged.
 function updateJoystickFrame() {
   if (!joyActive) return;
-  if (Math.hypot(joyVecX, joyVecY) < 0.08) return;
-  joyCursorX = Math.max(0, Math.min(window.innerWidth,  joyCursorX + joyVecX * JOY_SPEED));
-  joyCursorY = Math.max(0, Math.min(window.innerHeight, joyCursorY + joyVecY * JOY_SPEED));
+  const mag = Math.hypot(joyVecX, joyVecY);
+  if (mag < 0.08) return;
+  // Quadratic response: small deflections move the cursor extra slowly for precision.
+  joyCursorX = Math.max(0, Math.min(window.innerWidth,  joyCursorX + joyVecX * mag * JOY_SPEED));
+  joyCursorY = Math.max(0, Math.min(window.innerHeight, joyCursorY + joyVecY * mag * JOY_SPEED));
   joyCursorEl.style.left = joyCursorX + 'px';
   joyCursorEl.style.top  = joyCursorY + 'px';
   joySyntheticMove();
@@ -8694,6 +8697,8 @@ async function startJoystickMode() {
   joyCursorEl.style.top  = joyCursorY + 'px';
   const jb = document.getElementById('btn-joystick');
   if (jb) jb.classList.add('active');
+  joyPrevXray = wallXray;          // see-through walls while driving the cursor
+  if (!wallXray) setWallXray(true);
   // Fullscreen + landscape lock where the platform supports it (Android/Chrome).
   // iOS Safari supports neither — the rotate hint covers that case.
   try {
@@ -8721,6 +8726,7 @@ function stopJoystickMode() {
   if (joyRotateHint) joyRotateHint.style.display = 'none';
   const jb = document.getElementById('btn-joystick');
   if (jb) jb.classList.remove('active');
+  if (wallXray !== joyPrevXray) setWallXray(joyPrevXray);   // restore pre-joystick x-ray state
   try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (err) {}
   if (document.fullscreenElement && document.exitFullscreen) {
     document.exitFullscreen().catch(() => {});

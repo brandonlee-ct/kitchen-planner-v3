@@ -1685,3 +1685,22 @@ body.theme-light #theme-menu button.active { background: #e67e00; border-color: 
     display: none !important;
   }
 }
+
+/* ── Embed mode (?embed=1) ──────────────────────────────────────────────────
+   Applied by applyUrlMode() in main.js. Keeps full planner functionality but
+   reduces chrome to avoid duplication when hosted inside a Shopify page.
+   Reversible: remove mode-embed from body to restore default appearance.   */
+.mode-embed #toolbar {
+  height: 40px;          /* slightly slimmer — saves vertical space in iframe */
+}
+
+.mode-embed .tb-icon {
+  width: 34px;
+  height: 34px;
+  font-size: 16px;
+}
+
+/* Suppress the page title / branding elements if they are ever added later */
+.mode-embed #brand-title {
+  display: none;
+}
