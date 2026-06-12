@@ -9,11 +9,9 @@ let _user   = null;
 
 export function initAuth() {
   _client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  console.log('[auth] Supabase client initialised, listening for session…');
 
   _client.auth.onAuthStateChange((_event, session) => {
     _user = session?.user ?? null;
-    console.log('[auth] state change:', _event, _user?.email || 'no user');
     updateAuthUI();
   });
 
@@ -25,7 +23,6 @@ export function initAuth() {
 
 export async function signInWithGoogle() {
   if (!_client) return;
-  console.log('[auth] starting Google OAuth, redirect:', window.location.origin);
   const { error } = await _client.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.origin }
@@ -52,7 +49,6 @@ function updateAuthUI() {
   const btnProjects = document.getElementById('btn-my-projects');
 
   if (!btnAuth) return;
-  console.log('[auth ui]', { user: !!_user, classes: btnAuth.className });  
 
   if (_user) {
     const name = _user.user_metadata?.full_name || _user.email || 'Signed in';

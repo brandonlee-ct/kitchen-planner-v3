@@ -248,7 +248,6 @@ let redoStack = [];
 let sceneDirty = false;
 
 function pushHistory(entry) {
-  console.log('PUSH:', entry.type, undoStack.length + 1);
   sceneDirty = true;
   undoStack.push(entry);
   if (undoStack.length > MAX_HISTORY) undoStack.shift();
@@ -5735,10 +5734,8 @@ canvas.addEventListener('touchcancel', cancelLongPress, { passive: true });
 // ─── Tap canvas to select model ───────────────────────────────────────────────
 
 canvas.addEventListener('touchend', (e) => {
-  console.log('[tap] touchend fired, mode=', mode, 'dragActive=', touchDragActive);
   cancelLongPress();
-  if (typeof isTouchDevice === 'function' && !isTouchDevice()) return;
-  console.log('[tap] passed isTouchDevice check');
+  if (!IS_TOUCH) return;
 
   // Long-press already handled this gesture — don't also run the tap logic.
   if (longPressFired) { longPressFired = false; return; }
