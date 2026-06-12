@@ -1449,7 +1449,7 @@ body.theme-light #theme-menu button.active { background: #e67e00; border-color: 
   min-height: 36px !important;   /* compact but still a usable touch target */
 }
 /* Length row spacing */
-#wall-edit-popup.wep-tq > div[style*="margin:4px 0 10px"] {
+#wall-edit-popup.wep-tq > div[style*="margin:3px 0 8px"] {
   margin: 3px 0 6px !important;
 }
 /* Delete / View Wall row */

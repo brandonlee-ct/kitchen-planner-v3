@@ -1336,6 +1336,13 @@ function initWallPopupTouch() {
   moreBtn.addEventListener('click', () => {
     _wpTQMoreOpen = !_wpTQMoreOpen;
     updateWallPopupTouchUI();
+    // Desktop: expanding can push the popup past the bottom edge — re-clamp.
+    if (!IS_TOUCH && wallPopup.style.display === 'block') {
+      const r = wallPopup.getBoundingClientRect();
+      if (r.bottom > window.innerHeight - 8) {
+        wallPopup.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+      }
+    }
   });
 }
 
