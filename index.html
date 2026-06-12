@@ -40,8 +40,35 @@
 <!-- ── Hamburger Menu ────────────────────────────────── -->
 <div id="hamburger-menu" style="display:none">
   <button id="btn-auth" title="Sign in">👤 Sign In</button>
+  <button id="hmenu-save-project" title="Save your work">💾 Save Project</button>
   <button id="hmenu-wall-xray">👁 X-Ray Walls</button>
   <button id="hmenu-import-glb">📦 Import GLB</button>
+  <button id="hmenu-refresh" title="Restart planner from a blank scene">🔄 Restart Planner</button>
+</div>
+
+<!-- ── Restart Confirm Modal ───────────────────────────── -->
+<div id="refresh-confirm-modal" style="display:none;position:fixed;inset:0;
+  z-index:2000;background:rgba(0,0,0,0.85);align-items:center;
+  justify-content:center;font-family:Arial;">
+  <div style="background:#1e1e1e;border:2px solid #ff9500;border-radius:12px;
+    width:min(340px,92vw);padding:28px 24px;color:#fff;box-sizing:border-box;">
+    <div style="color:#ff9500;font-weight:bold;font-size:18px;
+      margin-bottom:6px">Restart Planner?</div>
+    <div id="refresh-confirm-msg" style="color:#ccc;font-size:13px;
+      margin-bottom:24px;line-height:1.5">
+      This reloads the planner back to a blank start.
+    </div>
+    <button id="btn-refresh-confirm" style="width:100%;background:#b33a3a;
+      color:#fff;border:none;border-radius:8px;padding:12px;
+      font-size:14px;font-weight:bold;cursor:pointer;margin-bottom:12px">
+      🔄 Restart — discard work
+    </button>
+    <button id="btn-refresh-cancel" style="width:100%;background:none;
+      border:1px solid #444;color:#aaa;border-radius:8px;
+      padding:10px;font-size:13px;cursor:pointer">
+      Cancel
+    </button>
+  </div>
 </div>
 
 <!-- ── Main canvas area ────────────────────────────────── -->
@@ -78,6 +105,7 @@
     </div>
     <button id="btn-send-cart">🛒 Send to Cart</button>
     <button id="btn-export">⬇ Download Quote</button>
+    <button id="btn-export-pdf">⬇ Download Quote PDF</button>
   </div>
 </div>
 

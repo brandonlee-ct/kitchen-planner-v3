@@ -1,9 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { initAuth, signInWithGoogle, signOut, saveProject, listProjects, loadProject, deleteProject } from './auth.js';
+import { initAuth, signInWithGoogle, signOut, getUser, saveProject, listProjects, loadProject, deleteProject, uploadThumbnail } from './auth.js';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
 const mm = v => v / 1000;
+// Tracks the most recently saved/loaded project name for the Quote PDF (optional).
+let currentProjectName = '';
 const SLAB_H = mm(300);   // floor slab height — walls sit on top of this
 const settings = { ceilingHeight: 2400, wallThickness: 110, gridSize: 100 };
 
@@ -48,11 +52,44 @@ controls.dampingFactor = 0.05;
 controls.minDistance = 0.3;
 controls.maxDistance = 50;
 
+// ✅ FIX: 2D zoom is now proportional + anchored at the cursor/pinch point, and
+// pan is pixel-accurate (the world point under the pointer follows the drag at
+// any zoom level). Previously zoom used a fixed absolute step centred on the
+// screen and pan speed was tied to a hardcoded 400px, which made working close
+// to a cabinet feel sluggish and imprecise.
+const ORTHO_MIN = 0.2, ORTHO_MAX = 30;
+
+// World point on the floor plane under a client coordinate (2D ortho view).
+function ortho2DWorldPoint(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  camera2D.updateMatrixWorld();
+  return new THREE.Vector3(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1,
+    0
+  ).unproject(camera2D);
+}
+
+// Scale orthoSize by `factor`, keeping the world point under (clientX, clientY) fixed.
+function zoom2DAt(clientX, clientY, factor) {
+  const before = ortho2DWorldPoint(clientX, clientY);
+  orthoSize = Math.max(ORTHO_MIN, Math.min(ORTHO_MAX, orthoSize * factor));
+  updateOrtho();
+  const after = ortho2DWorldPoint(clientX, clientY);
+  camera2D.position.x += before.x - after.x;
+  camera2D.position.z += before.z - after.z;
+}
+
+// World metres per screen pixel at the current zoom (for pixel-accurate pan).
+function ortho2DMetresPerPixel() {
+  const h = canvas.clientHeight || window.innerHeight;
+  return (orthoSize * 2) / h;
+}
+
 window.addEventListener('wheel', (e) => {
   if (is3D) return;
   const normDelta = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
-  orthoSize = Math.max(0.5, Math.min(30, orthoSize + normDelta * 0.005));
-  updateOrtho();
+  zoom2DAt(e.clientX, e.clientY, Math.exp(normDelta * 0.001));
 }, { passive: true });
 
 let isPanning2D = false;
@@ -62,7 +99,7 @@ canvas.addEventListener('mousedown', (e) => {
 });
 window.addEventListener('mousemove', (e) => {
   if (!isPanning2D) return;
-  const s = orthoSize / 400;
+  const s = ortho2DMetresPerPixel();
   camera2D.position.x -= (e.clientX - panStart.x) * s;
   camera2D.position.z -= (e.clientY - panStart.y) * s;
   panStart.set(e.clientX, e.clientY);
@@ -121,16 +158,18 @@ canvas.addEventListener('touchmove', (e) => {
     const pts = Array.from(activeTouches.values());
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
     if (lastPinchDist !== null && !is3D) {
+      // ✅ FIX: proportional pinch zoom anchored at the pinch midpoint.
       const delta = lastPinchDist - dist;
-      orthoSize = Math.max(0.5, Math.min(30, orthoSize + delta * 0.01));
-      updateOrtho();
+      const midX = (pts[0].x + pts[1].x) / 2;
+      const midY = (pts[0].y + pts[1].y) / 2;
+      zoom2DAt(midX, midY, Math.exp(delta * 0.002));
     }
     lastPinchDist = dist;
     return;
   }
   if (isPanning2D && activeTouches.size === 1 && mode !== 'draw-wall') {
     const t = e.changedTouches[0];
-    const s = orthoSize / 400;
+    const s = ortho2DMetresPerPixel();   // ✅ FIX: pixel-accurate pan at any zoom
     camera2D.position.x -= (t.clientX - panStart.x) * s;
     camera2D.position.z -= (t.clientY - panStart.y) * s;
     panStart.set(t.clientX, t.clientY);
@@ -183,8 +222,14 @@ const MAX_HISTORY = 20;
 let undoStack = [];
 let redoStack = [];
 
+// ── Unsaved-work tracking ──
+// Any mutating action goes through pushHistory, so it doubles as a dirty flag.
+// Cleared on successful save and on project load.
+let sceneDirty = false;
+
 function pushHistory(entry) {
   console.log('PUSH:', entry.type, undoStack.length + 1);
+  sceneDirty = true;
   undoStack.push(entry);
   if (undoStack.length > MAX_HISTORY) undoStack.shift();
   redoStack = [];
@@ -276,7 +321,10 @@ function executeUndo(entry) {
       applyWallVisual(it.wall);
     });
     rebuildAllCaps();
-  }  
+  } else if (entry.type === 'edit-opening') {
+    Object.assign(entry.data.op, entry.data.before);
+    if (walls.includes(entry.data.wallObj)) syncOpeningsTo3D(entry.data.wallObj);
+  }
 }
 function executeRedo(entry) {
   if (entry.type === 'add-wall') {
@@ -336,7 +384,10 @@ function executeRedo(entry) {
       applyWallVisual(it.wall);
     });
     rebuildAllCaps();
-  }  
+  } else if (entry.type === 'edit-opening') {
+    Object.assign(entry.data.op, entry.data.after);
+    if (walls.includes(entry.data.wallObj)) syncOpeningsTo3D(entry.data.wallObj);
+  }
 }
 
 let glbModalFile        = null;
@@ -921,7 +972,11 @@ function loadProductModel(product, placeholderMesh) {
       // drag isn't stranded on the removed placeholder when the GLB lands.
       if (selectedItem === placeholderMesh) selectedItem = model;
       if (dragTarget === placeholderMesh) dragTarget = model;
-      if (touchSelectedModel === placeholderMesh) touchSelectedModel = model;
+      if (touchSelectedModel === placeholderMesh) {
+        touchSelectedModel = model;
+        removeCabinetBox(placeholderMesh);   // ✅ migrate cyan wireframe too
+        addCabinetBox(model);
+      }
       if (selectedCabinets.includes(placeholderMesh)) {
         removeCabinetBox(placeholderMesh);
         selectedCabinets = selectedCabinets.map(m => m === placeholderMesh ? model : m);
@@ -1064,6 +1119,7 @@ wallPopup.innerHTML = [
   '<div style="display:flex;gap:8px;margin-top:4px">',
   '<button id="wp-door" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px;touch-action:manipulation">Door</button>',
   '<button id="wp-window" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px;touch-action:manipulation">Window</button>',
+  '<button id="wp-gpo" style="flex:1;background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:8px;cursor:pointer;font-size:12px;touch-action:manipulation">GPO</button>',
   '</div>',
   '</div>',
 
@@ -1099,10 +1155,6 @@ function updateWallPopupTouchUI() {
   const secSec  = document.getElementById('wp-secondary-section');
   const moreSec = document.getElementById('wp-more-section');
 
-  // #region agent log
-  fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:updateWallPopupTouchUI-entry',message:'updateWallPopupTouchUI called',data:{isQT,IS_TOUCH,drawModeActive,_wpTQMoreOpen,_wpTQPeeked,secSecDisplay:secSec?.style.display,moreSecDisplay:moreSec?.style.display,moreBtnDisplay:moreBtn?.style.display},timestamp:Date.now(),hypothesisId:'A-B-C'})}).catch(()=>{});
-  // #endregion
-
   if (!isQT) {
     handle.style.display  = 'none';
     peekBtn.style.display = 'none';
@@ -1117,17 +1169,11 @@ function updateWallPopupTouchUI() {
       secSec.style.display  = '';
       moreSec.style.display = _wpTQMoreOpen ? '' : 'none';
       moreBtn.textContent   = _wpTQMoreOpen ? '▴ Less' : '▸ More options';
-      // #region agent log
-      fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:updateWallPopupTouchUI-nonQT-touch',message:'non-QT touch branch applied',data:{secSecAfter:secSec.style.display,moreSecAfter:moreSec.style.display,moreBtnAfter:moreBtn.style.display,moreBtnText:moreBtn.textContent,_wpTQMoreOpen},timestamp:Date.now(),hypothesisId:'A-C'})}).catch(()=>{});
-      // #endregion
     } else {
       // Desktop: show everything at once
       moreBtn.style.display = 'none';
       secSec.style.display  = '';
       moreSec.style.display = '';
-      // #region agent log
-      fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:updateWallPopupTouchUI-nonQT-desktop',message:'non-QT desktop branch applied',data:{secSecAfter:secSec.style.display,moreSecAfter:moreSec.style.display,moreBtnAfter:moreBtn.style.display},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
     }
     return;
   }
@@ -1207,11 +1253,7 @@ function initWallPopupTouch() {
 
   // ── More / less toggle ──────────────────────────────────
   moreBtn.addEventListener('click', () => {
-    const before = _wpTQMoreOpen;
     _wpTQMoreOpen = !_wpTQMoreOpen;
-    // #region agent log
-    fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:moreBtn-click',message:'moreBtn clicked',data:{before,after:_wpTQMoreOpen,drawModeActive,isQT:IS_TOUCH&&drawModeActive==='quick'},timestamp:Date.now(),hypothesisId:'B-C'})}).catch(()=>{});
-    // #endregion
     updateWallPopupTouchUI();
   });
 }
@@ -1254,11 +1296,7 @@ function showWallPopup(wallObj, sx, sy) {
     _wpTQPeeked = false;
   } else if (IS_TOUCH) {
     // ── Bottom sheet for Select mode / other touch contexts ──────────────────
-    const _prevMoreOpen = _wpTQMoreOpen;
     _wpTQMoreOpen = false;   // always start collapsed so sheet isn't full-height
-    // #region agent log
-    fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ecfd91'},body:JSON.stringify({sessionId:'ecfd91',location:'main.js:showWallPopup-bottomSheet',message:'bottom-sheet showWallPopup, reset _wpTQMoreOpen',data:{prevMoreOpen:_prevMoreOpen,drawModeActive,popupWidth:wallPopup.style.width},timestamp:Date.now(),hypothesisId:'B-D'})}).catch(()=>{});
-    // #endregion
     wallPopup.style.left          = '50%';
     wallPopup.style.transform     = 'translateX(-50%)';
     wallPopup.style.top           = '';
@@ -1333,6 +1371,7 @@ function hideWallPopup() {
   wallPopup.style.webkitBackdropFilter = 'blur(18px)';
   wallPopup.style.padding = '';  // reset compact-mode padding
   _wpTQPeeked = false;
+  _wpTQMoreOpen = false;  // don't leak an expanded sheet into the next popup (e.g. Quick Draw)
   clearWallHandles();
   dimLabel.style.display = 'none';
   walls.forEach(w => w.mesh.material.color.set(wallBaseColor(w)));
@@ -1405,6 +1444,11 @@ function deselectCabinet(model) {
   selectedCabinets = selectedCabinets.filter(m => m !== model);
 }
 function updateCabinetBoxes() {
+  // Touch-selected model also carries a helper (see showTouchOverlay).
+  if (touchSelectedModel) {
+    const h = cabinetBoxHelpers.get(touchSelectedModel);
+    if (h) h.update();
+  }
   if (!selectedCabinets.length) return;
   selectedCabinets.forEach(m => { const h = cabinetBoxHelpers.get(m); if (h) h.update(); });
 }
@@ -1634,7 +1678,7 @@ document.getElementById('wp-angle-apply').addEventListener('click', () => {
     new THREE.MeshStandardMaterial({ color: 0xff9500 })
   );
   selectedWall.mesh.position.set(
-    (selectedWall.start.x + newEnd.x) / 2, h / 2,
+    (selectedWall.start.x + newEnd.x) / 2, SLAB_H + h / 2,   // ✅ FIX: sit on slab, not grid
     (selectedWall.start.z + newEnd.z) / 2
   );
   selectedWall.mesh.rotation.y = -Math.atan2(dz, dx);
@@ -1654,6 +1698,14 @@ document.getElementById('wp-angle-apply').addEventListener('click', () => {
 
 document.getElementById('wp-door').addEventListener('click', () => { if (selectedWall) addOpening(selectedWall, 'door'); hideWallPopup(); });
 document.getElementById('wp-window').addEventListener('click', () => { if (selectedWall) addOpening(selectedWall, 'window'); hideWallPopup(); });
+document.getElementById('wp-gpo').addEventListener('click', () => {
+  if (!selectedWall) return;
+  const wall = selectedWall;
+  const op = addOpening(wall, 'gpo');
+  hideWallPopup();
+  openWallElevation(wall);
+  if (op) selectElevItem('opening', op);
+});
 document.getElementById('wp-view').addEventListener('click', () => { if (selectedWall) openWallElevation(selectedWall); hideWallPopup(); });
 
 // Initialise touch Quick Draw popup controls (once)
@@ -1672,6 +1724,7 @@ elevationPanel.innerHTML = [
   '<div style="display:flex;gap:8px;align-items:center">',
   '<button id="elev-add-door" style="background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">＋ Door</button>',
   '<button id="elev-add-window" style="background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">＋ Window</button>',
+  '<button id="elev-add-gpo" style="background:#333;color:#fff;border:1px solid #555;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">＋ Power Point</button>',
   '<button id="elev-close" style="background:none;border:none;color:#aaa;font-size:20px;cursor:pointer;line-height:1;padding:0 4px" title="Close (Esc)">✕</button>',
   '</div></div>',
   '<div style="padding:8px 16px;border-bottom:1px solid #222;flex-shrink:0;display:flex;align-items:center;justify-content:space-between">',
@@ -2120,7 +2173,31 @@ function drawRuler(ctx, info, direction) {
       const isDrag = elevDragOp      === op;
   
       elevCtx.clearRect(rx, ry, rw, rh);
-  
+
+      // ── Power point: black rounded square with a white GPO circle ──
+      if (op.type === 'gpo') {
+        const r = Math.min(rw, rh) * 0.25;
+        elevCtx.save();
+        elevCtx.beginPath();
+        elevCtx.moveTo(rx + r, ry);
+        elevCtx.arcTo(rx + rw, ry,      rx + rw, ry + rh, r);
+        elevCtx.arcTo(rx + rw, ry + rh, rx,      ry + rh, r);
+        elevCtx.arcTo(rx,      ry + rh, rx,      ry,      r);
+        elevCtx.arcTo(rx,      ry,      rx + rw, ry,      r);
+        elevCtx.closePath();
+        elevCtx.fillStyle = '#111';
+        elevCtx.fill();
+        elevCtx.strokeStyle = (isSel || isDrag) ? '#ffdd00' : isHov ? '#ffffff' : '#000';
+        elevCtx.lineWidth = (isSel || isDrag) ? 2.5 : isHov ? 2 : 1.5;
+        elevCtx.stroke();
+        elevCtx.beginPath();
+        elevCtx.arc(rx + rw / 2, ry + rh / 2, Math.min(rw, rh) * 0.28, 0, Math.PI * 2);
+        elevCtx.fillStyle = '#fff';
+        elevCtx.fill();
+        elevCtx.restore();
+        // Selection tint + dimension lines render below via the shared blocks.
+      } else {
+
       elevCtx.fillStyle = op.type === 'door'
         ? 'rgba(90,50,15,0.75)'
         : 'rgba(80,150,195,0.45)';
@@ -2170,6 +2247,7 @@ function drawRuler(ctx, info, direction) {
         );
         elevCtx.restore();
       }
+      }   // end else (door/window visual block)
 
       // ── Selection highlight / dim overlay (hovered items stay bright) ──
       if (elevSelectedItem) {
@@ -2346,7 +2424,7 @@ function drawRuler(ctx, info, direction) {
 
     placedItems.forEach(mesh => {
       if (!mesh.userData.product) return;
-      if (mesh.userData.type === 'door' || mesh.userData.type === 'window') return;
+      if (mesh.userData.type === 'door' || mesh.userData.type === 'window' || mesh.userData.type === 'gpo') return;
       const product = mesh.userData.product;
       const relX = mesh.position.x - elevWall.start.x;
       const relZ = mesh.position.z - elevWall.start.z;
@@ -2373,7 +2451,7 @@ function drawRuler(ctx, info, direction) {
           width:        widthMm,
           height:       heightMm,
           distFromLeft: (along - mm(widthMm) / 2) * 1000, // mm, left edge
-          floorDist:    (mesh.position.y - mm(heightMm) / 2) * 1000, // mm, bottom edge
+          floorDist:    (mesh.position.y - SLAB_H - mm(heightMm) / 2) * 1000, // ✅ FIX: mm above slab top, bottom edge
           kind:         'cabinet',
         });
       }
@@ -2632,7 +2710,8 @@ function drawRuler(ctx, info, direction) {
   }
   
   function showElevOpeningEditor(op) {
-    document.getElementById('elev-editor-title').textContent = op.type === 'door' ? 'Edit Door' : 'Edit Window';
+    document.getElementById('elev-editor-title').textContent =
+      op.type === 'door' ? 'Edit Door' : op.type === 'gpo' ? 'Edit Power Point' : 'Edit Window';
     syncElevEditorFields(op);
     document.getElementById('elev-opening-editor').style.display = 'block';
   }
@@ -2668,7 +2747,7 @@ function drawRuler(ctx, info, direction) {
     selectedOpening  = kind === 'opening' ? item : null;
     const title = kind === 'cabinet'
       ? (item.productName || 'Cabinet')
-      : (item.type === 'door' ? 'Edit Door' : 'Edit Window');
+      : (item.type === 'door' ? 'Edit Door' : item.type === 'gpo' ? 'Edit Power Point' : 'Edit Window');
     document.getElementById('elev-editor-title').textContent = title;
     syncElevEditorFields(item);
     setElevDimInputsDisabled(kind === 'cabinet');   // width/height read-only for cabinets
@@ -2728,7 +2807,7 @@ function drawRuler(ctx, info, direction) {
     const along = mm(cab.distFromLeft + cab.width / 2);   // centre of cabinet
     mesh.position.x = elevWall.start.x + ux * along + px * perpSigned;
     mesh.position.z = elevWall.start.z + uz * along + pz * perpSigned;
-    mesh.position.y = mm(cab.floorDist) + mm(cab.height) / 2;
+    mesh.position.y = SLAB_H + mm(cab.floorDist) + mm(cab.height) / 2;   // ✅ FIX: floorDist measured from slab top
 
     if (from.distanceTo(mesh.position) > 0.001) {
       pushHistory({ type: 'move-item', data: { mesh, from, to: mesh.position.clone() } });
@@ -2980,6 +3059,18 @@ function drawRuler(ctx, info, direction) {
     selectElevItem('opening', op);
     drawElevation();
   });
+
+  document.getElementById('elev-add-gpo').addEventListener('click', () => {
+    if (!elevWall) return;
+    const wallLenMm = elevWall.start.distanceTo(elevWall.end) * 1000;
+    const op = { type: 'gpo', width: 100, height: 100, distFromLeft: 200, floorDist: 300 };
+    op.distFromLeft = Math.min(op.distFromLeft, wallLenMm - op.width - 100);
+    elevOpenings.push(op);
+    elevWall.openings = elevOpenings;
+    syncOpeningsTo3D(elevWall);
+    selectElevItem('opening', op);
+    drawElevation();
+  });
   
   document.getElementById('elev-close').addEventListener('click', closeWallElevation);
   
@@ -2996,18 +3087,48 @@ function drawRuler(ctx, info, direction) {
     (wallObj.openings || []).forEach(op => {
       const iw = mm(op.width), ih = mm(op.height);
       const iy = SLAB_H + mm(op.floorDist) + ih / 2;
-      const color = op.type === 'door' ? 0x8B4513 : 0x87CEEB;
       const t = mm(op.distFromLeft) + iw / 2;
       const dx = wallObj.end.x - wallObj.start.x, dz = wallObj.end.z - wallObj.start.z;
       const len = Math.sqrt(dx * dx + dz * dz);
       const nx = dx / len, nz = dz / len;
+
+      // ── Power point: a thin flat black square sitting on the wall face ──
+      // (does not cut through the wall like a door/window).
+      if (op.type === 'gpo') {
+        const baseX = wallObj.start.x + nx * t;
+        const baseZ = wallObj.start.z + nz * t;
+        const depth = 0.02;
+        const off   = mm(settings.wallThickness) / 2 + depth / 2;
+        let px = -nz, pz = nx;   // wall perpendicular
+        // Face the room interior when the wall loop is closed.
+        if (walls.length) {
+          let cx = 0, cz = 0;
+          walls.forEach(w => { cx += w.start.x; cz += w.start.z; });
+          cx /= walls.length; cz /= walls.length;
+          if ((cx - baseX) * px + (cz - baseZ) * pz < 0) { px = -px; pz = -pz; }
+        }
+        const gpoMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(iw, ih, depth),
+          new THREE.MeshStandardMaterial({ color: 0x111111 })
+        );
+        gpoMesh.position.set(baseX + px * off, iy, baseZ + pz * off);
+        gpoMesh.rotation.y = angle;
+        gpoMesh.userData = { type: 'gpo', parentWall: wallObj, opening: op };
+        scene.add(gpoMesh);
+        placedItems.push(gpoMesh);
+        return;
+      }
+
+      const color = op.type === 'door' ? 0x8B4513 : 0x87CEEB;
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(iw, ih, mm(settings.wallThickness) + 0.05),
         new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.75 })
       );
       mesh.position.set(wallObj.start.x + nx * t, iy, wallObj.start.z + nz * t);
       mesh.rotation.y = angle;
-      mesh.userData = { type: op.type, parentWall: wallObj };
+      // `opening` links the mesh back to its authoritative record so 3D
+      // selection/dims survive rebuilds (meshes are recreated on every sync).
+      mesh.userData = { type: op.type, parentWall: wallObj, opening: op };
       scene.add(mesh);
       placedItems.push(mesh);
     });
@@ -3018,10 +3139,13 @@ function drawRuler(ctx, info, direction) {
     const wallLenMm = wallObj.start.distanceTo(wallObj.end) * 1000;
     const op = type === 'door'
       ? { type: 'door',   distFromLeft: 200, floorDist: 0,   width: 900,  height: 2100 }
+      : type === 'gpo'
+      ? { type: 'gpo',    distFromLeft: 200, floorDist: 300, width: 100,  height: 100 }
       : { type: 'window', distFromLeft: 200, floorDist: 900, width: 1200, height: 1200 };
     op.distFromLeft = Math.min(op.distFromLeft, wallLenMm - op.width - 100);
     wallObj.openings.push(op);
     syncOpeningsTo3D(wallObj);
+    return op;
   }
   
   function lockRoom() {
@@ -3214,7 +3338,12 @@ canvas.addEventListener('mousedown', (e) => {
   updateMouse(e);
   raycaster.setFromCamera(mouse, activeCamera);
 
-  const itemHits = raycaster.intersectObjects(placedItems, true);
+  // ✅ FIX: doors/windows are locked to their wall — never draggable in 3D.
+  // (They were excluded from click-select but not from drag, so they could be
+  // dragged off the wall and desync from wallObj.openings.)
+  const dragCandidates = placedItems.filter(item =>
+    item.userData?.type !== 'door' && item.userData?.type !== 'window' && item.userData?.type !== 'gpo');
+  const itemHits = raycaster.intersectObjects(dragCandidates, true);
   if (itemHits.length > 0) {
     let hit = itemHits[0].object;
     while (hit.parent && !placedItems.includes(hit)) hit = hit.parent;
@@ -3375,7 +3504,7 @@ lastMouseY = e.clientY;
       new THREE.MeshStandardMaterial({ color: 0xff9500 })
     );
     wallObj.mesh.position.set(
-      (wallObj.start.x + wallObj.end.x) / 2, h / 2,
+      (wallObj.start.x + wallObj.end.x) / 2, SLAB_H + h / 2,   // ✅ FIX: sit on slab, not grid
       (wallObj.start.z + wallObj.end.z) / 2
     );
     wallObj.mesh.rotation.y = -Math.atan2(dz, dx);
@@ -3467,17 +3596,35 @@ lastMouseY = e.clientY;
             // Cabinet hit-test (raycast the meshes inside each placed item).
             const targets = [];
             placedItems.forEach(item => {
-              if (item.userData?.type === 'door' || item.userData?.type === 'window') return;
+              if (item.userData?.type === 'door' || item.userData?.type === 'window' || item.userData?.type === 'gpo') return;
               item.traverse(child => { if (child.isMesh) targets.push(child); });
             });
             const itemHits = raycaster.intersectObjects(targets, false);
+
+            // Door/window hit-test — openings are selectable (blue wireframe +
+            // green dims) but never draggable; position is edited via the dims.
+            const openingMeshes = placedItems.filter(it =>
+              it.userData?.type === 'door' || it.userData?.type === 'window' || it.userData?.type === 'gpo');
+            const openingHits = raycaster.intersectObjects(openingMeshes, false);
 
             // Whichever is physically closer to the camera wins (cabinets sit in
             // front of the walls they're against, so they must be able to beat a wall).
             const wallDist = wallHits.length ? wallHits[0].distance : Infinity;
             const itemDist = itemHits.length ? itemHits[0].distance : Infinity;
+            const openingDist = openingHits.length ? openingHits[0].distance : Infinity;
+
+            if (openingHits.length > 0 && openingDist <= wallDist && openingDist <= itemDist) {
+              hideWallPopup();
+              hideDesktopItemPanel();
+              selectedItem = null;
+              clearWallMultiSelect();
+              clearCabinetSelection();
+              selectOpening3D(openingHits[0].object);
+              return;
+            }
 
             if (itemHits.length > 0 && itemDist <= wallDist) {
+              clearOpening3DSelection();
               let obj = itemHits[0].object;
               while (obj.parent && !placedItems.includes(obj)) obj = obj.parent;
               selectedItem = obj;
@@ -3500,6 +3647,7 @@ lastMouseY = e.clientY;
             }
 
             if (wallHits.length > 0) {
+              clearOpening3DSelection();
               const wHit = wallHits[0].object.userData.wallObj;
               // Ctrl/Cmd + click (desktop) OR touch + Shift → toggle wall in multi-selection.
               if (e.ctrlKey || e.metaKey || (IS_TOUCH && isShiftModifierActive())) {
@@ -3519,6 +3667,7 @@ lastMouseY = e.clientY;
             selectedItem = null;
             clearWallMultiSelect();
             clearCabinetSelection();
+            clearOpening3DSelection();
           }
         });
 
@@ -4078,7 +4227,7 @@ loadShopifyProducts();
           new THREE.BoxGeometry(w, h, d),
           new THREE.MeshStandardMaterial({ color: 0x8B7355 })
         );
-        mesh.position.set(0, h / 2, 0);
+        mesh.position.set(0, SLAB_H + h / 2, 0);   // ✅ FIX: stand on the 300mm slab, not the grid
         mesh.castShadow = true;
         mesh.userData = { product, skuIndex: 0 };
         scene.add(mesh);
@@ -4121,6 +4270,7 @@ loadShopifyProducts();
         controls.update();
         updateCabinetBoxes();
         update3DCabinetDims();   // 3D cabinet dims — additive, no-op when nothing selected
+        update3DOpeningDims();   // 3D door/window dims — additive, no-op when nothing selected
         renderer.render(scene, activeCamera);
       }
       // ── GLB Import — button + drag-and-drop ──────────────────────────────────────
@@ -4779,7 +4929,7 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
   placedItems.forEach(obj => {
     if (!obj.userData?.product?.skus) return;
     if (obj.userData.product.id?.startsWith('imported-')) return;
-    if (obj.userData.type === 'door' || obj.userData.type === 'window') return;
+    if (obj.userData.type === 'door' || obj.userData.type === 'window' || obj.userData.type === 'gpo') return;
     const { product, skuIndex } = obj.userData;
     const sku = product.skus[skuIndex ?? 0];
     if (!sku?.variantId) return;
@@ -4814,6 +4964,136 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
   }
 });
 
+// ── Quote PDF: aggregate placed items into priced rows ──
+// Skips imported GLBs and opening meshes (door/window/gpo). Groups identical
+// SKUs by Shopify variantId when present, else by product name + sku label.
+function buildQuoteRows() {
+  const rowMap = new Map();
+  placedItems.forEach(obj => {
+    const ud = obj.userData;
+    // Skip openings and any non-catalog / imported GLB items.
+    if (ud?.type === 'door' || ud?.type === 'window' || ud?.type === 'gpo') return;
+    if (!ud?.product?.skus) return;
+    const { product, skuIndex } = ud;
+    const sku = product.skus[skuIndex ?? 0];
+    if (!sku) return;
+    const key = sku.variantId || `${product.name}|${sku.label}`;
+    const existing = rowMap.get(key);
+    if (existing) {
+      existing.qty += 1;
+      existing.total += sku.price;
+    } else {
+      rowMap.set(key, {
+        name: product.name,
+        variant: sku.label || '',
+        qty: 1,
+        unitPrice: sku.price,
+        total: sku.price,
+      });
+    }
+  });
+  return Array.from(rowMap.values());
+}
+
+// ── Quote PDF: NZD currency formatter (NZ$0.00) ──
+function fmtNZD(v) {
+  return 'NZ$' + (Number(v) || 0).toLocaleString('en-NZ', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+// ── Quote PDF: build a branded jsPDF document from aggregated rows ──
+// snapshot: optional { dataUrl, aspect } (aspect = width / height).
+// projectName: optional string shown under the header.
+function buildQuotePDF(rows, snapshot, projectName) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  let y = 18;
+
+  // Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(34, 34, 34);
+  doc.text('Brown Box Kit', margin, y);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(12);
+  doc.setTextColor(120, 120, 120);
+  y += 7;
+  doc.text('Kitchen Planner Quote', margin, y);
+
+  // Date + optional project name (right-aligned)
+  const dateStr = new Date().toLocaleDateString('en-NZ', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+  doc.setFontSize(10);
+  doc.setTextColor(90, 90, 90);
+  doc.text('Date: ' + dateStr, pageW - margin, 18, { align: 'right' });
+  if (projectName) {
+    doc.text('Project: ' + projectName, pageW - margin, 24, { align: 'right' });
+  }
+
+  y += 8;
+
+  // Optional planner snapshot
+  if (snapshot?.dataUrl) {
+    const imgW = pageW - margin * 2;
+    const aspect = snapshot.aspect && snapshot.aspect > 0 ? snapshot.aspect : 16 / 9;
+    const imgH = imgW / aspect;
+    try {
+      doc.addImage(snapshot.dataUrl, 'PNG', margin, y, imgW, imgH);
+      y += imgH + 8;
+    } catch (err) {
+      console.warn('PDF snapshot failed:', err);
+    }
+  }
+
+  // Itemised table
+  let grandTotal = 0;
+  const body = rows.map(r => {
+    grandTotal += r.total;
+    return [
+      r.name,
+      r.variant || '—',
+      String(r.qty),
+      fmtNZD(r.unitPrice),
+      fmtNZD(r.total),
+    ];
+  });
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Product', 'Variant', 'Qty', 'Unit Price', 'Total']],
+    body,
+    foot: [['', '', '', 'Grand Total', fmtNZD(grandTotal)]],
+    margin: { left: margin, right: margin },
+    styles: { fontSize: 9, cellPadding: 2.5, textColor: [40, 40, 40] },
+    headStyles: { fillColor: [255, 149, 0], textColor: [255, 255, 255], fontStyle: 'bold' },
+    footStyles: { fillColor: [240, 240, 240], textColor: [20, 20, 20], fontStyle: 'bold' },
+    columnStyles: {
+      2: { halign: 'center' },
+      3: { halign: 'right' },
+      4: { halign: 'right' },
+    },
+  });
+
+  // Footer disclaimer
+  const afterTableY = (doc.lastAutoTable?.finalY ?? y) + 12;
+  const pageH = doc.internal.pageSize.getHeight();
+  const footerY = Math.min(afterTableY, pageH - 14);
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8);
+  doc.setTextColor(140, 140, 140);
+  doc.text(
+    'Quote generated from planner. Final pricing and availability subject to confirmation.',
+    margin, footerY
+  );
+
+  return doc;
+}
+
 // ✅ FIX 2: export quote as CSV
 document.getElementById('btn-export').addEventListener('click', () => {
   const lines = ['Product,Variant,Price'];
@@ -4843,6 +5123,38 @@ document.getElementById('btn-export').addEventListener('click', () => {
   }, 0);
 });
 
+// ── Quote PDF: capture a planner snapshot from the WebGL canvas ──
+// The renderer is created without preserveDrawingBuffer, so force a fresh
+// render immediately before reading the pixels.
+function captureSnapshot() {
+  try {
+    renderer.render(scene, activeCamera);
+    const dataUrl = renderer.domElement.toDataURL('image/png');
+    const w = renderer.domElement.width || 16;
+    const h = renderer.domElement.height || 9;
+    return { dataUrl, aspect: w / h };
+  } catch (err) {
+    console.warn('Snapshot capture failed:', err);
+    return null;
+  }
+}
+
+// ── Quote PDF: download button handler ──
+// Guard the lookup so a missing element can never break later wiring.
+document.getElementById('btn-export-pdf')?.addEventListener('click', () => {
+  const rows = buildQuoteRows();
+  if (rows.length === 0) {
+    showImportToast('Add cabinets to your plan first.', true);
+    return;
+  }
+  const snapshot = captureSnapshot();
+  const projectName = currentProjectName || '';
+  const doc = buildQuotePDF(rows, snapshot, projectName);
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; // local YYYY-MM-DD
+  doc.save(`brown-box-kit-quote-${dateStr}.pdf`);
+});
+
 
 // ── Bottom overlay bar ──
 const touchOverlay     = document.getElementById('touch-model-overlay');
@@ -4869,11 +5181,20 @@ let floatDragOffsetY    = 0;
 let rulerActive         = false;
 
 function showTouchOverlay(model) {
+  // ✅ Touch selection shows the same cyan wireframe as desktop selection.
+  if (touchSelectedModel && touchSelectedModel !== model &&
+      !selectedCabinets.includes(touchSelectedModel)) {
+    removeCabinetBox(touchSelectedModel);
+  }
   touchSelectedModel = model;
+  addCabinetBox(model);
   touchOverlay.style.display = 'block';
 }
 
 function hideTouchOverlay() {
+  if (touchSelectedModel && !selectedCabinets.includes(touchSelectedModel)) {
+    removeCabinetBox(touchSelectedModel);
+  }
   touchSelectedModel = null;
   touchOverlay.style.display = 'none';
   touchDragActive = false;
@@ -5069,7 +5390,7 @@ canvas.addEventListener('touchmove', (e) => {
         new THREE.MeshStandardMaterial({ color: 0xff9500 })
       );
       wallObj.mesh.position.set(
-        (wallObj.start.x + wallObj.end.x) / 2, h / 2,
+        (wallObj.start.x + wallObj.end.x) / 2, SLAB_H + h / 2,   // ✅ FIX: sit on slab, not grid
         (wallObj.start.z + wallObj.end.z) / 2
       );
       wallObj.mesh.rotation.y = -Math.atan2(dz, dx);
@@ -5126,12 +5447,113 @@ document.addEventListener('touchend', () => {
   floatPanelDragging = false;
 });
 
+// ─── Long-press to select (touch only) ───────────────────────────────────────
+// Press and hold ~450 ms on a cabinet or wall to select it. A quick tap no
+// longer selects — it only clears the current selection on empty space. The
+// timer is cancelled by movement (>10 px), multi-touch, drag handles, or
+// lifting the finger early, so pan/pinch/orbit gestures are unaffected.
+
+const LONG_PRESS_MS      = 450;
+const LONG_PRESS_SLOP_PX = 10;
+let longPressTimer = null;
+let longPressStart = { x: 0, y: 0 };
+let longPressFired = false;
+
+function cancelLongPress() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+}
+
+function fireLongPress(x, y) {
+  longPressTimer = null;
+  if (mode !== 'select' || touchDragActive || canvas._draggingHandle) return;
+  longPressFired = true;
+  if (navigator.vibrate) { try { navigator.vibrate(30); } catch (_) {} }
+
+  const rect  = canvas.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((x - rect.left) / rect.width)  * 2 - 1,
+   -((y - rect.top)  / rect.height) * 2 + 1
+  );
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(ndc, activeCamera);
+
+  const targets = [];
+  placedItems.forEach(item => {
+    // Skip door/window opening meshes — they belong to walls, not products
+    if (item.userData?.type === 'door' || item.userData?.type === 'window' || item.userData?.type === 'gpo') return;
+    item.traverse(child => { if (child.isMesh) targets.push(child); });
+  });
+
+  const hits = ray.intersectObjects(targets, false);
+
+  // Door/window hit-test — selectable via long-press (blue wireframe + dims).
+  const openingMeshes = placedItems.filter(it =>
+    it.userData?.type === 'door' || it.userData?.type === 'window' || it.userData?.type === 'gpo');
+  const openingHits = ray.intersectObjects(openingMeshes, false);
+  const wallHits = ray.intersectObjects(walls.map(w => w.mesh));
+
+  const itemDist    = hits.length ? hits[0].distance : Infinity;
+  const openingDist = openingHits.length ? openingHits[0].distance : Infinity;
+
+  // Precedence matches the original tap behaviour: cabinets/openings always
+  // beat walls; between the two, the closer one wins.
+  if (openingHits.length > 0 && openingDist <= itemDist) {
+    hideTouchOverlay();
+    hideFloatPanel();
+    selectOpening3D(openingHits[0].object);
+    return;
+  }
+
+  if (hits.length > 0) {
+    clearOpening3DSelection();
+    let obj = hits[0].object;
+    while (obj.parent && !placedItems.includes(obj)) obj = obj.parent;
+    showTouchOverlayAndPanel(obj);
+    return;
+  }
+
+  if (wallHits.length > 0) {
+    clearOpening3DSelection();
+    const tappedWall = wallHits[0].object.userData.wallObj;
+    if (tappedWall) showWallPopup(tappedWall, x, y);
+  }
+}
+
+canvas.addEventListener('touchstart', (e) => {
+  if (!IS_TOUCH) return;
+  longPressFired = false;
+  cancelLongPress();
+  if (mode !== 'select') return;
+  if (e.touches.length !== 1) return;
+  if (touchDragActive || canvas._draggingHandle) return;
+  const t = e.touches[0];
+  longPressStart.x = t.clientX;
+  longPressStart.y = t.clientY;
+  longPressTimer = setTimeout(
+    () => fireLongPress(longPressStart.x, longPressStart.y), LONG_PRESS_MS);
+}, { passive: true });
+
+canvas.addEventListener('touchmove', (e) => {
+  if (!longPressTimer) return;
+  if (e.touches.length !== 1) { cancelLongPress(); return; }
+  const t = e.touches[0];
+  if (Math.hypot(t.clientX - longPressStart.x, t.clientY - longPressStart.y) > LONG_PRESS_SLOP_PX) {
+    cancelLongPress();
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchcancel', cancelLongPress, { passive: true });
+
 // ─── Tap canvas to select model ───────────────────────────────────────────────
 
 canvas.addEventListener('touchend', (e) => {
   console.log('[tap] touchend fired, mode=', mode, 'dragActive=', touchDragActive);
+  cancelLongPress();
   if (typeof isTouchDevice === 'function' && !isTouchDevice()) return;
   console.log('[tap] passed isTouchDevice check');
+
+  // Long-press already handled this gesture — don't also run the tap logic.
+  if (longPressFired) { longPressFired = false; return; }
 
   if (touchDragActive) return;
   if (mode !== 'select') return;
@@ -5150,28 +5572,20 @@ canvas.addEventListener('touchend', (e) => {
   const targets = [];
   placedItems.forEach(item => {
     // Skip door/window opening meshes — they belong to walls, not products
-    if (item.userData?.type === 'door' || item.userData?.type === 'window') return;
+    if (item.userData?.type === 'door' || item.userData?.type === 'window' || item.userData?.type === 'gpo') return;
     item.traverse(child => { if (child.isMesh) targets.push(child); });
   });
 
   const hits = raycaster.intersectObjects(targets, false);
     // Also check for wall taps on iPad
     const wallTapHits = raycaster.intersectObjects(walls.map(w => w.mesh));
-    if (wallTapHits.length > 0 && hits.length === 0) {
-      const tappedWall = wallTapHits[0].object.userData.wallObj;
-      if (tappedWall) {
-        showWallPopup(tappedWall, touch.clientX, touch.clientY);
-        return;
-      }
-    }
-  
-  if (hits.length > 0) {
-    let obj = hits[0].object;
-    while (obj.parent && !placedItems.includes(obj)) obj = obj.parent;
-    showTouchOverlayAndPanel(obj);
-  } else {
+
+  // ✅ Selection now requires press-and-hold (see long-press handler above).
+  // A quick tap only clears the current selection when it lands on empty space.
+  if (hits.length === 0 && wallTapHits.length === 0) {
     hideTouchOverlay();
     hideFloatPanel();
+    clearOpening3DSelection();
   }
 }, { passive: true });
 
@@ -6606,7 +7020,7 @@ function serialiseScene() {
       return;
     }
     // Skip opening meshes (doors/windows — they're reconstructed from wall data)
-    if (mesh.userData.type === 'door' || mesh.userData.type === 'window') return;
+    if (mesh.userData.type === 'door' || mesh.userData.type === 'window' || mesh.userData.type === 'gpo') return;
     // Skip items with no variantId (can't round-trip to Shopify)
     const sku = product.skus?.[mesh.userData.skuIndex ?? 0];
     if (!sku?.variantId) return;
@@ -6625,7 +7039,9 @@ function serialiseScene() {
   });
 
   const sceneJson = {
-    version: 1,
+    // v2: cabinet position.y is referenced to the slab top (SLAB_H). v1 saves
+    // referenced the grid (y=0); loadScene migrates those by lifting +SLAB_H.
+    version: 2,
     settings: {
       ceilingHeight: settings.ceilingHeight,
       wallThickness: settings.wallThickness,
@@ -6710,10 +7126,14 @@ function clearScene() {
 }
 
 function loadScene(sceneJson) {
-  if (!sceneJson || sceneJson.version !== 1) {
+  if (!sceneJson || (sceneJson.version !== 1 && sceneJson.version !== 2)) {
     console.warn('[loadScene] unrecognised scene version', sceneJson?.version);
     return;
   }
+
+  // v1 stored cabinet y against the grid (y=0); v2 stores it against the slab
+  // top. Lift legacy items so they stand on the raised floor like new ones.
+  const cabinetYOffset = (sceneJson.version === 1) ? SLAB_H : 0;
 
   clearScene();
 
@@ -6761,8 +7181,8 @@ function loadScene(sceneJson) {
     const mesh = placedItems[placedItems.length - 1];
     if (!mesh) return;
 
-    // Restore transform
-    mesh.position.set(item.position.x, item.position.y, item.position.z);
+    // Restore transform (cabinetYOffset migrates legacy grid-referenced saves)
+    mesh.position.set(item.position.x, item.position.y + cabinetYOffset, item.position.z);
     mesh.rotation.y = item.rotationY;
     mesh.userData.skuIndex = item.skuIndex ?? 0;
   });
@@ -6821,6 +7241,7 @@ function loadScene(sceneJson) {
   // Force back to select mode so taps work immediately after load
   mode = 'select';
   canvas.style.cursor = 'default';
+  sceneDirty = false;   // freshly loaded project = nothing unsaved
 }
 
 
@@ -7012,6 +7433,28 @@ function removeCabDim3DInput() {
   if (cabDim3D.input) { cabDim3D.input.remove(); cabDim3D.input = null; }
 }
 
+// ✅ FIX: measure green dims from the cabinet's true mesh edges, not catalog
+// half-extents. GLB pivots/extents can drift slightly from the planner.*
+// metafield dims, which made the cabinet-side endpoint inconsistent in 3D
+// (the elevation popup was already edge-based and correct). This computes the
+// bounding box in the cabinet's local frame so each face position is real.
+function cabDim3DLocalBox(mesh) {
+  mesh.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+  const box = new THREE.Box3();
+  const tmp = new THREE.Box3();
+  const mat = new THREE.Matrix4();
+  mesh.traverse(child => {
+    if (!child.isMesh || !child.geometry) return;
+    if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+    tmp.copy(child.geometry.boundingBox);
+    mat.multiplyMatrices(inv, child.matrixWorld);
+    tmp.applyMatrix4(mat);
+    box.union(tmp);
+  });
+  return box.isEmpty() ? null : box;
+}
+
 // Recompute the 6 dims + rebuild the green lines for the current target.
 function buildCabDim3D(mesh) {
   if (cabDim3D.group) {
@@ -7030,6 +7473,21 @@ function buildCabDim3D(mesh) {
   const ux = Math.cos(yaw), uz = -Math.sin(yaw);   // local +x
   const fx = Math.sin(yaw), fz = Math.cos(yaw);    // local +z
 
+  // ✅ FIX: true per-face extents from the mesh's local bounding box, so the
+  // cabinet-side endpoint always sits on the real cabinet edge. Falls back to
+  // catalog half-extents when a bbox axis drifts wildly (>10%) from the
+  // product dims (e.g. stray geometry in an imported GLB).
+  const lb = cabDim3DLocalBox(mesh);
+  const within = (bboxLen, prodLen) =>
+    prodLen > 1e-6 && Math.abs(bboxLen - prodLen) / prodLen <= 0.10;
+  let exR = w / 2, exL = w / 2, exF = d / 2, exB = d / 2;
+  let exBot = h / 2, exTop = h / 2;
+  if (lb) {
+    if (within(lb.max.x - lb.min.x, w)) { exR = lb.max.x; exL = -lb.min.x; }
+    if (within(lb.max.z - lb.min.z, d)) { exF = lb.max.z; exB = -lb.min.z; }
+    if (within(lb.max.y - lb.min.y, h)) { exBot = -lb.min.y; exTop = lb.max.y; }
+  }
+
   const group = new THREE.Group();
   group.renderOrder = 998;
   const dims = [];
@@ -7040,10 +7498,10 @@ function buildCabDim3D(mesh) {
   const ray = new THREE.Raycaster();
 
   const sides = [
-    { key: 'right', dx: ux,  dz: uz,  half: w / 2 },
-    { key: 'left',  dx: -ux, dz: -uz, half: w / 2 },
-    { key: 'front', dx: fx,  dz: fz,  half: d / 2 },
-    { key: 'back',  dx: -fx, dz: -fz, half: d / 2 }
+    { key: 'right', dx: ux,  dz: uz,  half: exR },
+    { key: 'left',  dx: -ux, dz: -uz, half: exL },
+    { key: 'front', dx: fx,  dz: fz,  half: exF },
+    { key: 'back',  dx: -fx, dz: -fz, half: exB }
   ];
 
   sides.forEach(s => {
@@ -7066,24 +7524,29 @@ function buildCabDim3D(mesh) {
     });
   });
 
-  // Bottom → floor (cabinet floor reference is y=0, same as elevation view).
-  const bottomY = pos.y - h / 2;
+  // Bottom → floor. ✅ FIX: floor reference is the slab top (SLAB_H), so cabinets
+  // measure to the raised floor like walls/openings do (was y=0 / grid).
+  // (Bottom edge itself still comes from the true local bbox.)
+  const bottomY = pos.y - exBot;
   {
     const from = new THREE.Vector3(pos.x, bottomY, pos.z);
-    const to   = new THREE.Vector3(pos.x, 0, pos.z);
+    const to   = new THREE.Vector3(pos.x, SLAB_H, pos.z);
     const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
     group.add(new THREE.Line(geo, cabDim3DMaterial));
     dims.push({
-      key: 'bottom', kind: 'bottom', valueM: Math.max(0, bottomY), dir: null,
+      key: 'bottom', kind: 'bottom', valueM: Math.max(0, bottomY - SLAB_H), dir: null,
       anchor: from.clone().lerp(to, 0.5)
     });
   }
 
   // Top → ceiling (matches elevation D4: ceilingHeight − (floor dist + height)).
-  const ceilY = mm(settings.ceilingHeight);
-  const topGap = ceilY - (bottomY + h);
+  // ✅ FIX: ceiling sits at slab top + ceilingHeight (the real wall top), and the
+  // top edge comes from the true local bbox.
+  const ceilY = SLAB_H + mm(settings.ceilingHeight);
+  const topY = pos.y + exTop;
+  const topGap = ceilY - topY;
   if (topGap > -0.001) {
-    const from = new THREE.Vector3(pos.x, bottomY + h, pos.z);
+    const from = new THREE.Vector3(pos.x, topY, pos.z);
     const to   = new THREE.Vector3(pos.x, ceilY, pos.z);
     const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
     group.add(new THREE.Line(geo, cabDim3DMaterial));
@@ -7151,11 +7614,13 @@ function applyCabDim3DEdit(dim, typedMm) {
     const delta = dim.valueM - mm(clamped);
     mesh.position.addScaledVector(dim.dir, delta);
   } else if (dim.kind === 'bottom') {
+    // ✅ FIX: delta-based so edits agree with the bbox-measured bottom edge.
     clamped = Math.min(clamped, Math.max(0, settings.ceilingHeight - hMm));
-    mesh.position.y = mm(clamped) + mm(hMm) / 2;
+    mesh.position.y += mm(clamped) - dim.valueM;
   } else if (dim.kind === 'top') {
+    // ✅ FIX: delta-based so edits agree with the bbox-measured top edge.
     clamped = Math.min(clamped, Math.max(0, settings.ceilingHeight - hMm));
-    mesh.position.y = mm(settings.ceilingHeight - clamped) - mm(hMm) / 2;
+    mesh.position.y += dim.valueM - mm(clamped);
   }
 
   pushHistory({ type: 'move-item', data: { mesh, from, to: mesh.position.clone() } });
@@ -7211,6 +7676,296 @@ function openCabDim3DInput(dim, labelEl) {
   input.addEventListener('blur', commit);
 }
 
+// ── 3D Opening Dimensions (doors/windows — blue wireframe + green dims) ──────
+// Selecting a door/window in 3D shows a blue BoxHelper plus green dims derived
+// from the authoritative wallObj.openings[] record (exact by construction):
+// width + height (read-only), distance to left/right wall ends (editable),
+// distance to floor and ceiling (editable). Edits update the opening record,
+// push an 'edit-opening' history entry and rebuild via syncOpeningsTo3D().
+
+const OPENING_SELECT_COLOR = 0x2196f3;   // blue wireframe for selected opening
+
+const opDim3D = {
+  sel: null,        // { wallObj, op } — survives mesh rebuilds
+  mesh: null,       // resolved 3D mesh for sel.op
+  helper: null,     // blue THREE.BoxHelper
+  group: null,      // THREE.Group of green lines
+  dims: [],         // [{ key, editable, valueM, anchor }]
+  labels: [],       // pooled HTML label divs
+  input: null,
+  lastSig: ''       // rebuild signature (op values + wall geometry)
+};
+
+function selectOpening3D(mesh) {
+  const op = mesh.userData?.opening;
+  const wallObj = mesh.userData?.parentWall;
+  if (!op || !wallObj) return;
+  clearOpening3DSelection();
+  opDim3D.sel = { wallObj, op };
+}
+
+function clearOpening3DSelection() {
+  if (opDim3D.helper) {
+    scene.remove(opDim3D.helper);
+    if (opDim3D.helper.geometry) opDim3D.helper.geometry.dispose();
+    if (opDim3D.helper.material) opDim3D.helper.material.dispose();
+    opDim3D.helper = null;
+  }
+  if (opDim3D.group) {
+    opDim3D.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    scene.remove(opDim3D.group);
+    opDim3D.group = null;
+  }
+  opDim3D.dims = [];
+  opDim3D.labels.forEach(el => { el.style.display = 'none'; });
+  removeOpeningDim3DInput();
+  opDim3D.sel = null;
+  opDim3D.mesh = null;
+  opDim3D.lastSig = '';
+}
+
+function removeOpeningDim3DInput() {
+  if (opDim3D.input) { opDim3D.input.remove(); opDim3D.input = null; }
+}
+
+function openingDim3DLabelEl(i) {
+  while (opDim3D.labels.length <= i) {
+    const el = document.createElement('div');
+    el.style.cssText =
+      'position:fixed;display:none;z-index:380;padding:2px 7px;border-radius:4px;' +
+      'background:#0c2418;color:#00ff88;border:1px solid #00ff88;' +
+      'font:bold 11px Arial;cursor:pointer;user-select:none;transform:translate(-50%,-50%);' +
+      'box-shadow:0 1px 4px rgba(0,0,0,0.5);touch-action:manipulation;';
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(el.dataset.dimIdx);
+      const d = opDim3D.dims[idx];
+      if (d && d.editable) openOpeningDim3DInput(d, el);
+    });
+    document.body.appendChild(el);
+    opDim3D.labels.push(el);
+  }
+  return opDim3D.labels[i];
+}
+
+// Rebuild the green lines + dims for the selected opening's current mesh.
+function buildOpeningDim3D(mesh) {
+  if (opDim3D.group) {
+    opDim3D.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    scene.remove(opDim3D.group);
+    opDim3D.group = null;
+  }
+  opDim3D.dims = [];
+
+  const { wallObj, op } = opDim3D.sel;
+  const wallLenMm = wallObj.start.distanceTo(wallObj.end) * 1000;
+  const wallHMm   = settings.ceilingHeight;
+  const dLeft  = op.distFromLeft;
+  const dRight = wallLenMm - (op.distFromLeft + op.width);
+  const dFloor = op.floorDist;
+  const dCeil  = wallHMm - (op.floorDist + op.height);
+
+  const dx = wallObj.end.x - wallObj.start.x;
+  const dz = wallObj.end.z - wallObj.start.z;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  if (len < 1e-6) return;
+  const nx = dx / len, nz = dz / len;     // unit along-wall
+
+  const pos = mesh.position;
+  const halfW = mm(op.width) / 2, halfH = mm(op.height) / 2;
+  const leftEdge  = new THREE.Vector3(pos.x - nx * halfW, pos.y, pos.z - nz * halfW);
+  const rightEdge = new THREE.Vector3(pos.x + nx * halfW, pos.y, pos.z + nz * halfW);
+  const bottomY = pos.y - halfH, topY = pos.y + halfH;
+
+  const group = new THREE.Group();
+  group.renderOrder = 998;
+  const dims = [];
+  const addLine = (from, to, key, valueMm, editable) => {
+    const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
+    group.add(new THREE.Line(geo, cabDim3DMaterial));
+    dims.push({
+      key, editable, valueM: Math.max(0, mm(valueMm)),
+      anchor: from.clone().lerp(to, 0.5)
+    });
+  };
+
+  // Left/right: opening edge → wall end, at the opening's mid-height.
+  addLine(leftEdge.clone(),
+    new THREE.Vector3(wallObj.start.x, pos.y, wallObj.start.z), 'left', dLeft, true);
+  addLine(rightEdge.clone(),
+    new THREE.Vector3(wallObj.end.x, pos.y, wallObj.end.z), 'right', dRight, true);
+
+  // Floor/ceiling: from the opening's bottom/top edge, lengths exact from the
+  // opening record so they always match the elevation view.
+  addLine(new THREE.Vector3(pos.x, bottomY, pos.z),
+    new THREE.Vector3(pos.x, bottomY - mm(dFloor), pos.z), 'floor', dFloor, true);
+  addLine(new THREE.Vector3(pos.x, topY, pos.z),
+    new THREE.Vector3(pos.x, topY + Math.max(0, mm(dCeil)), pos.z), 'ceil', Math.max(0, dCeil), true);
+
+  // Width along the bottom edge + height along the left edge (read-only).
+  addLine(new THREE.Vector3(leftEdge.x, bottomY, leftEdge.z),
+    new THREE.Vector3(rightEdge.x, bottomY, rightEdge.z), 'width', op.width, false);
+  addLine(new THREE.Vector3(leftEdge.x, bottomY, leftEdge.z),
+    new THREE.Vector3(leftEdge.x, topY, leftEdge.z), 'height', op.height, false);
+
+  scene.add(group);
+  opDim3D.group = group;
+  opDim3D.dims = dims;
+}
+
+function openingDim3DSig(mesh) {
+  const { wallObj, op } = opDim3D.sel;
+  return [op.distFromLeft, op.floorDist, op.width, op.height,
+    wallObj.start.x, wallObj.start.z, wallObj.end.x, wallObj.end.z,
+    settings.ceilingHeight, mesh.id].join(',');
+}
+
+// Per-frame: resolve the mesh for the selected opening (meshes are recreated on
+// every syncOpeningsTo3D), keep the helper + dims fresh, pin labels to screen.
+function update3DOpeningDims() {
+  const sel = opDim3D.sel;
+  if (!sel) {
+    if (opDim3D.group || opDim3D.helper) clearOpening3DSelection();
+    return;
+  }
+  if (!walls.includes(sel.wallObj) ||
+      !(sel.wallObj.openings || []).includes(sel.op)) {
+    clearOpening3DSelection();
+    return;
+  }
+  const mesh = placedItems.find(m => m.userData?.opening === sel.op);
+  if (!mesh) { clearOpening3DSelection(); return; }
+
+  if (opDim3D.mesh !== mesh) {
+    opDim3D.mesh = mesh;
+    if (opDim3D.helper) {
+      scene.remove(opDim3D.helper);
+      if (opDim3D.helper.geometry) opDim3D.helper.geometry.dispose();
+      if (opDim3D.helper.material) opDim3D.helper.material.dispose();
+    }
+    opDim3D.helper = new THREE.BoxHelper(mesh, OPENING_SELECT_COLOR);
+    if (opDim3D.helper.material) {
+      opDim3D.helper.material.depthTest = false;
+      opDim3D.helper.material.transparent = true;
+    }
+    opDim3D.helper.renderOrder = 999;
+    scene.add(opDim3D.helper);
+  }
+
+  const sig = openingDim3DSig(mesh);
+  if (sig !== opDim3D.lastSig) {
+    removeOpeningDim3DInput();   // anchors shift — close stale input
+    buildOpeningDim3D(mesh);
+    opDim3D.lastSig = sig;
+  }
+
+  const cRect = canvas.getBoundingClientRect();
+  opDim3D.dims.forEach((dim, i) => {
+    const el = openingDim3DLabelEl(i);
+    const v = dim.anchor.clone().project(activeCamera);
+    if (v.z > 1 || v.z < -1) { el.style.display = 'none'; return; }
+    el.style.left = (cRect.left + (v.x * 0.5 + 0.5) * cRect.width) + 'px';
+    el.style.top  = (cRect.top + (-v.y * 0.5 + 0.5) * cRect.height) + 'px';
+    el.textContent = Math.round(dim.valueM * 1000) + (dim.editable ? '' : ' 🔒');
+    el.style.cursor = dim.editable ? 'pointer' : 'default';
+    el.dataset.dimIdx = i;
+    el.style.display = 'block';
+  });
+  for (let i = opDim3D.dims.length; i < opDim3D.labels.length; i++) {
+    opDim3D.labels[i].style.display = 'none';
+  }
+}
+
+// Apply a typed mm value to one editable opening dim. Mirrors the elevation
+// clamping rules (applyGreenDimEdit D1/D2/D4/D5). Pushes 'edit-opening'.
+function applyOpeningDim3DEdit(dim, typedMm) {
+  const sel = opDim3D.sel;
+  if (!sel || isNaN(typedMm)) return null;
+  const { wallObj, op } = sel;
+  const wallLenMm = wallObj.start.distanceTo(wallObj.end) * 1000;
+  const wallHMm   = settings.ceilingHeight;
+  const typed = Math.round(typedMm);
+  const before = { distFromLeft: op.distFromLeft, floorDist: op.floorDist };
+  let clamped;
+
+  if (dim.key === 'left') {
+    clamped = Math.max(0, Math.min(wallLenMm - op.width, typed));
+    op.distFromLeft = clamped;
+  } else if (dim.key === 'right') {
+    const target = wallLenMm - op.width - typed;
+    const dl = Math.max(0, Math.min(wallLenMm - op.width, target));
+    op.distFromLeft = dl;
+    clamped = wallLenMm - (dl + op.width);
+  } else if (dim.key === 'floor') {
+    clamped = Math.max(0, Math.min(wallHMm - op.height, typed));
+    op.floorDist = clamped;
+  } else if (dim.key === 'ceil') {
+    const target = wallHMm - typed - op.height;
+    const fd = Math.max(0, Math.min(wallHMm - op.height, target));
+    op.floorDist = fd;
+    clamped = wallHMm - (fd + op.height);
+  } else {
+    return null;
+  }
+
+  if (op.distFromLeft !== before.distFromLeft || op.floorDist !== before.floorDist) {
+    pushHistory({ type: 'edit-opening', data: {
+      wallObj, op, before,
+      after: { distFromLeft: op.distFromLeft, floorDist: op.floorDist }
+    }});
+  }
+  syncOpeningsTo3D(wallObj);
+  if (typeof drawElevation === 'function' && elevWall === wallObj) drawElevation();
+  return Math.round(clamped);
+}
+
+// Inline input over a clicked opening label — same UX as the cabinet dims.
+function openOpeningDim3DInput(dim, labelEl) {
+  removeOpeningDim3DInput();
+  const rect = labelEl.getBoundingClientRect();
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.value = Math.round(dim.valueM * 1000);
+  input.style.cssText =
+    'position:fixed;z-index:390;width:72px;padding:3px 5px;border:2px solid #00ff88;' +
+    'border-radius:4px;background:#fff;color:#111;font:bold 12px Arial;text-align:center;' +
+    'left:' + (rect.left + rect.width / 2 - 40) + 'px;top:' + (rect.top - 4) + 'px;';
+  document.body.appendChild(input);
+  opDim3D.input = input;
+  input.focus();
+  input.select();
+
+  let committed = false;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    const typed = parseFloat(input.value);
+    const applied = applyOpeningDim3DEdit(dim, typed);
+    if (applied !== null && !isNaN(typed) && Math.round(typed) !== applied) {
+      input.style.borderColor = '#ff4444';
+      input.style.color = '#ff4444';
+      input.value = applied;
+      setTimeout(() => {
+        input.remove();
+        if (opDim3D.input === input) opDim3D.input = null;
+      }, 300);
+      return;
+    }
+    input.remove();
+    if (opDim3D.input === input) opDim3D.input = null;
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') commit();
+    else if (e.key === 'Escape') {
+      committed = true;
+      input.remove();
+      if (opDim3D.input === input) opDim3D.input = null;
+    }
+    e.stopPropagation();
+  });
+  input.addEventListener('blur', commit);
+}
+
 initAuth();
 animate();
 
@@ -7222,11 +7977,15 @@ document.getElementById('btn-save-project').addEventListener('click', async () =
   const { sceneJson, thumbnail, skippedImportedCount } = serialiseScene();
   // Close the auth modal so the toast is visible
   document.getElementById('auth-modal').style.display = 'none';
-  const { id, error } = await saveProject(name.trim(), sceneJson, thumbnail);
+  // ✅ FIX: store thumbnail in Supabase Storage (URL), fall back to base64 if upload fails
+  const thumbUrl = await uploadThumbnail(thumbnail);
+  const { id, error } = await saveProject(name.trim(), sceneJson, thumbUrl ?? thumbnail);
   if (error) {
     showImportToast('Save failed: ' + error, true);
     return;
   }
+  sceneDirty = false;
+  currentProjectName = name.trim();
   showImportToast('Saved ✓');
   if (skippedImportedCount > 0) {
     setTimeout(() => {
@@ -7353,6 +8112,7 @@ async function handleLoadProject(id) {
   }
 
   loadScene(data.scene_json);
+  currentProjectName = data.name || '';
   closeProjectsModal();
   showImportToast('Loaded ✓');
 }
@@ -7445,6 +8205,45 @@ document.getElementById('hmenu-wall-xray').addEventListener('click', () => {
 document.getElementById('hmenu-import-glb').addEventListener('click', () => {
   closeHamburgerMenu();
   glbFileInput.click();
+});
+
+// ── Hamburger: Save Project ──
+// Signed in → reuse the existing save flow; signed out → open the auth modal.
+document.getElementById('hmenu-save-project').addEventListener('click', () => {
+  closeHamburgerMenu();
+  if (getUser()) {
+    document.getElementById('btn-save-project').click();
+  } else {
+    authModal.style.display = 'flex';
+  }
+});
+
+// ── Hamburger: Restart Planner (confirm modal → hard reload) ──
+const refreshModal = document.getElementById('refresh-confirm-modal');
+
+document.getElementById('hmenu-refresh').addEventListener('click', () => {
+  closeHamburgerMenu();
+  document.getElementById('refresh-confirm-msg').innerHTML = sceneDirty
+    ? '⚠️ <b>You have unsaved changes.</b><br>Restarting reloads the planner back to a blank start and your work will be lost.'
+    : 'This reloads the planner back to a blank start.';
+  refreshModal.style.display = 'flex';
+});
+document.getElementById('btn-refresh-cancel').addEventListener('click', () => {
+  refreshModal.style.display = 'none';
+});
+refreshModal.addEventListener('click', (e) => {
+  if (e.target === refreshModal) refreshModal.style.display = 'none';
+});
+document.getElementById('btn-refresh-confirm').addEventListener('click', () => {
+  sceneDirty = false;   // user confirmed — don't double-warn via beforeunload
+  location.reload();
+});
+
+// Warn before closing/reloading the tab with unsaved work.
+window.addEventListener('beforeunload', (e) => {
+  if (!sceneDirty) return;
+  e.preventDefault();
+  e.returnValue = '';
 });
 
 // ── Touch Modifier Dock ──────────────────────────────────────────────────────

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto-Design Solver — Test Harness</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 13px/1.5 monospace; background: #111; color: #ddd; padding: 16px; }
+  h1  { font-size: 16px; color: #ff9500; margin-bottom: 12px; }
+  h2  { font-size: 13px; color: #888; margin: 16px 0 6px; letter-spacing: .5px; }
+  .suite { margin-bottom: 8px; }
+  .result {
+    padding: 6px 10px; border-radius: 4px; margin: 3px 0;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .pass { background: #1a2e1a; border-left: 3px solid #2ecc71; }
+  .fail { background: #2e1a1a; border-left: 3px solid #e74c3c; }
+  .tag  { font-weight: bold; width: 36px; flex-shrink: 0; }
+  .pass .tag { color: #2ecc71; }
+  .fail .tag { color: #e74c3c; }
+  .detail { color: #aaa; font-size: 11px; margin-top: 2px; }
+  .err    { color: #e74c3c; font-size: 11px; margin-top: 4px; white-space: pre-wrap; }
+  #summary {
+    margin-top: 16px; padding: 10px 14px; border-radius: 6px;
+    font-size: 14px; font-weight: bold;
+  }
+  .all-pass { background: #1a3a1a; color: #2ecc71; }
+  .has-fail  { background: #3a1a1a; color: #e74c3c; }
+  .timing   { color: #aaa; font-size: 11px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h1>Auto-Design Solver — Test Harness (Tasks 1.1 + 1.2)</h1>
+<div id="output"></div>
+<div id="summary"></div>
+
+<script type="module">
+import { runAutoDesign, hashSpec } from './auto-design.js';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+let passed = 0, failed = 0;
+const output = document.getElementById('output');
+
+function suite(name) {
+  const h = document.createElement('h2');
+  h.textContent = name;
+  output.appendChild(h);
+}
+
+function test(name, fn) {
+  const row = document.createElement('div');
+  row.className = 'result';
+  let ok = true;
+  let detail = '';
+  let err = '';
+  const t0 = performance.now();
+  try {
+    const info = fn();
+    if (info) detail = info;
+  } catch (e) {
+    ok = false;
+    err = e.message || String(e);
+  }
+  const elapsed = (performance.now() - t0).toFixed(2);
+  if (ok) { passed++; row.classList.add('pass'); }
+  else     { failed++; row.classList.add('fail'); }
+  row.innerHTML = `
+    <span class="tag">${ok ? 'PASS' : 'FAIL'}</span>
+    <div>
+      <div>${name}</div>
+      ${detail ? `<div class="detail">${detail}</div>` : ''}
+      ${err    ? `<div class="err">${err}</div>` : ''}
+      <div class="timing">${elapsed}ms</div>
+    </div>`;
+  output.appendChild(row);
+}
+
+function assert(cond, msg) {
+  if (!cond) throw new Error(msg || 'Assertion failed');
+}
+
+function assertNoThrow(fn) {
+  try { fn(); } catch (e) { throw new Error('Threw unexpectedly: ' + e.message); }
+}
+
+// JSON round-trip: result contains no non-serialisable values
+function assertJsonRoundTrip(result) {
+  const s = JSON.stringify(result);
+  const r = JSON.parse(s);
+  // Deep equality of positions (spot-check first cabinet)
+  if (result.cabinets.length > 0) {
+    const a = result.cabinets[0].position;
+    const b = r.cabinets[0].position;
+    assert(
+      Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.z - b.z) < 1e-9,
+      'JSON round-trip position mismatch'
+    );
+  }
+}
+
+// ── Load catalogue ────────────────────────────────────────────────────────────
+const CAT = await fetch('./fixtures/test-catalogue.json').then(r => r.json());
+// Catalogue without b3-900-crnr (for Test 10)
+const CAT_NO_CRNR = CAT.filter(p => p.id !== 'b3-900-crnr');
+
+// ── Phase 1 — Solver Module ───────────────────────────────────────────────────
+suite('Phase 1 — Tests 1–8 (original spec)');
+
+// Test 1: I-shape, 3000mm, no appliance assignments
+test('Test 1: I-shape 3000mm — 1 wall, cabinets placed, no errors', () => {
+  const t0 = performance.now();
+  const result = runAutoDesign({
+    archetype: 'I', widthMm: 3000,
+    wallAssignments: [{ wallIndex: 0, appliances: [], openings: [] }]
+  }, CAT);
+  const ms = performance.now() - t0;
+  assert(ms < 50, `Solver took ${ms.toFixed(1)}ms (limit 50ms)`);
+  assert(result.walls.length === 1, `Expected 1 wall, got ${result.walls.length}`);
+  assert(result.cabinets.length > 0, 'Expected at least 1 cabinet');
+  assert(result.warnings.filter(w => w.severity === 'error').length === 0, 'Expected no errors');
+  assertJsonRoundTrip(result);
+  return `${result.cabinets.length} cabinets, ${ms.toFixed(1)}ms`;
+});
+
+// Test 2: II-shape, 3000mm×1200mm — 2 parallel walls
+test('Test 2: II-shape 3000×1200mm — 2 walls, cabinets on each', () => {
+  const result = runAutoDesign({
+    archetype: 'II', widthMm: 3000, depthMm: 1200,
+    wallAssignments: [
+      { wallIndex: 0, appliances: [], openings: [] },
+      { wallIndex: 1, appliances: [], openings: [] }
+    ]
+  }, CAT);
+  assert(result.walls.length === 2, `Expected 2 walls, got ${result.walls.length}`);
+  const w0cabs = result.cabinets.filter(c => c.wallIndex === 0).length;
+  const w1cabs = result.cabinets.filter(c => c.wallIndex === 1).length;
+  assert(w0cabs > 0 && w1cabs > 0, `Expected cabinets on both walls (got ${w0cabs} / ${w1cabs})`);
+  assertJsonRoundTrip(result);
+  return `wall-0: ${w0cabs} cabs, wall-1: ${w1cabs} cabs`;
+});
+
+// Test 3: L-shape, 3000×1200mm — 2 walls + corner cabinet
+test('Test 3: L-shape 3000×1200mm — 2 walls, corner cabinet placed', () => {
+  const result = runAutoDesign({
+    archetype: 'L', widthMm: 3000, depthMm: 1200,
+    wallAssignments: [
+      { wallIndex: 0, appliances: [], openings: [] },
+      { wallIndex: 1, appliances: [], openings: [] }
+    ]
+  }, CAT);
+  assert(result.walls.length === 2, `Expected 2 walls, got ${result.walls.length}`);
+  const cornerCab = result.cabinets.find(c => c.kitchenRole === 'corner');
+  assert(cornerCab, 'Expected a corner cabinet');
+  assert(cornerCab.productHandle === 'b3-900-crnr', `Corner handle: ${cornerCab.productHandle}`);
+  assertJsonRoundTrip(result);
+  return `corner at (${cornerCab.position.x.toFixed(2)}, ${cornerCab.position.z.toFixed(2)})`;
+});
+
+// Test 4: G-shape 4200×2400mm — 4 walls, solver < 50ms
+test('Test 4: G-shape 4200×2400mm — 4 walls, timing < 50ms', () => {
+  const t0 = performance.now();
+  const result = runAutoDesign({
+    archetype: 'G', widthMm: 4200, depthMm: 2400,
+    wallAssignments: [
+      { wallIndex: 0, appliances: [], openings: [] },
+      { wallIndex: 1, appliances: [], openings: [] },
+      { wallIndex: 2, appliances: [], openings: [] },
+      { wallIndex: 3, appliances: [], openings: [] }
+    ]
+  }, CAT);
+  const ms = performance.now() - t0;
+  assert(result.walls.length === 4, `Expected 4 walls, got ${result.walls.length}`);
+  assert(ms < 50, `Solver took ${ms.toFixed(1)}ms (limit 50ms)`);
+  assertJsonRoundTrip(result);
+  return `${result.cabinets.length} cabinets in ${ms.toFixed(1)}ms`;
+});
+
+// Test 5: Sink centred on window (one window on wall)
+test('Test 5: Sink assignment — centred on wall window', () => {
+  const result = runAutoDesign({
+    archetype: 'I', widthMm: 3600,
+    wallAssignments: [{
+      wallIndex: 0,
+      appliances: ['sink'],
+      openings: [{ type: 'window', positionMm: 1200, widthMm: 800, sillMm: 800 }]
+    }]
+  }, CAT);
+  const sink = result.cabinets.find(c => c.kitchenRole === 'sink');
+  assert(sink, 'Expected a sink cabinet');
+  // Window centre = 1200 + 400 = 1600mm; sink (600mm) centre should be ~1600mm
+  // Sink position along wall X: centre of 600mm cabinet near 1600mm
+  const wallLen = 3.6;
+  const sinkCentreM = sink.position.x - (result.walls[0].inwardNormal.x * 0.29);
+  // sinkCentreM should be within 300mm of window centre (1.6m)
+  const diff = Math.abs(sinkCentreM - 1.6);
+  assert(diff < 0.35, `Sink centre at ${sinkCentreM.toFixed(3)}m, expected ~1.6m (diff ${diff.toFixed(3)})`);
+  return `sink centre ~${(sinkCentreM * 1000).toFixed(0)}mm (window centre 1600mm)`;
+});
+
+// Test 6: Hob near window → NZBC warning
+test('Test 6: Hob near window → NZBC G4 warning emitted', () => {
+  const result = runAutoDesign({
+    archetype: 'I', widthMm: 2700,
+    wallAssignments: [{
+      wallIndex: 0,
+      appliances: ['hob'],
+      openings: [{ type: 'window', positionMm: 0, widthMm: 600 }]
+    }]
+  }, CAT);
+  const nzbcWarning = result.warnings.find(w =>
+    w.ruleId === 'hob_window_min_distance_mm' || /hob.*window/i.test(w.message)
+  );
+  assert(nzbcWarning, 'Expected NZBC hob-window warning');
+  assert(nzbcWarning.severity === 'warn', `Expected warn severity, got ${nzbcWarning.severity}`);
+  return `Warning: "${nzbcWarning.message.slice(0, 60)}…"`;
+});
+
+// Test 7: Dishwasher placed adjacent to sink
+test('Test 7: Sink + dishwasher — DW adjacent to sink', () => {
+  const result = runAutoDesign({
+    archetype: 'I', widthMm: 3600,
+    wallAssignments: [{
+      wallIndex: 0,
+      appliances: ['sink', 'dishwasher'],
+      openings: []
+    }]
+  }, CAT);
+  const sink = result.cabinets.find(c => c.kitchenRole === 'sink');
+  const dw   = result.cabinets.find(c => c.kitchenRole === 'dishwasher');
+  assert(sink, 'Expected a sink cabinet');
+  assert(dw,   'Expected a dishwasher cabinet');
+  // DW must be within 600mm of sink along wall X
+  const gap = Math.abs(dw.position.x - sink.position.x);
+  assert(gap < 0.7, `Expected DW adjacent to sink (gap ${(gap * 1000).toFixed(0)}mm)`);
+  return `sink @ x=${sink.position.x.toFixed(3)}m, DW @ x=${dw.position.x.toFixed(3)}m`;
+});
+
+// Test 8: Combo A — I-shape with sink+hob+dishwasher+fridge all placed, gaps filled
+test('Test 8: Combo A — sink+hob+DW+fridge placed, wall filled (≤1 warning)', () => {
+  const result = runAutoDesign({
+    archetype: 'I', widthMm: 3600,
+    wallAssignments: [{
+      wallIndex: 0,
+      appliances: ['sink', 'hob', 'dishwasher', 'fridge'],
+      openings: [],
+      hasFridge: true
+    }]
+  }, CAT);
+  const roles = result.cabinets.map(c => c.kitchenRole);
+  assert(roles.includes('sink'),       'Missing sink');
+  assert(roles.includes('hob'),        'Missing hob');
+  assert(roles.includes('dishwasher'), 'Missing dishwasher');
+  assert(roles.includes('fridge'),     'Missing fridge');
+  assert(result.cabinets.length >= 4,  `Expected ≥4 cabinets, got ${result.cabinets.length}`);
+  const errors = result.warnings.filter(w => w.severity === 'error');
+  assert(errors.length === 0, `Unexpected errors: ${errors.map(w => w.message).join('; ')}`);
+  assertJsonRoundTrip(result);
+  return `${result.cabinets.length} cabinets [${roles.join(', ')}]`;
+});
+
+// ── Phase 1 / Task 1.2 — Edge-case tests 9–12 ────────────────────────────────
+suite('Phase 1 Task 1.2 — Tests 9–12 (edge cases)');
+
+// Test 9: empty wallAssignments → error warning, no throw
+test('Test 9: empty wallAssignments → error warning, no throw, walls:[]', () => {
+  let result;
+  assertNoThrow(() => {
+    result = runAutoDesign({ archetype: 'I', widthMm: 3000, wallAssignments: [] }, CAT);
+  });
+  assert(result.walls.length    === 0, `Expected walls:[], got ${result.walls.length}`);
+  assert(result.cabinets.length === 0, `Expected cabinets:[], got ${result.cabinets.length}`);
+  const err = result.warnings.find(w => w.severity === 'error' && /no walls assigned/i.test(w.message));
+  assert(err, `Expected error warning matching /no walls assigned/i; got: ${JSON.stringify(result.warnings)}`);
+  return `warnings: ${JSON.stringify(result.warnings.map(w => w.message))}`;
+});
+
+// Test 10: catalogue missing b3-900-crnr → substitution warning + closest-width corner (b3-800-crnr)
+test('Test 10: catalogue missing b3-900-crnr → substitution warning + b3-800-crnr placed', () => {
+  const result = runAutoDesign({
+    archetype: 'L', widthMm: 3000, depthMm: 1200,
+    wallAssignments: [
+      { wallIndex: 0, appliances: [], openings: [] },
+      { wallIndex: 1, appliances: [], openings: [] }
+    ]
+  }, CAT_NO_CRNR);
+  const subWarning = result.warnings.find(w => /corner.*not in catalogue|substitut/i.test(w.message));
+  assert(subWarning, `Expected substitution warning; got: ${JSON.stringify(result.warnings.map(w => w.message))}`);
+  const corner = result.cabinets.find(c => c.kitchenRole === 'corner');
+  assert(corner, 'Expected corner cabinet to be placed despite substitution');
+  assert(corner.productHandle === 'b3-800-crnr', `Expected b3-800-crnr, got ${corner.productHandle}`);
+  return `Substituted: "${subWarning.message.slice(0, 60)}"`;
+});
+
+// Test 11: two windows on sink wall — sink centred on FIRST window with sill < 900mm
+test('Test 11: two windows — sink centred on first window with sill < 900mm', () => {
+  // Window 1 at 200mm, sill=1200mm (too high) — should be skipped for sink
+  // Window 2 at 1400mm, sill=600mm (good) — sink should centre here
+  const result = runAutoDesign({
+    archetype: 'I', widthMm: 3600,
+    wallAssignments: [{
+      wallIndex: 0,
+      appliances: ['sink'],
+      openings: [
+        { type: 'window', positionMm:  200, widthMm: 600, sillMm: 1200 },
+        { type: 'window', positionMm: 1400, widthMm: 800, sillMm:  600 }
+      ]
+    }]
+  }, CAT);
+  const sink = result.cabinets.find(c => c.kitchenRole === 'sink');
+  assert(sink, 'Expected a sink cabinet');
+  // Window 2 centre = 1400 + 400 = 1800mm. Sink (600mm) starts at ~1500, centre at ~1800mm
+  const norm = result.walls[0].inwardNormal;
+  const sinkCentreM = sink.position.x - norm.x * (0.58 / 2);
+  const expectedM   = 1.8;  // 1800mm
+  const diff = Math.abs(sinkCentreM - expectedM);
+  assert(diff < 0.35, `Sink centre at ${(sinkCentreM * 1000).toFixed(0)}mm, expected ~1800mm (window 2 centre)`);
+  return `sink centre ~${(sinkCentreM * 1000).toFixed(0)}mm (window-2 centre at 1800mm)`;
+});
+
+// Test 12: door + window overlapping zones → collision warning, best-effort layout completes
+test('Test 12: overlapping door+window → collision warning, layout still produces cabinets', () => {
+  let result;
+  assertNoThrow(() => {
+    result = runAutoDesign({
+      archetype: 'I', widthMm: 3000,
+      wallAssignments: [{
+        wallIndex: 0,
+        appliances: ['sink'],
+        openings: [
+          { type: 'door',   positionMm:  600, widthMm: 900 },  // 600–1500mm
+          { type: 'window', positionMm: 1200, widthMm: 600 }   // 1200–1800mm → overlaps door
+        ]
+      }]
+    }, CAT);
+  });
+  const overlapWarn = result.warnings.find(w => /overlap/i.test(w.message));
+  assert(overlapWarn, `Expected overlap warning; got: ${JSON.stringify(result.warnings.map(w => w.message))}`);
+  assert(result.cabinets.length > 0, 'Expected best-effort layout to still produce cabinets');
+  return `overlap warning: "${overlapWarn.message.slice(0, 60)}" — ${result.cabinets.length} cabs placed`;
+});
+
+// ── hashSpec tests ────────────────────────────────────────────────────────────
+suite('hashSpec');
+
+test('hashSpec — returns 6-char hex string', () => {
+  const h = hashSpec({ archetype: 'I', widthMm: 3000 });
+  assert(typeof h === 'string' && h.length === 6 && /^[0-9a-f]{6}$/.test(h),
+    `Expected 6-char hex, got: ${JSON.stringify(h)}`);
+  return `hash = ${h}`;
+});
+
+test('hashSpec — same spec → same hash (deterministic)', () => {
+  const spec = { archetype: 'L', widthMm: 2700, depthMm: 1200,
+    wallAssignments: [{ wallIndex: 0, appliances: ['sink'], openings: [] }] };
+  const h1 = hashSpec(spec);
+  const h2 = hashSpec(JSON.parse(JSON.stringify(spec)));
+  assert(h1 === h2, `Expected same hash, got ${h1} vs ${h2}`);
+  return `both hashes = ${h1}`;
+});
+
+test('hashSpec — different spec → different hash', () => {
+  const h1 = hashSpec({ archetype: 'I', widthMm: 3000 });
+  const h2 = hashSpec({ archetype: 'L', widthMm: 3000 });
+  assert(h1 !== h2, `Expected different hashes for different specs`);
+  return `I=${h1}, L=${h2}`;
+});
+
+// ── Summary ───────────────────────────────────────────────────────────────────
+const summary = document.getElementById('summary');
+const total   = passed + failed;
+summary.textContent = `${passed}/${total} tests passed${failed ? ` — ${failed} FAILED` : ' ✓'}`;
+summary.className   = failed ? 'has-fail' : 'all-pass';
+console.log(`[auto-design tests] ${passed}/${total} passed`);
+</script>
+</body>
+</html>
