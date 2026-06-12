@@ -14,6 +14,18 @@ function getUrlMode() {
   return new URLSearchParams(location.search).get('embed') === '1' ? 'embed' : 'standalone';
 }
 const URL_MODE = getUrlMode();
+
+// Applies a body class and hides non-essential chrome for embed mode.
+// Core planner, products, quote, save, and cart remain fully functional.
+function applyUrlMode() {
+  if (URL_MODE !== 'embed') return;
+  document.body.classList.add('mode-embed');
+  // Hide advanced / dev tools that are not useful in a storefront embed.
+  ['btn-free-draw', 'hmenu-import-glb', 'hmenu-wall-xray'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
 // Tracks the most recently saved/loaded project name for the Quote PDF (optional).
 let currentProjectName = '';
 const SLAB_H = mm(300);   // floor slab height — walls sit on top of this
@@ -5784,6 +5796,8 @@ document.getElementById('dmm-quick').addEventListener('click', () => {
   controls.enabled = false;            // lock camera while drawing — no orbit/pan/zoom (touch + mouse)
   document.getElementById('btn-draw-wall').style.background = '#ff9500';
   document.getElementById('btn-draw-wall').style.color = '#fff';
+  const jb = document.getElementById('btn-joystick');   // joystick draw available in Quick Draw (3D + 2D)
+  if (jb) jb.style.display = 'flex';
 });
 
 document.getElementById('dmm-preset').addEventListener('click', () => {
@@ -8719,6 +8733,7 @@ if (joyToggleBtn) joyToggleBtn.addEventListener('click', () => {
   else startJoystickMode();
 });
 
+applyUrlMode();
 initAuth();
 animate();
 
