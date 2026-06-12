@@ -949,9 +949,6 @@ function loadProductModel(product, placeholderMesh) {
       model.rotation.copy(placeholderMesh.rotation);
       // Copy userData so quote/history still works
       model.userData = { ...placeholderMesh.userData };
-      // #region agent log
-      fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28266b'},body:JSON.stringify({sessionId:'28266b',hypothesisId:'BC',location:'main.js:944',message:'loadProductModel GLB swap Y',data:{rawSizeY:size.y,sy:sy,heightM:mm(product.height),boxMinY:box.min.y,boxMaxY:box.max.y,modelPosY:model.position.y,glbBottom:model.position.y-mm(product.height)/2,SLAB_H:SLAB_H,title:product.title},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       model.traverse(child => {
         if (child.isMesh) {
           child.castShadow = true;
@@ -4231,9 +4228,6 @@ loadShopifyProducts();
           new THREE.MeshStandardMaterial({ color: 0x8B7355 })
         );
         mesh.position.set(0, SLAB_H + h / 2, 0);   // ✅ FIX: stand on the 300mm slab, not the grid
-        // #region agent log
-        fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28266b'},body:JSON.stringify({sessionId:'28266b',hypothesisId:'A',location:'main.js:4147',message:'placeProduct placeholder Y',data:{SLAB_H:SLAB_H,h:h,posY:mesh.position.y,bottom:mesh.position.y-h/2,title:product.title},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         mesh.castShadow = true;
         mesh.userData = { product, skuIndex: 0 };
         scene.add(mesh);
@@ -4409,9 +4403,6 @@ function addImportedProductToPanel(product) {
     const clone = original.clone(true);
     const box = new THREE.Box3().setFromObject(clone);
     clone.position.set(0, -box.min.y, 0);
-    // #region agent log
-    fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28266b'},body:JSON.stringify({sessionId:'28266b',hypothesisId:'D',location:'main.js:4328',message:'imported GLB re-placed from panel',data:{posY:clone.position.y,boxMinY:box.min.y,SLAB_H:SLAB_H,name:product.name},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     clone.userData = { product, skuIndex: 0 };
     clone.traverse(child => {
       if (child.isMesh) { child.castShadow = true; child.userData = clone.userData; }
@@ -4879,9 +4870,6 @@ document.getElementById('glb-upload-btn').addEventListener('click', () => {
 
   const finalModel = glbModalScene.clone(true);
   centreAndFloor(finalModel);
-  // #region agent log
-  fetch('http://127.0.0.1:7564/ingest/6e3d3e7d-1cd5-489f-a5e2-a59868e89df5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28266b'},body:JSON.stringify({sessionId:'28266b',hypothesisId:'E',location:'main.js:4795',message:'GLB import upload placed via centreAndFloor',data:{posY:finalModel.position.y,SLAB_H:SLAB_H,name:name},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   finalModel.traverse(child => {
     if (child.isMesh) {
       const mats = Array.isArray(child.material) ? child.material : [child.material];
