@@ -132,7 +132,7 @@ window.addEventListener('mousemove', (e) => {
   camera2D.position.z -= (e.clientY - panStart.y) * s;
   panStart.set(e.clientX, e.clientY);
 });
-window.addEventListener('mouseup', () => { isPanning2D = false; });
+window.addEventListener('mouseup', () => { isPanning2D = false; endOpeningDrag(); });
 
 // ✅ FIX: Touch support — pointer events for pan, pinch-zoom, and wall drawing
 let activeTouches = new Map();
@@ -193,6 +193,11 @@ canvas.addEventListener('touchmove', (e) => {
   if (mode === 'draw-glide') return;
   e.preventDefault();
   Array.from(e.changedTouches).forEach(t => activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY }));
+  if (opDrag && activeTouches.size === 1) {
+    const t = e.changedTouches[0];
+    moveOpeningDrag(t.clientX, t.clientY);
+    return;
+  }
   if (activeTouches.size === 2) {
     const pts = Array.from(activeTouches.values());
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -250,7 +255,7 @@ canvas.addEventListener('touchend', (e) => {
   
   Array.from(e.changedTouches).forEach(t => activeTouches.delete(t.identifier));
   if (activeTouches.size < 2) { lastPinchDist = null; lastPinchMid = null; }
-  if (activeTouches.size === 0) isPanning2D = false;
+  if (activeTouches.size === 0) { isPanning2D = false; endOpeningDrag(); }
 }, { passive: false });
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.7));
@@ -761,7 +766,7 @@ function showWallHandles(wallObj) {
       new THREE.SphereGeometry(IS_TOUCH ? 0.22 : 0.15, 16, 16),
       new THREE.MeshBasicMaterial({ color: 0xffffff })
     );
-    sphere.position.set(pt.x, 0.08, pt.z);
+    sphere.position.set(pt.x, SLAB_H, pt.z);   // centre on the floor surface (slab top)
     sphere.userData.isWallHandle = true;
     sphere.userData.wallObj = wallObj;
     sphere.userData.handleIndex = i;
@@ -1347,11 +1352,16 @@ function initWallPopupTouch() {
   moreBtn.addEventListener('click', () => {
     _wpTQMoreOpen = !_wpTQMoreOpen;
     updateWallPopupTouchUI();
-    // Desktop: expanding can push the popup past the bottom edge — re-clamp.
-    if (!IS_TOUCH && wallPopup.style.display === 'block') {
+    // Expanding can push the popup past the bottom edge — re-clamp on ALL
+    // platforms (touch Quick Draw popups sit near the tap, often low on screen,
+    // so the expanded section ended up below the viewport). The bottom-anchored
+    // sheet grows upward and needs no clamp.
+    if (wallPopup.style.display === 'block' && wallPopup.style.bottom === '') {
       const r = wallPopup.getBoundingClientRect();
       if (r.bottom > window.innerHeight - 8) {
-        wallPopup.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+        const nt = Math.max(8, window.innerHeight - r.height - 8);
+        wallPopup.style.top = nt + 'px';
+        _wpTQPopTop = nt;   // keep drag math in sync
       }
     }
   });
@@ -1406,7 +1416,7 @@ function showWallPopup(wallObj, sx, sy) {
     wallPopup.style.top           = '';
     wallPopup.style.bottom        = '0';
     wallPopup.style.width         = 'min(300px, calc(100vw - 16px))';   // skinnier sheet on touch
-    wallPopup.style.maxHeight     = '60dvh';
+    wallPopup.style.maxHeight     = '75dvh';   // skinnier sheet is taller — keep More section reachable
     wallPopup.style.overflowY     = 'auto';
     wallPopup.style.borderRadius  = '14px 14px 0 0';
     wallPopup.style.padding       = '10px 12px';   // restore base padding (compact mode overwrites the shorthand)
@@ -1820,16 +1830,10 @@ document.getElementById('wp-angle-apply').addEventListener('click', () => {
   hideWallPopup();
 });
 
-document.getElementById('wp-door').addEventListener('click', () => { if (selectedWall) addOpening(selectedWall, 'door'); hideWallPopup(); });
-document.getElementById('wp-window').addEventListener('click', () => { if (selectedWall) addOpening(selectedWall, 'window'); hideWallPopup(); });
-document.getElementById('wp-gpo').addEventListener('click', () => {
-  if (!selectedWall) return;
-  const wall = selectedWall;
-  const op = addOpening(wall, 'gpo');
-  hideWallPopup();
-  openWallElevation(wall);
-  if (op) selectElevItem('opening', op);
-});
+// Adding an opening keeps the popup open (close via ✕) so several can be added in a row.
+document.getElementById('wp-door').addEventListener('click', () => { if (selectedWall) addOpening(selectedWall, 'door'); });
+document.getElementById('wp-window').addEventListener('click', () => { if (selectedWall) addOpening(selectedWall, 'window'); });
+document.getElementById('wp-gpo').addEventListener('click', () => { if (selectedWall) addOpening(selectedWall, 'gpo'); });
 document.getElementById('wp-view').addEventListener('click', () => { if (selectedWall) openWallElevation(selectedWall); hideWallPopup(); });
 
 // Initialise touch Quick Draw popup controls (once)
@@ -3204,7 +3208,14 @@ function drawRuler(ctx, info, direction) {
   
   function syncOpeningsTo3D(wallObj) {
     placedItems = placedItems.filter(m => {
-      if (m.userData.parentWall === wallObj) { scene.remove(m); return false; }
+      if (m.userData.parentWall === wallObj) {
+        scene.remove(m);
+        // Opening meshes own their geometry/material — dispose on rebuild
+        // (this now runs per-move while dragging an opening in 3D).
+        if (m.geometry) m.geometry.dispose();
+        if (m.material) m.material.dispose();
+        return false;
+      }
       return true;
     });
     const angle = wallObj.mesh.rotation.y;
@@ -3528,6 +3539,7 @@ function updateHoverWallDistances(e, w) {
 canvas.addEventListener('mousemove', (e) => {
   lastMouseX = e.clientX;
 lastMouseY = e.clientY;
+  if (opDrag) { moveOpeningDrag(e.clientX, e.clientY); return; }
   if (isPanning2D) return;
 
   if (mode === 'select' && !dragTarget) {
@@ -3661,7 +3673,7 @@ lastMouseY = e.clientY;
     const idx = handle.userData.handleIndex;
     if (idx === 0) wallObj.start.copy(s);
     else wallObj.end.copy(s);
-    handle.position.set(s.x, 0.08, s.z);
+    handle.position.set(s.x, SLAB_H, s.z);
     scene.remove(wallObj.mesh);
     const dx = wallObj.end.x - wallObj.start.x;
     const dz = wallObj.end.z - wallObj.start.z;
@@ -3771,7 +3783,7 @@ lastMouseY = e.clientY;
             const itemHits = raycaster.intersectObjects(targets, false);
 
             // Door/window hit-test — openings are selectable (blue wireframe +
-            // green dims) but never draggable; position is edited via the dims.
+            // green dims) and, in 3D, draggable along their wall.
             const openingMeshes = placedItems.filter(it =>
               it.userData?.type === 'door' || it.userData?.type === 'window' || it.userData?.type === 'gpo');
             const openingHits = raycaster.intersectObjects(openingMeshes, false);
@@ -3789,6 +3801,7 @@ lastMouseY = e.clientY;
               clearWallMultiSelect();
               clearCabinetSelection();
               selectOpening3D(openingHits[0].object);
+              if (is3D) startOpeningDrag(openingHits[0].object, e.clientX, e.clientY);
               return;
             }
 
@@ -5633,7 +5646,7 @@ canvas.addEventListener('touchmove', (e) => {
       const idx = handle.userData.handleIndex;
       if (idx === 0) wallObj.start.copy(s);
       else wallObj.end.copy(s);
-      handle.position.set(s.x, 0.08, s.z);
+      handle.position.set(s.x, SLAB_H, s.z);
       scene.remove(wallObj.mesh);
       const dx = wallObj.end.x - wallObj.start.x;
       const dz = wallObj.end.z - wallObj.start.z;
@@ -5756,6 +5769,8 @@ function fireLongPress(x, y) {
     hideTouchOverlay();
     hideFloatPanel();
     selectOpening3D(openingHits[0].object);
+    // 3D: keep dragging the same finger to slide the opening along its wall
+    if (is3D) startOpeningDrag(openingHits[0].object, x, y);
     return;
   }
 
@@ -6356,7 +6371,7 @@ canvas.addEventListener('mousemove', (e) => {
   fdSel.mesh.position.set((fdLastNs.x + fdLastNe.x) / 2, SLAB_H + h / 2, (fdLastNs.z + fdLastNe.z) / 2);
   wallHandleGroup.children.forEach(hd => {
     const pt = hd.userData.handleIndex === 0 ? fdLastNs : fdLastNe;
-    hd.position.set(pt.x, 0.08, pt.z);
+    hd.position.set(pt.x, SLAB_H, pt.z);
   });
 });
 
@@ -8066,6 +8081,71 @@ function selectOpening3D(mesh) {
   if (!op || !wallObj) return;
   clearOpening3DSelection();
   opDim3D.sel = { wallObj, op };
+}
+
+// ── 3D opening drag (door/window/GPO slide along their wall) ─────────────────
+// Started from the select-mode pointer/long-press paths; position is written to
+// op.distFromLeft (the authoritative record) and meshes rebuilt via
+// syncOpeningsTo3D, so dims/elevation/undo all stay consistent.
+let opDrag = null;   // { wallObj, op, grabOffMm, before, moved }
+
+function openingDragAlongWall(clientX, clientY) {
+  // Metres along the wall axis (from wall start) where the pointer ray meets
+  // the wall's vertical plane.
+  const { wallObj } = opDrag;
+  updateMouse({ clientX, clientY });
+  raycaster.setFromCamera(mouse, activeCamera);
+  const dir = new THREE.Vector3().subVectors(wallObj.end, wallObj.start).normalize();
+  const normal = new THREE.Vector3(-dir.z, 0, dir.x);
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+    normal, new THREE.Vector3(wallObj.start.x, 0, wallObj.start.z));
+  const hit = new THREE.Vector3();
+  if (!raycaster.ray.intersectPlane(plane, hit)) return null;
+  return new THREE.Vector3().subVectors(hit, new THREE.Vector3(wallObj.start.x, 0, wallObj.start.z)).dot(dir);
+}
+
+function startOpeningDrag(mesh, clientX, clientY) {
+  const op = mesh.userData?.opening;
+  const wallObj = mesh.userData?.parentWall;
+  if (!op || !wallObj) return;
+  opDrag = {
+    wallObj, op, moved: false, grabOffMm: 0,
+    before: { distFromLeft: op.distFromLeft, floorDist: op.floorDist,
+              width: op.width, height: op.height }
+  };
+  const t = openingDragAlongWall(clientX, clientY);
+  // Keep the grab point under the pointer instead of snapping the centre to it.
+  opDrag.grabOffMm = (t == null) ? 0 : (op.distFromLeft + op.width / 2) - t * 1000;
+  controls.enabled = false;
+}
+
+function moveOpeningDrag(clientX, clientY) {
+  if (!opDrag) return;
+  const t = openingDragAlongWall(clientX, clientY);
+  if (t == null) return;
+  const wallLenMm = opDrag.wallObj.start.distanceTo(opDrag.wallObj.end) * 1000;
+  let nd = Math.round(t * 1000 + opDrag.grabOffMm - opDrag.op.width / 2);
+  nd = Math.max(0, Math.min(Math.round(wallLenMm - opDrag.op.width), nd));
+  if (nd !== opDrag.op.distFromLeft) {
+    opDrag.op.distFromLeft = nd;
+    opDrag.moved = true;
+    syncOpeningsTo3D(opDrag.wallObj);   // dims/helper follow via update3DOpeningDims
+  }
+}
+
+function endOpeningDrag() {
+  if (!opDrag) return;
+  const d = opDrag;
+  opDrag = null;
+  if (is3D && mode === 'select') controls.enabled = true;
+  if (d.moved) {
+    pushHistory({ type: 'edit-opening', data: {
+      wallObj: d.wallObj, op: d.op, before: d.before,
+      after: { distFromLeft: d.op.distFromLeft, floorDist: d.op.floorDist,
+               width: d.op.width, height: d.op.height }
+    }});
+    if (typeof drawElevation === 'function' && elevWall === d.wallObj) drawElevation();
+  }
 }
 
 function clearOpening3DSelection() {
