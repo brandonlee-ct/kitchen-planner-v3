@@ -324,6 +324,9 @@ function executeUndo(entry) {
   } else if (entry.type === 'edit-opening') {
     Object.assign(entry.data.op, entry.data.before);
     if (walls.includes(entry.data.wallObj)) syncOpeningsTo3D(entry.data.wallObj);
+  } else if (entry.type === 'wall-height') {
+    const w = entry.data.wallObj;
+    if (walls.includes(w)) { w.height = entry.data.before; rebuildWallMeshInPlace(w); }
   }
 }
 function executeRedo(entry) {
@@ -387,6 +390,9 @@ function executeRedo(entry) {
   } else if (entry.type === 'edit-opening') {
     Object.assign(entry.data.op, entry.data.after);
     if (walls.includes(entry.data.wallObj)) syncOpeningsTo3D(entry.data.wallObj);
+  } else if (entry.type === 'wall-height') {
+    const w = entry.data.wallObj;
+    if (walls.includes(w)) { w.height = entry.data.after; rebuildWallMeshInPlace(w); }
   }
 }
 
@@ -732,7 +738,7 @@ function rebuildAllCaps() {
   walls.forEach(w => {
     if (w.capMeshes) { w.capMeshes.forEach(c => scene.remove(c)); w.capMeshes = []; }
   });
-  const t = mm(settings.wallThickness), h = mm(settings.ceilingHeight);
+  const t = mm(settings.wallThickness);
   const cornerMap = new Map();
   walls.forEach(w => {
     const sk = cornerKey(w.start), ek = cornerKey(w.end);
@@ -745,6 +751,7 @@ function rebuildAllCaps() {
     if (wallList.length < 2) return;
     const [x, z] = key.split(',').map(Number);
     const owner = wallList[0];
+    const h = mm(owner.height || settings.ceilingHeight);   // per-wall height (v3)
     const ownerOp = wallXray ? XRAY_OPACITY : ((owner.opacity != null) ? owner.opacity : 1);
     const cap = new THREE.Mesh(
       new THREE.BoxGeometry(t, h, t),
@@ -988,11 +995,13 @@ function loadProductModel(product, placeholderMesh) {
   );
 }
 
-function buildWall(start, end, skipHistory = false) {
+function buildWall(start, end, skipHistory = false, heightMm = null) {
   const dx = end.x - start.x, dz = end.z - start.z;
   const length = Math.sqrt(dx * dx + dz * dz);
   if (length < mm(50)) return null;
-  const h = mm(settings.ceilingHeight), t = mm(settings.wallThickness);
+  // Per-wall height (scene_json v3) — falls back to the global default for new walls.
+  const wallHeightMm = heightMm || settings.ceilingHeight;
+  const h = mm(wallHeightMm), t = mm(settings.wallThickness);
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(length, h, t),
     new THREE.MeshStandardMaterial({ color: 0xddd5c8 })
@@ -1001,7 +1010,7 @@ function buildWall(start, end, skipHistory = false) {
   mesh.rotation.y = -Math.atan2(dz, dx);
   mesh.castShadow = mesh.receiveShadow = true;
   scene.add(mesh);
-  const wallObj = { mesh, start: start.clone(), end: end.clone(), capMeshes: [], label2D: null, baseColor: 0xddd5c8, opacity: 1 };
+  const wallObj = { mesh, start: start.clone(), end: end.clone(), capMeshes: [], label2D: null, baseColor: 0xddd5c8, opacity: 1, height: wallHeightMm };
   mesh.userData.wallObj = wallObj;
  // REPLACE WITH:
   walls.push(wallObj);
@@ -1015,6 +1024,33 @@ function buildWall(start, end, skipHistory = false) {
 
   if (!skipHistory) pushHistory({ type: 'add-wall', data: { wallObj } });
   return wallObj;
+}
+
+// ── Per-wall height (scene_json v3) ──────────────────────────────────────────
+// Rebuild a wall's box geometry in place after its height (or length via
+// start/end mutation) changed. Keeps the existing material so colour/opacity
+// and the selection highlight survive; disposes the old geometry.
+function rebuildWallMeshInPlace(w) {
+  const dx = w.end.x - w.start.x, dz = w.end.z - w.start.z;
+  const length = Math.sqrt(dx * dx + dz * dz);
+  if (length < mm(50)) return;
+  const h = mm(w.height || settings.ceilingHeight), t = mm(settings.wallThickness);
+  if (w.mesh.geometry) w.mesh.geometry.dispose();
+  w.mesh.geometry = new THREE.BoxGeometry(length, h, t);
+  w.mesh.position.set((w.start.x + w.end.x) / 2, SLAB_H + h / 2, (w.start.z + w.end.z) / 2);
+  w.mesh.rotation.y = -Math.atan2(dz, dx);
+  rebuildAllCaps();
+  if (w.openings && w.openings.length) syncOpeningsTo3D(w);
+}
+
+// Set one wall's height (mm), undoably ('wall-height' history entry).
+function setWallHeight(wallObj, newHeightMm, skipHistory = false) {
+  const before = wallObj.height || settings.ceilingHeight;
+  newHeightMm = Math.max(300, Math.min(5000, Math.round(newHeightMm)));
+  if (!newHeightMm || newHeightMm === before) return;
+  if (!skipHistory) pushHistory({ type: 'wall-height', data: { wallObj, before, after: newHeightMm } });
+  wallObj.height = newHeightMm;
+  rebuildWallMeshInPlace(wallObj);
 }
 
 const wall2DOverlayGroup = new THREE.Group();
@@ -1261,7 +1297,15 @@ function initWallPopupTouch() {
 function showWallPopup(wallObj, sx, sy) {
   selectedWall = wallObj;
   document.getElementById('wp-length').value    = Math.round(wallObj.start.distanceTo(wallObj.end) * 1000);
-  document.getElementById('wp-height').value    = settings.ceilingHeight;
+  // Per-wall height (v3) — add a custom <option> when the wall has a non-standard value.
+  const wpHeightSel = document.getElementById('wp-height');
+  const wallH = wallObj.height || settings.ceilingHeight;
+  if (![...wpHeightSel.options].some(o => parseInt(o.value) === wallH)) {
+    const opt = document.createElement('option');
+    opt.value = wallH; opt.textContent = wallH + 'mm';
+    wpHeightSel.appendChild(opt);
+  }
+  wpHeightSel.value = wallH;
   document.getElementById('wp-type').value      = settings.wallThickness;
   document.getElementById('wp-thickness').value = settings.wallThickness;
   const wallAngleRad = Math.atan2(
@@ -1610,7 +1654,10 @@ document.getElementById('wp-confirm').addEventListener('click', () => {
   if (!selectedWall) return;
   const newLenM  = mm(parseFloat(document.getElementById('wp-length').value));
   const newThick = parseInt(document.getElementById('wp-thickness').value);
-  settings.ceilingHeight = parseInt(document.getElementById('wp-height').value);
+  // Per-wall height (v3): the select edits THIS wall; it also becomes the
+  // default height for new walls.
+  const newHeight = parseInt(document.getElementById('wp-height').value) || settings.ceilingHeight;
+  settings.ceilingHeight = newHeight;
   settings.wallThickness = parseInt(document.getElementById('wp-type').value) || newThick;
   // Free Draw: resize keeping the chosen anchor end fixed (angle preserved).
   if (mode === 'draw-free' && fdSel === selectedWall && newLenM > 0) {
@@ -1621,10 +1668,12 @@ document.getElementById('wp-confirm').addEventListener('click', () => {
     const ns = fdAnchor === 'start' ? anchor : newMov;
     const ne = fdAnchor === 'start' ? newMov : anchor;
     fdSel = fdReplaceWall(fdSel, ns, ne);
+    setWallHeight(fdSel, newHeight);                    // no-op when unchanged
     hideWallPopup();
     return;
   }
-  resizeLockedWall(selectedWall, newLenM, selAnchor);   // Task B: honour chosen anchor
+  const resized = resizeLockedWall(selectedWall, newLenM, selAnchor);   // Task B: honour chosen anchor
+  setWallHeight(resized || selectedWall, newHeight);    // no-op when unchanged
   hideWallPopup();
 });
 document.getElementById('wp-bt').addEventListener('click', () => {
@@ -1672,7 +1721,7 @@ document.getElementById('wp-angle-apply').addEventListener('click', () => {
   const dx = newEnd.x - selectedWall.start.x;
   const dz = newEnd.z - selectedWall.start.z;
   const length = Math.sqrt(dx * dx + dz * dz);
-  const h = mm(settings.ceilingHeight), t = mm(settings.wallThickness);
+  const h = mm(selectedWall.height || settings.ceilingHeight), t = mm(settings.wallThickness);
   selectedWall.mesh = new THREE.Mesh(
     new THREE.BoxGeometry(length, h, t),
     new THREE.MeshStandardMaterial({ color: 0xff9500 })
@@ -3296,7 +3345,7 @@ function buildFloorMesh() {
 
     const restored = [];
     changes.forEach(c => {
-      const nw = buildWall(c.ns, c.ne, true);
+      const nw = buildWall(c.ns, c.ne, true, c.wall.height);   // keep per-wall height (v3)
       if (!nw) return;                          // guarded above; belt-and-braces
       carryWallStyle(c.wall, nw);
       if (c.wall.openings && c.wall.openings.length) {
@@ -3370,6 +3419,36 @@ canvas.addEventListener('mousedown', (e) => {
   }
 });
 
+// ── Select-mode hover: cursor → interior-face distances along the wall ───────
+// Shows "←A mm | B mm→" while hovering a wall: distance from the cursor (projected
+// onto the wall axis) to each end, measured to the interior face of any adjoining
+// wall (free ends measure to the wall end itself). Reuses .fd-split-label styling
+// via a dedicated element so Free Draw's own label is untouched.
+let hoverSplitLabel = null;
+
+function hideHoverWallDistances() {
+  if (hoverSplitLabel) hoverSplitLabel.style.display = 'none';
+}
+
+function updateHoverWallDistances(e) {
+  if (!hoveredWall) { hideHoverWallDistances(); return; }
+  const pt = getFloorPosFromRay(e);
+  if (!pt) { hideHoverWallDistances(); return; }
+  const proj  = fdProjectOntoWall(hoveredWall, pt);
+  const trims = wallInteriorTrims(hoveredWall);
+  const dA = Math.max(0, Math.round((proj.distanceTo(hoveredWall.start) - trims.start) * 1000));
+  const dB = Math.max(0, Math.round((proj.distanceTo(hoveredWall.end)   - trims.end)   * 1000));
+  if (!hoverSplitLabel) {
+    hoverSplitLabel = document.createElement('div');
+    hoverSplitLabel.className = 'fd-split-label';
+    document.body.appendChild(hoverSplitLabel);
+  }
+  hoverSplitLabel.textContent  = '\u2190' + dA + '\u202fmm\u2002|\u2002' + dB + '\u202fmm\u2192';
+  hoverSplitLabel.style.left   = (e.clientX + 14) + 'px';
+  hoverSplitLabel.style.top    = (e.clientY - 28) + 'px';
+  hoverSplitLabel.style.display = 'block';
+}
+
 canvas.addEventListener('mousemove', (e) => {
   lastMouseX = e.clientX;
 lastMouseY = e.clientY;
@@ -3390,12 +3469,16 @@ lastMouseY = e.clientY;
           hoveredWall.mesh.material.color.set(0xf0e0c0);
       }
       canvas.style.cursor = 'pointer';
+      updateHoverWallDistances(e);
     } else {
       if (hoveredWall && hoveredWall !== selectedWall)
         hoveredWall.mesh.material.color.set(selectedWalls.includes(hoveredWall) ? WALL_MULTI_COLOR : wallBaseColor(hoveredWall));
       hoveredWall = null;
       canvas.style.cursor = 'default';
+      hideHoverWallDistances();
     }
+  } else {
+    hideHoverWallDistances();
   }
 
   dimLabel.style.left  = (e.clientX + 15) + 'px';
@@ -3498,7 +3581,7 @@ lastMouseY = e.clientY;
     const dz = wallObj.end.z - wallObj.start.z;
     const length = Math.sqrt(dx * dx + dz * dz);
     if (length < mm(50)) return;
-    const h = mm(settings.ceilingHeight), t = mm(settings.wallThickness);
+    const h = mm(wallObj.height || settings.ceilingHeight), t = mm(settings.wallThickness);
     wallObj.mesh = new THREE.Mesh(
       new THREE.BoxGeometry(length, h, t),
       new THREE.MeshStandardMaterial({ color: 0xff9500 })
@@ -3522,7 +3605,7 @@ lastMouseY = e.clientY;
     if (!pt) return;
     let s = snapToGrid(new THREE.Vector3(pt.x + dragOffset.x, 0, pt.z + dragOffset.z));
     const product = dragTarget.userData?.product;
-    if (product) s = snapToWall(s, mm(product.depth));
+    if (product) s = snapToWallByCategory(s, product);   // Task N: islands resist wall snap
     dragTarget.position.x = s.x;
     dragTarget.position.z = s.z;
   }
@@ -3698,6 +3781,9 @@ lastMouseY = e.clientY;
         // Task F: if we're actually in Free Draw, that mode owns its own cleanup
         // (and its own toolbar button). Delegate so the Free Draw button can't get stuck.
         if (mode === 'draw-free') { cancelFreeDraw(); return; }
+        stopJoystickMode();   // leaving Quick Draw also leaves joystick mode
+        const _jb = document.getElementById('btn-joystick');
+        if (_jb) _jb.style.display = 'none';
         hideWallDimInput();
         wallStart = firstPoint = null;
         firstWallLocked = false;
@@ -4011,6 +4097,61 @@ drawPresetThumbnails();
         });
         return best || pos;
       }
+
+      // ── Task N: category-based placement/snap rules ───────────────────────────
+      function getPlacementCategory(product) {
+        const txt = ((product.category || '') + ' ' + (product.productType || '') + ' ' + (product.name || '')).toLowerCase();
+        if (txt.includes('island')) return 'island';
+        if (txt.includes('corner')) return 'corner';
+        if (txt.includes('tall') || txt.includes('pantry')) return 'tall';
+        if (txt.includes('wall')) return 'wall';
+        return 'base';
+      }
+
+      // Nearest room corner (wall endpoint shared by 2+ walls) within maxDist of
+      // defaultPos, inset into the room so the cabinet clears the walls.
+      // Returns a Vector3 (y = 0) or null if no usable corner.
+      function findCornerDropPoint(defaultPos, itemW, itemD, maxDist) {
+        const cornerMap = new Map();
+        walls.forEach(w => {
+          [w.start, w.end].forEach(p => {
+            const k = cornerKey(p);
+            if (!cornerMap.has(k)) cornerMap.set(k, []);
+            cornerMap.get(k).push(w);
+          });
+        });
+        let best = null, bestDist = maxDist;
+        cornerMap.forEach((wallList, key) => {
+          if (wallList.length < 2) return;
+          const [x, z] = key.split(',').map(Number);
+          const dist = Math.hypot(x - defaultPos.x, z - defaultPos.z);
+          if (dist < bestDist) { bestDist = dist; best = { x, z, walls: wallList }; }
+        });
+        if (!best) return null;
+        // Bisector into the room: sum of unit directions leaving the corner along each wall
+        let bx = 0, bz = 0;
+        best.walls.forEach(w => {
+          const startNear = Math.hypot(w.start.x - best.x, w.start.z - best.z) <
+                            Math.hypot(w.end.x - best.x, w.end.z - best.z);
+          const ox = startNear ? w.end.x - w.start.x : w.start.x - w.end.x;
+          const oz = startNear ? w.end.z - w.start.z : w.start.z - w.end.z;
+          const len = Math.hypot(ox, oz);
+          if (len > 0.001) { bx += ox / len; bz += oz / len; }
+        });
+        const bLen = Math.hypot(bx, bz);
+        if (bLen < 0.001) return null;   // collinear walls — not a real corner
+        const inset = Math.hypot(itemW, itemD) / 2 + mm(settings.wallThickness) / 2;
+        return new THREE.Vector3(best.x + (bx / bLen) * inset, 0, best.z + (bz / bLen) * inset);
+      }
+
+      // Category-aware wrapper — keeps snapToWall's signature untouched.
+      // Islands only glue to a wall when dragged very close (< 0.08m correction).
+      function snapToWallByCategory(pos, product) {
+        const snapped = snapToWall(pos, mm(product.depth));
+        if (getPlacementCategory(product) !== 'island') return snapped;
+        return snapped.distanceTo(pos) < 0.08 ? snapped : pos;
+      }
+
 document.getElementById('btn-draw-wall').addEventListener('click', () => {
   if (mode === 'draw-free') cancelFreeDraw();   // Task F: leaving Free Draw clears its button
   const inDrawMode = ['draw-wall','draw-preset','draw-freehand','draw-twopoint','draw-glide'].includes(mode);
@@ -4227,7 +4368,16 @@ loadShopifyProducts();
           new THREE.BoxGeometry(w, h, d),
           new THREE.MeshStandardMaterial({ color: 0x8B7355 })
         );
-        mesh.position.set(0, SLAB_H + h / 2, 0);   // ✅ FIX: stand on the 300mm slab, not the grid
+        // Task N: category placement rules — wall cabinets start at 1500mm AFFL,
+        // corner cabinets prefer the nearest room corner; everything else on the slab.
+        const cat = getPlacementCategory(product);
+        const y = cat === 'wall' ? SLAB_H + mm(1500) + h / 2 : SLAB_H + h / 2;
+        let dropX = 0, dropZ = 0;
+        if (cat === 'corner') {
+          const spot = findCornerDropPoint(new THREE.Vector3(0, 0, 0), w, d, 3.0);
+          if (spot) { dropX = spot.x; dropZ = spot.z; }
+        }
+        mesh.position.set(dropX, y, dropZ);
         mesh.castShadow = true;
         mesh.userData = { product, skuIndex: 0 };
         scene.add(mesh);
@@ -4271,7 +4421,10 @@ loadShopifyProducts();
         updateCabinetBoxes();
         update3DCabinetDims();   // 3D cabinet dims — additive, no-op when nothing selected
         update3DOpeningDims();   // 3D door/window dims — additive, no-op when nothing selected
+        update3DWallDims();      // 3D wall dims (interior width + height) — no-op when no wall selected
+        updateJoystickFrame();   // virtual joystick cursor — no-op when inactive
         renderer.render(scene, activeCamera);
+        drawGlideLoupe();        // freehand magnifier — copies from the fresh buffer; no-op when hidden
       }
       // ── GLB Import — button + drag-and-drop ──────────────────────────────────────
 
@@ -5997,7 +6150,7 @@ function fdReplaceWall(oldWall, ns, ne) {
   if (oldWall.capMeshes) oldWall.capMeshes.forEach(c => scene.remove(c));
   if (oldWall.label2D)   wall2DLabelGroup.remove(oldWall.label2D);
   walls = walls.filter(w => w !== oldWall);
-  const nw = buildWall(ns, ne, true);
+  const nw = buildWall(ns, ne, true, oldWall.height);   // keep per-wall height (v3)
   if (!nw) {                                  // too short — keep the original
     scene.add(oldWall.mesh); walls.push(oldWall);
     rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); updateRoomArea();
@@ -6359,7 +6512,9 @@ document.getElementById('dpp-lshape').addEventListener('click', () => {
 
 document.getElementById('draw-confirm-tick').addEventListener('click', () => {
   if (drawModeActive === 'freehand' && freehandRawPoints.length >= 3) {
-    previewWallPoints = orthogonalisePoints(freehandRawPoints);
+    previewWallPoints = freehandAngleMode === 'free'
+      ? freehandRawPoints.map(p => p.clone())
+      : orthogonalisePoints(freehandRawPoints);
     freehandRawPoints = [];
     drawModeActive = 'preset';   // ← set BEFORE redraw
     mode = 'draw-preset';
@@ -6381,7 +6536,9 @@ document.getElementById('draw-confirm-cancel').addEventListener('click', () => {
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (mode === 'draw-freehand' && freehandRawPoints.length >= 3) {
-    previewWallPoints = orthogonalisePoints(freehandRawPoints);
+    previewWallPoints = freehandAngleMode === 'free'
+      ? freehandRawPoints.map(p => p.clone())
+      : orthogonalisePoints(freehandRawPoints);
     freehandRawPoints = [];
     clearPreview();
     drawPreviewPolygon(previewWallPoints);
@@ -6641,6 +6798,74 @@ const GLIDE_MIN_SEG = mm(100);
 const GLIDE_CLOSE_THRESH = mm(400);
 
 
+// ── Freehand magnifier loupe ──────────────────────────────────────
+// While the finger/pointer is down in glide draw, a circular magnifier at the
+// top of the screen shows a zoomed view around the draw point (the finger
+// otherwise hides it). The zoomed image is copied from the WebGL canvas in
+// animate() immediately after renderer.render(), while the drawing buffer is
+// still valid — no preserveDrawingBuffer needed.
+const LOUPE_SIZE = 140;   // CSS px diameter
+const LOUPE_ZOOM = 2.5;
+let glideLoupeEl = null, glideLoupeCtx = null;
+let glideLoupeVisible = false;
+let glideLoupeX = 0, glideLoupeY = 0;
+
+function ensureGlideLoupe() {
+  if (glideLoupeEl) return;
+  glideLoupeEl = document.createElement('div');
+  glideLoupeEl.id = 'glide-loupe';
+  glideLoupeEl.style.cssText =
+    'display:none;position:fixed;z-index:450;top:64px;left:50%;transform:translateX(-50%);' +
+    'width:' + LOUPE_SIZE + 'px;height:' + LOUPE_SIZE + 'px;border-radius:50%;' +
+    'border:2px solid #ff9500;overflow:hidden;background:#111;pointer-events:none;' +
+    'box-shadow:0 4px 20px rgba(0,0,0,0.6);';
+  const cvs = document.createElement('canvas');
+  cvs.width  = LOUPE_SIZE * 2;   // 2x backing store for sharpness
+  cvs.height = LOUPE_SIZE * 2;
+  cvs.style.cssText = 'width:100%;height:100%;display:block;';
+  glideLoupeEl.appendChild(cvs);
+  document.body.appendChild(glideLoupeEl);
+  glideLoupeCtx = cvs.getContext('2d');
+}
+
+function showGlideLoupe(clientX, clientY) {
+  ensureGlideLoupe();
+  glideLoupeX = clientX; glideLoupeY = clientY;
+  if (!glideLoupeVisible) {
+    glideLoupeVisible = true;
+    glideLoupeEl.style.display = 'block';
+  }
+}
+function hideGlideLoupe() {
+  glideLoupeVisible = false;
+  if (glideLoupeEl) glideLoupeEl.style.display = 'none';
+}
+
+function drawGlideLoupe() {
+  if (!glideLoupeVisible || !glideLoupeCtx) return;
+  const gl = renderer.domElement;
+  const rect = gl.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const scaleX = gl.width / rect.width;
+  const scaleY = gl.height / rect.height;
+  const out  = LOUPE_SIZE * 2;
+  const srcW = (LOUPE_SIZE / LOUPE_ZOOM) * scaleX;
+  const srcH = (LOUPE_SIZE / LOUPE_ZOOM) * scaleY;
+  const sx = (glideLoupeX - rect.left) * scaleX - srcW / 2;
+  const sy = (glideLoupeY - rect.top)  * scaleY - srcH / 2;
+  const ctx = glideLoupeCtx;
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, out, out);
+  try { ctx.drawImage(gl, sx, sy, srcW, srcH, 0, 0, out, out); } catch (err) { /* edge-of-canvas copy — skip frame */ }
+  // Crosshair at the draw point
+  ctx.strokeStyle = '#ff9500';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(out / 2 - 14, out / 2); ctx.lineTo(out / 2 + 14, out / 2);
+  ctx.moveTo(out / 2, out / 2 - 14); ctx.lineTo(out / 2, out / 2 + 14);
+  ctx.stroke();
+}
+
 function startGlideDraw() {
   // ── Force 2D view ──────────────────────────────────────
   if (is3D) {
@@ -6672,6 +6897,12 @@ function startGlideDraw() {
   document.getElementById('btn-draw-wall').style.background = '#ff9500';
   document.getElementById('btn-draw-wall').style.color      = '#fff';
   showConfirmBar('Hold & drag to draw walls · release to finish');
+  // Freehand 90° / free-angle toggle lives in the confirm bar, freehand-only.
+  const amBtn = document.getElementById('btn-angle-mode');
+  if (amBtn) {
+    amBtn.style.display = '';
+    amBtn.textContent = freehandAngleMode === '90' ? '⊾ 90°' : '∠ Free';
+  }
 }
 
 
@@ -6680,6 +6911,9 @@ function stopGlideDraw() {
   glidePointerDown = false;
   glideWasPinching = false;
   glidePointers.clear();
+  hideGlideLoupe();
+  const amBtn = document.getElementById('btn-angle-mode');
+  if (amBtn) amBtn.style.display = 'none';
 
   canvas.style.touchAction = '';
   controls.enabled = false;
@@ -6784,8 +7018,19 @@ function douglasPeucker(pts, epsilon) {
 
 // ── Commit glide to actual walls ──────────────────────────────────
 
+// Freehand angle mode: '90' forces orthogonal walls (existing behaviour),
+// 'free' keeps the simplified corners as drawn. Toggled via #btn-angle-mode.
+let freehandAngleMode = '90';
+
+const _angleModeBtn = document.getElementById('btn-angle-mode');
+if (_angleModeBtn) _angleModeBtn.addEventListener('click', () => {
+  freehandAngleMode = freehandAngleMode === '90' ? 'free' : '90';
+  _angleModeBtn.textContent = freehandAngleMode === '90' ? '⊾ 90°' : '∠ Free';
+});
+
 function commitGlideDraw() {
   clearGlidePreview();
+  hideGlideLoupe();
 
   if (glidePoints.length < 2) {
     stopGlideDraw();
@@ -6794,11 +7039,19 @@ function commitGlideDraw() {
 
   const epsilon    = mm(300);
   const simplified  = douglasPeucker(glidePoints, epsilon);
-  const ortho       = orthogonalisePoints(simplified);
-  const welded      = weldCorners(ortho);
-  const reortho     = orthogonalisePoints(welded);
-  const isRect      = isRoughlyRectangular(reortho);
-  const clean       = isRect ? makeCleanRect(reortho) : reortho;
+  let clean, isRect;
+  if (freehandAngleMode === 'free') {
+    // Free-angle mode: keep the simplified corners as drawn (already grid-snapped
+    // during sampling) — no orthogonalise/weld, so angled walls survive.
+    clean  = simplified;
+    isRect = false;
+  } else {
+    const ortho   = orthogonalisePoints(simplified);
+    const welded  = weldCorners(ortho);
+    const reortho = orthogonalisePoints(welded);
+    isRect = isRoughlyRectangular(reortho);
+    clean  = isRect ? makeCleanRect(reortho) : reortho;
+  }
   const first = clean[0];
   let last  = clean[clean.length - 1];
 
@@ -6810,8 +7063,9 @@ function commitGlideDraw() {
     shouldClose = clean.length >= 3 &&
       first.distanceTo(last) < GLIDE_CLOSE_THRESH * 2;
 
-    if (shouldClose) {
-      // Orthogonal approach into first
+    if (shouldClose && freehandAngleMode !== 'free') {
+      // Orthogonal approach into first (90° mode only — free mode just joins
+      // the last corner straight back to the first)
       const prev = clean[clean.length - 2] || clean[0];
       const adx = Math.abs(prev.x - first.x);
       const adz = Math.abs(prev.z - first.z);
@@ -6886,6 +7140,7 @@ canvas.addEventListener('pointerdown', (e) => {
     glideActive = true;
     glidePoints = [];
     glideAddPoint(e.clientX, e.clientY);
+    showGlideLoupe(e.clientX, e.clientY);   // magnifier while drawing
   }
 }, { passive: false });
 
@@ -6906,12 +7161,14 @@ canvas.addEventListener('pointermove', (e) => {
     }
     lastPinchDist = dist;
     if (glideCursorLine) { scene.remove(glideCursorLine); glideCursorLine = null; }
+    hideGlideLoupe();   // no magnifier during pinch
     return;
   }
 
   // Single finger: draw
   if (glidePointers.size === 1 && glideActive) {
     glideAddPoint(e.clientX, e.clientY);
+    showGlideLoupe(e.clientX, e.clientY);   // re-shows after a pinch pause too
 
     if (glidePoints.length >= 1) {
       const pt = getFloorPos({ clientX: e.clientX, clientY: e.clientY });
@@ -6975,6 +7232,7 @@ canvas.addEventListener('pointerup', (e) => {
     // Both fingers lifted from pinch — wait for new touch
     glideWasPinching = false;
     glideActive = false;
+    hideGlideLoupe();
   }
 }, { passive: false });
 
@@ -7001,6 +7259,7 @@ function serialiseScene() {
     end:   { x: w.end.x,   z: w.end.z   },
     color:   wallBaseColor(w),
     opacity: (w.opacity != null ? w.opacity : 1),
+    height:  (w.height || settings.ceilingHeight),   // v3: per-wall height (mm)
     openings: (w.openings || []).map(op => ({
       type:        op.type,
       width:       op.width,
@@ -7041,7 +7300,9 @@ function serialiseScene() {
   const sceneJson = {
     // v2: cabinet position.y is referenced to the slab top (SLAB_H). v1 saves
     // referenced the grid (y=0); loadScene migrates those by lifting +SLAB_H.
-    version: 2,
+    // v3: walls carry a per-wall `height` (mm). v1/v2 saves are migrated by
+    // stamping settings.ceilingHeight onto each wall on load.
+    version: 3,
     settings: {
       ceilingHeight: settings.ceilingHeight,
       wallThickness: settings.wallThickness,
@@ -7126,7 +7387,7 @@ function clearScene() {
 }
 
 function loadScene(sceneJson) {
-  if (!sceneJson || (sceneJson.version !== 1 && sceneJson.version !== 2)) {
+  if (!sceneJson || ![1, 2, 3].includes(sceneJson.version)) {
     console.warn('[loadScene] unrecognised scene version', sceneJson?.version);
     return;
   }
@@ -7148,7 +7409,8 @@ function loadScene(sceneJson) {
   (sceneJson.walls || []).forEach(wd => {
     const start = new THREE.Vector3(wd.start.x, 0, wd.start.z);
     const end   = new THREE.Vector3(wd.end.x,   0, wd.end.z);
-    const wallObj = buildWall(start, end, true);
+    // v3 saves carry per-wall height; v1/v2 walls migrate to settings.ceilingHeight.
+    const wallObj = buildWall(start, end, true, wd.height || settings.ceilingHeight);
     if (!wallObj) return;
 
     // Restore saved colour / opacity
@@ -7759,7 +8021,7 @@ function buildOpeningDim3D(mesh) {
 
   const { wallObj, op } = opDim3D.sel;
   const wallLenMm = wallObj.start.distanceTo(wallObj.end) * 1000;
-  const wallHMm   = settings.ceilingHeight;
+  const wallHMm   = wallObj.height || settings.ceilingHeight;   // per-wall height (v3)
   const dLeft  = op.distFromLeft;
   const dRight = wallLenMm - (op.distFromLeft + op.width);
   const dFloor = op.floorDist;
@@ -7883,7 +8145,7 @@ function applyOpeningDim3DEdit(dim, typedMm) {
   if (!sel || isNaN(typedMm)) return null;
   const { wallObj, op } = sel;
   const wallLenMm = wallObj.start.distanceTo(wallObj.end) * 1000;
-  const wallHMm   = settings.ceilingHeight;
+  const wallHMm   = wallObj.height || settings.ceilingHeight;   // per-wall height (v3)
   const typed = Math.round(typedMm);
   const before = { distFromLeft: op.distFromLeft, floorDist: op.floorDist };
   let clamped;
@@ -7965,6 +8227,474 @@ function openOpeningDim3DInput(dim, labelEl) {
   });
   input.addEventListener('blur', commit);
 }
+
+// ── 3D Wall Dimensions (selected wall — interior width + height, editable) ───
+// When a wall is selected, show green click-to-edit dims in the scene:
+// interior width (measured between the interior faces of the adjoining walls)
+// and the wall's own height (per-wall, scene_json v3). The anchored handle is
+// already bright green via colorWallHandles/fdHandleColors. Same pill +
+// inline-input UX as the cabinet/opening dims. Entirely additive.
+
+const wallDim3D = {
+  wall: null,             // wallObj dims are currently built for
+  group: null,            // THREE.Group of green lines
+  dims: [],               // [{ key: 'width'|'height', valueM, anchor }]
+  labels: [],             // pooled HTML label divs
+  input: null,            // active inline input (if any)
+  lastSig: ''             // rebuild signature
+};
+
+// The wall (other than `w`) sharing an endpoint within 2mm of `pt`, or null.
+function wallJoinedAt(w, pt) {
+  const EPS = 0.002;
+  for (const o of walls) {
+    if (o === w) continue;
+    if (o.start.distanceTo(pt) < EPS || o.end.distanceTo(pt) < EPS) return o;
+  }
+  return null;
+}
+
+// Interior trims (metres) at each end of a wall: corners sit on centreline
+// intersections, so the adjoining wall's body covers half its thickness past
+// the corner point. Free ends get no trim.
+function wallInteriorTrims(w) {
+  const t = mm(settings.wallThickness);
+  return {
+    start: wallJoinedAt(w, w.start) ? t / 2 : 0,
+    end:   wallJoinedAt(w, w.end)   ? t / 2 : 0,
+  };
+}
+
+function wallDim3DLabelEl(i) {
+  while (wallDim3D.labels.length <= i) {
+    const el = document.createElement('div');
+    el.style.cssText =
+      'position:fixed;display:none;z-index:380;padding:2px 7px;border-radius:4px;' +
+      'background:#0c2418;color:#00ff88;border:1px solid #00ff88;' +
+      'font:bold 11px Arial;cursor:pointer;user-select:none;transform:translate(-50%,-50%);' +
+      'box-shadow:0 1px 4px rgba(0,0,0,0.5);touch-action:manipulation;';
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(el.dataset.dimIdx);
+      const d = wallDim3D.dims[idx];
+      if (d) openWallDim3DInput(d, el);
+    });
+    document.body.appendChild(el);
+    wallDim3D.labels.push(el);
+  }
+  return wallDim3D.labels[i];
+}
+
+function clearWallDim3D() {
+  if (wallDim3D.group) {
+    wallDim3D.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    scene.remove(wallDim3D.group);
+    wallDim3D.group = null;
+  }
+  wallDim3D.dims = [];
+  wallDim3D.labels.forEach(el => { el.style.display = 'none'; });
+  removeWallDim3DInput();
+  wallDim3D.wall = null;
+  wallDim3D.lastSig = '';
+}
+
+function removeWallDim3DInput() {
+  if (wallDim3D.input) { wallDim3D.input.remove(); wallDim3D.input = null; }
+}
+
+function buildWallDim3D(w) {
+  if (wallDim3D.group) {
+    wallDim3D.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    scene.remove(wallDim3D.group);
+    wallDim3D.group = null;
+  }
+  wallDim3D.dims = [];
+
+  const dirV = new THREE.Vector3().subVectors(w.end, w.start);
+  const len = dirV.length();
+  if (len < 1e-6) return;
+  dirV.normalize();
+
+  const group = new THREE.Group();
+  group.renderOrder = 998;
+  const dims = [];
+
+  // Interior width — along the wall just above the slab, trimmed to the
+  // interior faces of any adjoining walls.
+  const trims = wallInteriorTrims(w);
+  const innerLen = Math.max(0, len - trims.start - trims.end);
+  {
+    const y = SLAB_H + 0.06;
+    const a = w.start.clone().addScaledVector(dirV, trims.start);
+    const b = w.end.clone().addScaledVector(dirV, -trims.end);
+    const from = new THREE.Vector3(a.x, y, a.z);
+    const to   = new THREE.Vector3(b.x, y, b.z);
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([from, to]), cabDim3DMaterial));
+    dims.push({ key: 'width', valueM: innerLen, anchor: from.clone().lerp(to, 0.5) });
+  }
+
+  // Height — vertical line at the wall midpoint (3D only; degenerate in plan view).
+  if (is3D) {
+    const hM = mm(w.height || settings.ceilingHeight);
+    const mid = new THREE.Vector3((w.start.x + w.end.x) / 2, 0, (w.start.z + w.end.z) / 2);
+    const perp = new THREE.Vector3(-dirV.z, 0, dirV.x);
+    const toCam = new THREE.Vector3().subVectors(camera3D.position, mid);
+    if (perp.dot(toCam) < 0) perp.negate();   // sit on the camera-facing face
+    const off = mm(settings.wallThickness) / 2 + 0.04;
+    const from = new THREE.Vector3(mid.x + perp.x * off, SLAB_H, mid.z + perp.z * off);
+    const to   = new THREE.Vector3(from.x, SLAB_H + hM, from.z);
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([from, to]), cabDim3DMaterial));
+    dims.push({ key: 'height', valueM: hM, anchor: from.clone().lerp(to, 0.5) });
+  }
+
+  scene.add(group);
+  wallDim3D.group = group;
+  wallDim3D.dims = dims;
+  wallDim3D.wall = w;
+}
+
+// Per-frame: build/refresh dims for the selected wall and pin labels. Called
+// from animate(); no-op when no wall is selected.
+function update3DWallDims() {
+  const w = (selectedWall && walls.includes(selectedWall)) ? selectedWall : null;
+  if (!w) {
+    if (wallDim3D.wall) clearWallDim3D();
+    return;
+  }
+  const sig = [
+    w.start.x.toFixed(4), w.start.z.toFixed(4),
+    w.end.x.toFixed(4),   w.end.z.toFixed(4),
+    (w.height || settings.ceilingHeight),
+    is3D ? 1 : 0, settings.wallThickness, walls.length
+  ].join(',');
+  if (wallDim3D.wall !== w || sig !== wallDim3D.lastSig) {
+    removeWallDim3DInput();   // anchors shift — close stale input
+    buildWallDim3D(w);
+    wallDim3D.lastSig = sig;
+  }
+
+  const cRect = canvas.getBoundingClientRect();
+  wallDim3D.dims.forEach((dim, i) => {
+    const el = wallDim3DLabelEl(i);
+    const v = dim.anchor.clone().project(activeCamera);
+    if (v.z > 1 || v.z < -1) { el.style.display = 'none'; return; }
+    el.style.left = (cRect.left + (v.x * 0.5 + 0.5) * cRect.width) + 'px';
+    el.style.top  = (cRect.top + (-v.y * 0.5 + 0.5) * cRect.height) + 'px';
+    el.textContent = (dim.key === 'height' ? 'H ' : 'W ') + Math.round(dim.valueM * 1000);
+    el.dataset.dimIdx = i;
+    el.style.display = 'block';
+  });
+  for (let i = wallDim3D.dims.length; i < wallDim3D.labels.length; i++) {
+    wallDim3D.labels[i].style.display = 'none';
+  }
+}
+
+// Apply a typed mm value for one wall dim. Returns the applied mm value, or
+// null if invalid. Width resizes via resizeLockedWall (anchor end honoured);
+// height goes through setWallHeight — both push their own history entries.
+function applyWallDim3DEdit(dim, typedMm) {
+  const w = wallDim3D.wall;
+  if (!w || !walls.includes(w) || isNaN(typedMm)) return null;
+
+  if (dim.key === 'height') {
+    const clamped = Math.max(300, Math.min(5000, Math.round(typedMm)));
+    setWallHeight(w, clamped);
+    return clamped;
+  }
+
+  if (dim.key === 'width') {
+    const trims = wallInteriorTrims(w);
+    const typed = Math.max(0, Math.round(typedMm));
+    const newOuterM = mm(typed) + trims.start + trims.end;
+    if (newOuterM < mm(50)) return null;
+    const anchorEnd = (mode === 'select') ? selAnchor : 'start';
+    const nw = resizeLockedWall(w, newOuterM, anchorEnd);
+    if (nw) {
+      // resizeLockedWall replaced the wall object — keep the selection alive.
+      selectedWall = nw;
+      nw.mesh.material.color.set(0xff9500);
+      showWallHandles(nw);
+      if (mode === 'select') colorWallHandles(selAnchor);
+      wallDim3D.wall = nw;
+    }
+    return typed;
+  }
+  return null;
+}
+
+// Inline input over a clicked wall dim label — same UX as the cabinet dims.
+function openWallDim3DInput(dim, labelEl) {
+  removeWallDim3DInput();
+  const rect = labelEl.getBoundingClientRect();
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.value = Math.round(dim.valueM * 1000);
+  input.style.cssText =
+    'position:fixed;z-index:390;width:72px;padding:3px 5px;border:2px solid #00ff88;' +
+    'border-radius:4px;background:#fff;color:#111;font:bold 12px Arial;text-align:center;' +
+    'left:' + (rect.left + rect.width / 2 - 40) + 'px;top:' + (rect.top - 4) + 'px;';
+  document.body.appendChild(input);
+  wallDim3D.input = input;
+  input.focus();
+  input.select();
+
+  let committed = false;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    const typed = parseFloat(input.value);
+    const applied = applyWallDim3DEdit(dim, typed);
+    if (applied !== null && !isNaN(typed) && Math.round(typed) !== applied) {
+      // Clamped — flash red briefly before removing.
+      input.style.borderColor = '#ff4444';
+      input.style.color = '#ff4444';
+      input.value = applied;
+      setTimeout(() => {
+        input.remove();
+        if (wallDim3D.input === input) wallDim3D.input = null;
+      }, 300);
+      return;
+    }
+    input.remove();
+    if (wallDim3D.input === input) wallDim3D.input = null;
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') commit();
+    else if (e.key === 'Escape') {
+      committed = true;
+      input.remove();
+      if (wallDim3D.input === input) wallDim3D.input = null;
+    }
+    e.stopPropagation();
+  });
+  input.addEventListener('blur', commit);
+}
+
+// ── Virtual Joystick draw mode (Quick Draw, 2D + 3D) ─────────────────────────
+// A 🕹 button (visible while Quick Draw is active) opens an on-screen joystick:
+// the screen goes fullscreen + landscape where supported (Android/Chrome — iOS
+// Safari can't lock orientation, so it shows a rotate hint instead), a blinking
+// + cursor appears, the bottom-left joystick moves it, and two bottom-right
+// buttons act as left click (place wall point via the existing Quick Draw click
+// handler) and right click (Wall Style popup — colour + opacity). All input is
+// re-dispatched as synthetic mouse events on the canvas, the same pattern the
+// touch path already uses, so preview/snap/undo behave exactly like a mouse.
+
+const JOY_SPEED = 9;                  // cursor px per frame at full deflection
+let joyActive  = false;
+let joyVecX = 0, joyVecY = 0;         // joystick deflection, -1..1
+let joyCursorX = 0, joyCursorY = 0;   // virtual cursor position (CSS px)
+let joyPointerId = null;
+let joyOverlay = null, joyBase = null, joyNub = null;
+let joyBtnL = null, joyBtnR = null, joyExitBtn = null;
+let joyCursorEl = null, joyRotateHint = null;
+
+function ensureJoystickUI() {
+  if (joyOverlay) return;
+
+  joyOverlay = document.createElement('div');
+  joyOverlay.id = 'joy-overlay';
+  joyOverlay.style.cssText =
+    'display:none;position:fixed;inset:0;z-index:600;pointer-events:none;font-family:Arial;';
+
+  // ── Joystick base + nub (bottom-left) ──────────────────
+  joyBase = document.createElement('div');
+  joyBase.style.cssText =
+    'position:absolute;left:20px;bottom:max(24px, env(safe-area-inset-bottom));' +
+    'width:128px;height:128px;border-radius:50%;pointer-events:auto;touch-action:none;' +
+    'background:rgba(255,255,255,0.07);border:2px solid rgba(255,149,0,0.8);' +
+    'backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);';
+  joyNub = document.createElement('div');
+  joyNub.style.cssText =
+    'position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;' +
+    'border-radius:50%;background:#ff9500;box-shadow:0 2px 8px rgba(0,0,0,0.5);pointer-events:none;';
+  joyBase.appendChild(joyNub);
+  joyOverlay.appendChild(joyBase);
+
+  // ── L / R click buttons (bottom-right) ─────────────────
+  const mkBtn = (label, bg, right, bottom) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText =
+      'position:absolute;right:' + right + 'px;bottom:calc(max(24px, env(safe-area-inset-bottom)) + ' + bottom + 'px);' +
+      'width:64px;height:64px;border-radius:50%;border:none;pointer-events:auto;' +
+      'background:' + bg + ';color:#fff;font:bold 13px Arial;cursor:pointer;' +
+      'box-shadow:0 2px 10px rgba(0,0,0,0.5);touch-action:manipulation;' +
+      '-webkit-tap-highlight-color:transparent;';
+    joyOverlay.appendChild(b);
+    return b;
+  };
+  joyBtnL = mkBtn('L ✏', '#ff9500', 104, 0);
+  joyBtnR = mkBtn('R 🎨', '#00bcd4', 24, 44);
+
+  // ── Exit + hint ─────────────────────────────────────────
+  joyExitBtn = document.createElement('button');
+  joyExitBtn.textContent = '✕';
+  joyExitBtn.title = 'Exit joystick mode';
+  joyExitBtn.style.cssText =
+    'position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:10px;' +
+    'border:1px solid #555;background:rgba(26,26,26,0.85);color:#fff;font-size:18px;' +
+    'cursor:pointer;pointer-events:auto;touch-action:manipulation;' +
+    '-webkit-tap-highlight-color:transparent;';
+  joyOverlay.appendChild(joyExitBtn);
+
+  const hint = document.createElement('div');
+  hint.textContent = '🕹 moves the cursor · L places wall points · R wall style';
+  hint.style.cssText =
+    'position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#ccc;' +
+    'font-size:12px;background:rgba(26,26,26,0.75);border-radius:8px;padding:6px 12px;' +
+    'white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis;';
+  joyOverlay.appendChild(hint);
+
+  // ── Rotate-to-landscape hint (iOS — no orientation lock) ─
+  joyRotateHint = document.createElement('div');
+  joyRotateHint.textContent = '🔄 Rotate your device to landscape';
+  joyRotateHint.style.cssText =
+    'display:none;position:absolute;top:60px;left:50%;transform:translateX(-50%);' +
+    'color:#ff9500;font-size:14px;font-weight:bold;background:rgba(26,26,26,0.9);' +
+    'border:1px solid #ff9500;border-radius:10px;padding:10px 16px;white-space:nowrap;';
+  joyOverlay.appendChild(joyRotateHint);
+
+  document.body.appendChild(joyOverlay);
+
+  // ── Blinking + cursor ───────────────────────────────────
+  joyCursorEl = document.createElement('div');
+  joyCursorEl.className = 'joy-cursor';
+  document.body.appendChild(joyCursorEl);
+
+  // ── Joystick input ──────────────────────────────────────
+  const joyUpdateVec = (e) => {
+    const r = joyBase.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let dx = e.clientX - cx, dy = e.clientY - cy;
+    const max = r.width / 2 - 16;
+    const d = Math.hypot(dx, dy);
+    if (d > max) { dx *= max / d; dy *= max / d; }
+    joyVecX = dx / max; joyVecY = dy / max;
+    joyNub.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+  };
+  const joyResetVec = () => {
+    joyPointerId = null;
+    joyVecX = joyVecY = 0;
+    joyNub.style.transform = '';
+  };
+  joyBase.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    joyPointerId = e.pointerId;
+    joyBase.setPointerCapture(e.pointerId);
+    joyUpdateVec(e);
+  });
+  joyBase.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== joyPointerId) return;
+    e.preventDefault(); e.stopPropagation();
+    joyUpdateVec(e);
+  });
+  joyBase.addEventListener('pointerup',     joyResetVec);
+  joyBase.addEventListener('pointercancel', joyResetVec);
+
+  // ── L = left click at the virtual cursor ────────────────
+  joyBtnL.addEventListener('click', (e) => {
+    e.stopPropagation();
+    canvas.dispatchEvent(new MouseEvent('click', {
+      clientX: joyCursorX, clientY: joyCursorY, bubbles: true
+    }));
+  });
+
+  // ── R = right click → Wall Style popup (colour + opacity) ─
+  joyBtnR.addEventListener('click', (e) => {
+    e.stopPropagation();
+    updateMouse({ clientX: joyCursorX, clientY: joyCursorY });
+    raycaster.setFromCamera(mouse, activeCamera);
+    const wallHits = raycaster.intersectObjects(walls.map(w => w.mesh))
+      .filter(h => walls.includes(h.object.userData.wallObj));
+    if (wallHits.length) {
+      openWallStylePopup(wallHits[0].object.userData.wallObj, joyCursorX, joyCursorY);
+    }
+  });
+
+  joyExitBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    stopJoystickMode();
+  });
+}
+
+function joySyntheticMove() {
+  canvas.dispatchEvent(new MouseEvent('mousemove', {
+    clientX: joyCursorX, clientY: joyCursorY, bubbles: true
+  }));
+}
+
+// Per-frame: move the cursor by joystick deflection + feed it to the canvas as
+// a synthetic mousemove so the Quick Draw preview/snap logic runs unchanged.
+function updateJoystickFrame() {
+  if (!joyActive) return;
+  if (Math.hypot(joyVecX, joyVecY) < 0.08) return;
+  joyCursorX = Math.max(0, Math.min(window.innerWidth,  joyCursorX + joyVecX * JOY_SPEED));
+  joyCursorY = Math.max(0, Math.min(window.innerHeight, joyCursorY + joyVecY * JOY_SPEED));
+  joyCursorEl.style.left = joyCursorX + 'px';
+  joyCursorEl.style.top  = joyCursorY + 'px';
+  joySyntheticMove();
+}
+
+function updateJoyRotateHint() {
+  if (!joyRotateHint) return;
+  const portrait = window.matchMedia('(orientation: portrait)').matches;
+  joyRotateHint.style.display = (joyActive && portrait) ? 'block' : 'none';
+}
+window.addEventListener('orientationchange', () => setTimeout(updateJoyRotateHint, 300));
+window.addEventListener('resize', () => updateJoyRotateHint());
+
+async function startJoystickMode() {
+  if (joyActive) return;
+  ensureJoystickUI();
+  joyActive = true;
+  joyVecX = joyVecY = 0;
+  joyCursorX = window.innerWidth / 2;
+  joyCursorY = window.innerHeight / 2;
+  joyOverlay.style.display = 'block';
+  joyCursorEl.style.display = 'block';
+  joyCursorEl.style.left = joyCursorX + 'px';
+  joyCursorEl.style.top  = joyCursorY + 'px';
+  const jb = document.getElementById('btn-joystick');
+  if (jb) jb.classList.add('active');
+  // Fullscreen + landscape lock where the platform supports it (Android/Chrome).
+  // iOS Safari supports neither — the rotate hint covers that case.
+  try {
+    if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    }
+  } catch (err) { /* fullscreen unavailable — continue inline */ }
+  try {
+    if (screen.orientation && screen.orientation.lock) {
+      await screen.orientation.lock('landscape');
+    }
+  } catch (err) { /* orientation lock unsupported/denied — rotate hint instead */ }
+  updateJoyRotateHint();
+  joySyntheticMove();
+}
+
+function stopJoystickMode() {
+  if (!joyActive) return;
+  joyActive = false;
+  joyVecX = joyVecY = 0;
+  joyPointerId = null;
+  if (joyNub)      joyNub.style.transform = '';
+  if (joyOverlay)  joyOverlay.style.display = 'none';
+  if (joyCursorEl) joyCursorEl.style.display = 'none';
+  if (joyRotateHint) joyRotateHint.style.display = 'none';
+  const jb = document.getElementById('btn-joystick');
+  if (jb) jb.classList.remove('active');
+  try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (err) {}
+  if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+const joyToggleBtn = document.getElementById('btn-joystick');
+if (joyToggleBtn) joyToggleBtn.addEventListener('click', () => {
+  if (joyActive) stopJoystickMode();
+  else startJoystickMode();
+});
 
 initAuth();
 animate();
