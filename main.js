@@ -1073,7 +1073,6 @@ function buildWall(start, end, skipHistory = false, heightMm = null) {
   scene.add(mesh);
   const wallObj = { mesh, start: start.clone(), end: end.clone(), capMeshes: [], label2D: null, baseColor: 0xddd5c8, opacity: 1, height: wallHeightMm };
   mesh.userData.wallObj = wallObj;
- // REPLACE WITH:
   walls.push(wallObj);
   make2DLabel(wallObj);
   rebuildAllCaps();
@@ -4466,7 +4465,6 @@ async function loadShopifyProducts() {
     products = nodes
       .filter(n => !/\(Draft\)/i.test(n.title))
       .map(shopifyNodeToProduct);
-    console.log('Loaded', products.length, 'products from Shopify');
     renderProductPanel();
   } catch (err) {
     console.error('Shopify product load failed:', err);
@@ -7366,9 +7364,6 @@ canvas.addEventListener('pointercancel', (e) => {
 
 
 
-
-// redeploy trigger
-
 // ── Save / Load helpers ──────────────────────────────
 // ── Save / Load helpers ───────────────────────────────────────────────────────
 
@@ -7611,7 +7606,6 @@ function loadScene(sceneJson) {
     }
   }
 
-  // REPLACE WITH:
   // Rebuild derived scene state
   rebuildAllCaps();
   refreshAll2DLabels();
@@ -7626,9 +7620,6 @@ function loadScene(sceneJson) {
   canvas.style.cursor = 'default';
   sceneDirty = false;   // freshly loaded project = nothing unsaved
 }
-
-
-window._debug = { serialiseScene, clearScene, loadScene };
 
 // ── Auth modal open/close ─────────────────────────────────────────────────────
 
