@@ -808,6 +808,11 @@ Shopify-standard, so there is **no gated payments phase**.
 - Planner in the monorepo -> **keep in its own repo for now**; re-evaluate at P7.
 - Showroom kiosk mode -> **Planner backlog**, not pre-built.
 - Inventory 3PL stock source -> **Shopify Admin API** (CC as virtual warehouse), not CC API.
+- **Database architecture -> SHARED.** One Supabase project, all apps in the `public` schema,
+  table naming conventions per group (`trade_*`, `academy_*`, `kpi_*`, `inventory_*`). RLS +
+  `tenant_id` scopes data. Rationale: KPI is a direct read-model over Trade + Academy — cross-app
+  SQL queries are the whole point. Isolated/dedicated would kill that. Upgrade path: shared →
+  isolated schemas later (rename + search-path change, no app-code rewrite).
 
 **Still open:**
 - **Trade App v2 (§6.1a) details:** what unlocks the final client payment (step-8 signature
