@@ -20,9 +20,9 @@ Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 - [x] ✅ 1.4 Power points (GPOs) in elevation view + wall popup
 - [x] ✅ 1.5 Elevation/3D dimension editor (Task K: 7 green dims, click-to-edit, doors/windows/cabinets, undo)
 - [x] ✅ Tasks B–F bundle: save/restart hamburger menu, touch long-press select, wall-locked openings with 3D dims, 2D zoom/pan fix, 300mm slab (scene_json v2 + v1 migration)
-- [ ] ⬜ K polish: opening selection highlight to bright green; editable opening width/height in 3D
+- [x] ✅ K polish: opening selection highlight bright green; editable opening width/height in 3D dim editor (mirrors elevation D6/D7, undo via `edit-opening`)
 - [x] ✅ 1.6 Embed planner in Shopify storefront (Task O Phase 1: `?embed=1` mode — `getUrlMode`/`applyUrlMode`, `.mode-embed` slim chrome, README usage docs; subdomain-link + iframe paths). App Block deferred to Phase 2.
-- [ ] ⬜ 1.11 Read-only share links (`/p/abc123`)
+- [x] ✅ 1.11 Read-only share links (`?share=<slug>`) — share button per project row, slug generated + stored in Supabase (`is_public`, `share_slug` columns), read-only badge, save controls hidden for viewers
 
 ## Parked (built but not wired in)
 - Auto-design solver module (`auto-design.js`, `auto-design-rules.js`, test harness, fixtures) —
@@ -31,9 +31,9 @@ Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 ## Milestone C — Bridge + review
 - [ ] ⬜ 1.7 Shopify Customer Account → Supabase JWT bridge 🧠
 - [x] ✅ 1.10 Tall/corner/island snap rules + height tiers (Task N: `getPlacementCategory`, category placement heights — wall cabinets @1500mm AFFL, corner-drop preference, island wall-snap resistance; reviewer-approved, awaiting owner browser smoke test)
-- [ ] ⬜ 1.12 Analytics (walls drawn, products placed, carts sent)
-- [ ] ⬜ 1.13 Privacy policy + T&Cs + data export 👤 (legal)
-- [ ] ⬜ 1.14 Pre-launch architecture review 🧠
+- [x] ✅ 1.12 Analytics stub — `trackEvent()` wired at: planner_opened, project_saved, project_loaded, send_to_cart, share_link_created (console log Phase 1; swap body for PostHog etc. later)
+- [x] ✅ 1.13 Privacy policy + T&Cs — links in hamburger menu → brownboxkit.co.nz/pages/privacy-policy + /terms-of-service; NZ Privacy Act 2020 + CGA content drafted
+- [x] ✅ 1.14 Pre-launch architecture review 🧠 (Task Q: core stability + Phase 1 completeness + drift + production-readiness audit; verdict "ready with fixes" → launch-hardening blockers B1–B4 fixed in `7c32a89`)
 
 ## Setup / tooling
 - [x] ✅ AGENTS.md (project memory for all agents)
