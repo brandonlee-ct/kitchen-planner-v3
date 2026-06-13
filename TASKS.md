@@ -21,7 +21,7 @@ Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 - [x] ✅ 1.5 Elevation/3D dimension editor (Task K: 7 green dims, click-to-edit, doors/windows/cabinets, undo)
 - [x] ✅ Tasks B–F bundle: save/restart hamburger menu, touch long-press select, wall-locked openings with 3D dims, 2D zoom/pan fix, 300mm slab (scene_json v2 + v1 migration)
 - [ ] ⬜ K polish: opening selection highlight to bright green; editable opening width/height in 3D
-- [ ] ⬜ 1.6 Embed planner in Shopify storefront (iframe for test → App Block) 👤
+- [x] ✅ 1.6 Embed planner in Shopify storefront (Task O Phase 1: `?embed=1` mode — `getUrlMode`/`applyUrlMode`, `.mode-embed` slim chrome, README usage docs; subdomain-link + iframe paths). App Block deferred to Phase 2.
 - [ ] ⬜ 1.11 Read-only share links (`/p/abc123`)
 
 ## Parked (built but not wired in)
@@ -30,7 +30,7 @@ Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 
 ## Milestone C — Bridge + review
 - [ ] ⬜ 1.7 Shopify Customer Account → Supabase JWT bridge 🧠
-- [ ] ⬜ 1.10 Tall/corner/island snap rules + height tiers 🧠
+- [x] ✅ 1.10 Tall/corner/island snap rules + height tiers (Task N: `getPlacementCategory`, category placement heights — wall cabinets @1500mm AFFL, corner-drop preference, island wall-snap resistance; reviewer-approved, awaiting owner browser smoke test)
 - [ ] ⬜ 1.12 Analytics (walls drawn, products placed, carts sent)
 - [ ] ⬜ 1.13 Privacy policy + T&Cs + data export 👤 (legal)
 - [ ] ⬜ 1.14 Pre-launch architecture review 🧠
