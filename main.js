@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { initAuth, signInWithGoogle, signOut, getUser, saveProject, listProjects, loadProject, deleteProject, uploadThumbnail, setProjectPublic, loadPublicProject } from './auth.js';
+import { initAuth, signInWithGoogle, signOut, getUser, saveProject, updateProject, listProjects, loadProject, deleteProject, uploadThumbnail, setProjectPublic, loadPublicProject } from './auth.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
@@ -28,6 +28,10 @@ function applyUrlMode() {
 }
 // Tracks the most recently saved/loaded project name for the Quote PDF (optional).
 let currentProjectName = '';
+// ✅ FIX: track the open project's id so Save updates the existing row instead of
+// inserting a duplicate. null = unsaved/new design (next Save inserts). A hard
+// reload (Restart Planner) resets this naturally.
+let currentProjectId = null;
 // ── Share / read-only mode ────────────────────────────────────────────────────
 let readOnlyMode = false;
 
@@ -8936,23 +8940,31 @@ trackEvent('planner_opened', { mode: URL_MODE });
 // ── Save Project button wiring ────────────────────────────────────────────────
 document.getElementById('btn-save-project').addEventListener('click', async () => {
   if (readOnlyMode) { showImportToast('Read-only: cannot save shared project', true); return; }
-  const defaultName = 'Kitchen - ' + new Date().toLocaleDateString('en-NZ');
-  const name = prompt('Project name:', defaultName);
+  // ✅ FIX: update the existing row when a project is already open; only insert for new designs
+  const isUpdate = !!currentProjectId;
+  const defaultName = currentProjectName || ('Kitchen - ' + new Date().toLocaleDateString('en-NZ'));
+  const name = prompt(isUpdate ? 'Update project name:' : 'Project name:', defaultName);
   if (!name || !name.trim()) return;
   const { sceneJson, thumbnail, skippedImportedCount } = serialiseScene();
   // Close the auth modal so the toast is visible
   document.getElementById('auth-modal').style.display = 'none';
   // ✅ FIX: store thumbnail in Supabase Storage (URL), fall back to base64 if upload fails
   const thumbUrl = await uploadThumbnail(thumbnail);
-  const { id, error } = await saveProject(name.trim(), sceneJson, thumbUrl ?? thumbnail);
+  let id, error;
+  if (isUpdate) {
+    ({ error } = await updateProject(currentProjectId, name.trim(), sceneJson, thumbUrl ?? thumbnail));
+  } else {
+    ({ id, error } = await saveProject(name.trim(), sceneJson, thumbUrl ?? thumbnail));
+  }
   if (error) {
     showImportToast('Save failed: ' + error, true);
     return;
   }
+  if (!isUpdate && id) currentProjectId = id;   // first save of a new design → remember its row
   sceneDirty = false;
   currentProjectName = name.trim();
-  trackEvent('project_saved', { name: name.trim() });
-  showImportToast('Saved ✓');
+  trackEvent(isUpdate ? 'project_updated' : 'project_saved', { name: name.trim() });
+  showImportToast(isUpdate ? 'Updated ✓' : 'Saved ✓');
   if (skippedImportedCount > 0) {
     setTimeout(() => {
       showImportToast(skippedImportedCount + ' imported GLBs not saved (Phase 1)', true);
@@ -9086,6 +9098,7 @@ async function handleLoadProject(id) {
 
   loadScene(data.scene_json);
   currentProjectName = data.name || '';
+  currentProjectId = id;   // ✅ FIX: subsequent Save updates this row, not a duplicate
   closeProjectsModal();
   trackEvent('project_loaded', { name: currentProjectName });
   showImportToast('Loaded ✓');
@@ -9100,6 +9113,8 @@ async function handleDeleteProject(id, name) {
     return;
   }
   showImportToast('Deleted');
+  // ✅ FIX: if the open project was deleted, forget its id so the next Save inserts fresh
+  if (currentProjectId === id) currentProjectId = null;
 
   // Re-fetch and re-render
   const { data, error: listErr } = await listProjects();
