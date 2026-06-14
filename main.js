@@ -1085,11 +1085,12 @@ async function triggerBluetooth(targetInput) {
   }
 
   try {
-    showImportToast('Looking for laser meter — pick the "Unknown" device…');
-    // Bosch GLM (and some Leica) meters advertise NEITHER a name NOR their service
-    // UUID in the advertisement packet, so filters never match them. We must list
-    // every device and let the user pick (the Bosch shows as an unnamed/"Unknown"
-    // entry). optionalServices grants access to the GATT services after connecting.
+    showImportToast('Looking for laser meter — pick it from the list…');
+    // Bosch GLM (and some Leica) meters often advertise NEITHER a friendly name NOR
+    // their service UUID in the advertisement packet, so filters never match them.
+    // We list every device and let the user pick (the meter may show as its model
+    // name e.g. "GLM 50-27 CG …", or as an unnamed/"Unknown" entry on first pair).
+    // optionalServices grants access to the GATT services after connecting.
     const device = await navigator.bluetooth.requestDevice({
       acceptAllDevices: true,
       optionalServices: [BT_BOSCH_SERVICE, BT_BOSCH_SERVICE_2, BT_UART_SERVICE]
@@ -1105,9 +1106,10 @@ async function triggerBluetooth(targetInput) {
     btCharacteristic.addEventListener('characteristicvaluechanged', onBtNotification);
 
     if (btProtocol === 'bosch') {
-      // Bosch needs a short pause before the auto-sync write registers.
+      // Bosch needs a short pause before the auto-sync write registers, and uses
+      // acknowledged writes (indications) — prefer writeValueWithResponse.
       await new Promise(r => setTimeout(r, 250));
-      await btCharacteristic.writeValue(BT_BOSCH_AUTOSYNC);
+      await btWrite(btCharacteristic, BT_BOSCH_AUTOSYNC);
     }
 
     showImportToast('✅ Connected — press measure on the device');
@@ -1122,6 +1124,14 @@ async function triggerBluetooth(targetInput) {
     console.warn('BT error:', err);
     showImportToast(`Bluetooth error: ${err.message}`, true);
   }
+}
+
+// Acknowledged write where supported, falling back for older browsers.
+async function btWrite(characteristic, data) {
+  if (characteristic.writeValueWithResponse) {
+    return characteristic.writeValueWithResponse(data);
+  }
+  return characteristic.writeValue(data);
 }
 // ── End Bluetooth Measurement ────────────────────────────────────────────────
 
