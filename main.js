@@ -1112,7 +1112,8 @@ async function triggerBluetooth(targetInput) {
       await btWrite(btCharacteristic, BT_BOSCH_AUTOSYNC);
     }
 
-    showImportToast('✅ Connected — press measure on the device');
+    const displayName = device.name || `Device ${device.id.slice(0, 8)}`;
+    showImportToast(`✅ ${displayName} — press measure`);
 
     device.addEventListener('gattserverdisconnected', () => {
       showImportToast('Laser meter disconnected');
