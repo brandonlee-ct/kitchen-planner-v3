@@ -93,6 +93,22 @@ bbk-monorepo/
 > Idempotent and defensive: safe to re-run, and won't clobber a `profiles` table the planner
 > already created. **Run only after inspecting the live schema.** Defaults cannot use subqueries,
 > so `tenant_id` is set by the trigger (new profiles) and by the service-role writer (inbox/jobs).
+>
+> **APPLIED 2026-06-15 against the shared Supabase.** The live `profiles` table predated this
+> migration with only a 3-role CHECK (`user|staff|admin`) and RLS already enabled, so a
+> pre-step (below) widens the CHECK to include `installer` before the migration runs. Two
+> hardening fixes are baked in vs the original draft: `profiles_self_update` now has an explicit
+> `with check` that pins the `role` column (blocks self-escalation to admin), and the trigger
+> guard matches on `tgrelid` not just the trigger name.
+
+```sql
+-- ── PRE-STEP (only needed because the planner's profiles table already had a
+--    narrower CHECK). Run this ONCE before the migration; skip on a fresh DB. ──
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles
+  add constraint profiles_role_check
+  check (role in ('admin','staff','installer','user'));
+```
 
 ```sql
 -- ── Tenants ──────────────────────────────────────────────────────────
@@ -158,7 +174,9 @@ $$;
 do $$
 begin
   if not exists (
-    select 1 from pg_trigger where tgname = 'on_auth_user_created'
+    select 1 from pg_trigger
+    where tgname = 'on_auth_user_created'
+      and tgrelid = 'auth.users'::regclass
   ) then
     create trigger on_auth_user_created
       after insert on auth.users
@@ -206,7 +224,12 @@ create policy profiles_self_read on public.profiles
 
 drop policy if exists profiles_self_update on public.profiles;
 create policy profiles_self_update on public.profiles
-  for update to authenticated using (id = auth.uid());
+  for update to authenticated
+  using  (id = auth.uid())
+  with check (
+    id   = auth.uid()
+    and role = (select role from public.profiles where id = auth.uid())
+  );
 
 drop policy if exists jobs_staff_read on public.jobs;
 create policy jobs_staff_read on public.jobs
