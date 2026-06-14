@@ -981,8 +981,90 @@ document.getElementById('label-editor-input').addEventListener('keydown', (e) =>
   if (e.key === 'Escape') hideLabelEditor();
 });
 document.getElementById('label-editor-bt').addEventListener('click', () => {
-  alert('Bluetooth measurement coming soon.\nRequires Chrome on Android, Windows, or Mac.');
+  triggerBluetooth(document.getElementById('label-editor-input'));
 });
+
+// ── Bluetooth Measurement (Task Y) ──────────────────────────────────────────
+// Web Bluetooth + Nordic UART Service (NUS) — compatible with Leica Disto,
+// Bosch GLM, and most BLE laser distance meters that use the generic
+// UART-over-BLE profile (UUID 6e400001-…).
+// Supported browsers: Chrome ≥ 56 on Android, Windows, macOS.
+// Not supported: iOS Safari, Firefox — falls back gracefully.
+
+const BT_UART_SERVICE  = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const BT_UART_TX_CHAR  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // device → browser
+
+let btTargetInput     = null; // <input> to receive the measured value
+let btCharacteristic  = null; // cached GATT characteristic
+
+function parseBtMeasurementMm(dataView) {
+  // Decode UTF-8 bytes. Common formats from BLE laser meters:
+  //   "1.234 m\r\n"   →  1234 mm
+  //   "1234 mm\r\n"   →  1234 mm
+  //   "1.234\r\n"     →  assumed metres → × 1000
+  const text = new TextDecoder().decode(dataView.buffer).trim();
+  const mmMatch = text.match(/([\d.]+)\s*mm\b/i);
+  const mMatch  = text.match(/([\d.]+)\s*m\b/i);
+  if (mmMatch) return Math.round(parseFloat(mmMatch[1]));
+  if (mMatch)  return Math.round(parseFloat(mMatch[1]) * 1000);
+  const bare = parseFloat(text);
+  if (!isNaN(bare)) return Math.round(bare < 50 ? bare * 1000 : bare);
+  return null;
+}
+
+function onBtNotification(event) {
+  const valueMm = parseBtMeasurementMm(event.target.value);
+  if (valueMm === null) return;
+  if (btTargetInput) {
+    btTargetInput.value = valueMm;
+    btTargetInput.dispatchEvent(new Event('input',  { bubbles: true }));
+    btTargetInput.dispatchEvent(new Event('change', { bubbles: true }));
+    showImportToast(`📏 BT: ${valueMm} mm`);
+  }
+}
+
+function showBtFallback() {
+  alert(
+    'Bluetooth measurement requires Chrome on Android, Windows, or macOS.\n\n' +
+    'Not supported on iPhone/iPad (Safari blocks Web Bluetooth).\n\n' +
+    'Type the measurement manually instead.'
+  );
+}
+
+async function triggerBluetooth(targetInput) {
+  btTargetInput = targetInput;
+
+  if (!navigator.bluetooth) {
+    showBtFallback();
+    return;
+  }
+
+  try {
+    showImportToast('Looking for Bluetooth device…');
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [BT_UART_SERVICE] }],
+      optionalServices: [BT_UART_SERVICE]
+    });
+
+    showImportToast(`Connecting to ${device.name || 'device'}…`);
+    const server  = await device.gatt.connect();
+    const service = await server.getPrimaryService(BT_UART_SERVICE);
+    btCharacteristic = await service.getCharacteristic(BT_UART_TX_CHAR);
+    await btCharacteristic.startNotifications();
+    btCharacteristic.addEventListener('characteristicvaluechanged', onBtNotification);
+    showImportToast(`✅ Connected — press measure on your device`);
+
+    device.addEventListener('gattserverdisconnected', () => {
+      showImportToast('Bluetooth device disconnected');
+      btCharacteristic = null;
+    });
+  } catch (err) {
+    if (err.name === 'NotFoundError') return; // user cancelled picker — silent
+    console.warn('BT error:', err);
+    showImportToast(`Bluetooth error: ${err.message}`, true);
+  }
+}
+// ── End Bluetooth Measurement ────────────────────────────────────────────────
 
 // ✅ FIX: GLTFLoader — actually used now
 const gltfLoader = new GLTFLoader();
@@ -1765,7 +1847,7 @@ document.getElementById('wp-confirm').addEventListener('click', () => {
   hideWallPopup();
 });
 document.getElementById('wp-bt').addEventListener('click', () => {
-  alert('Bluetooth measurement coming soon.\nRequires Chrome on Android, Windows, or Mac.');
+  triggerBluetooth(document.getElementById('wp-length'));
 });
 document.getElementById('wp-delete').addEventListener('click', () => {
   if (!selectedWall) return;

@@ -41,5 +41,11 @@ Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 - [x] ✅ executor + reviewer subagents (`.cursor/agents/`)
 - [x] ✅ Supabase security SQL drafted
 
-## Phase 2 (Pro) & Phase 3 (White-Label SaaS)
-Parked until Shopify launch ships. Full lists in `ROADMAP.md`.
+## 🚀 Phase 1 LAUNCHED — 14 Jun 2026
+- [x] ✅ Shopify nav link added: "Design Your Kitchen" → https://planner.brownboxkit.co.nz (Option A, standalone tab)
+- [x] ✅ Smoke test passed: sign-in, draw room, place cabinet, save/reload, Send to Cart, quote PDF — all confirmed on live URL
+- [ ] ⬜ 1.7 Shopify Customer Account → Supabase JWT bridge (deferred, not blocking launch) 🧠
+
+## Phase 2 (Pro) — active
+- [x] ✅ 2.4 Task Y: Bluetooth laser measurement (Disto/Bosch GLM) — Steps 1–4 done: BT buttons on wall label editor + wall popup; Nordic UART Service pairing; mm parsing (m/mm/bare); graceful iOS/Firefox fallback alert; measurement writes to active input via input+change events
+- Full Phase 2 + Phase 3 lists in `ROADMAP.md`.
