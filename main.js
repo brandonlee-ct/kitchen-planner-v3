@@ -985,24 +985,52 @@ document.getElementById('label-editor-bt').addEventListener('click', () => {
 });
 
 // ── Bluetooth Measurement (Task Y) ──────────────────────────────────────────
-// Web Bluetooth + Nordic UART Service (NUS) — compatible with Leica Disto,
-// Bosch GLM, and most BLE laser distance meters that use the generic
-// UART-over-BLE profile (UUID 6e400001-…).
-// Supported browsers: Chrome ≥ 56 on Android, Windows, macOS.
-// Not supported: iOS Safari, Firefox — falls back gracefully.
+// Web Bluetooth laser distance meter support. Two protocols are handled:
+//   1. Bosch GLM (PLR) — proprietary binary protocol. Confirmed on GLM 50-27 C(G).
+//      Service 02a6c0d0-…, characteristic 02a6c0d1-…. After subscribing, write the
+//      auto-sync command; measurements arrive as a 20-byte packet starting "c055"
+//      with a little-endian float32 (metres) at bytes 7–10.
+//   2. Nordic UART Service (NUS) — Leica Disto + generic UART-over-BLE meters that
+//      stream ASCII like "1.234 m".
+// Supported browsers: Chrome / Edge on Android, Windows, macOS.
+// Not supported: iOS Safari + all iOS browsers (WebKit blocks Web Bluetooth),
+// Firefox — falls back gracefully.
 
-const BT_UART_SERVICE  = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-const BT_UART_TX_CHAR  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // device → browser
+// Bosch GLM / PLR (proprietary)
+const BT_BOSCH_SERVICE   = '02a6c0d0-0451-4000-b000-fb3210111989';
+const BT_BOSCH_CHAR      = '02a6c0d1-0451-4000-b000-fb3210111989';
+const BT_BOSCH_AUTOSYNC  = new Uint8Array([0xc0, 0x55, 0x02, 0x01, 0x00, 0x1a]);
+// Older Bosch (GLM 100 C / PLR 30/40/50 C) variant
+const BT_BOSCH_SERVICE_2 = '00005301-0000-0041-5253-534f46540000';
+const BT_BOSCH_CHAR_2    = '00004301-0000-0041-5253-534f46540000';
+// Nordic UART Service (Leica Disto, generic)
+const BT_UART_SERVICE    = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const BT_UART_TX_CHAR    = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
-let btTargetInput     = null; // <input> to receive the measured value
-let btCharacteristic  = null; // cached GATT characteristic
+let btTargetInput    = null;   // <input> to receive the measured value
+let btCharacteristic = null;   // cached GATT characteristic
+let btProtocol       = null;   // 'bosch' | 'uart'
 
-function parseBtMeasurementMm(dataView) {
-  // Decode UTF-8 bytes. Common formats from BLE laser meters:
-  //   "1.234 m\r\n"   →  1234 mm
-  //   "1234 mm\r\n"   →  1234 mm
-  //   "1.234\r\n"     →  assumed metres → × 1000
-  const text = new TextDecoder().decode(dataView.buffer).trim();
+function dataViewToHex(dv) {
+  let s = '';
+  for (let i = 0; i < dv.byteLength; i++) s += dv.getUint8(i).toString(16).padStart(2, '0');
+  return s;
+}
+
+// Bosch: 20-byte packet, "c055…", float32 (metres) little-endian at bytes 7–10.
+function parseBoschMm(dv) {
+  const hex = dataViewToHex(dv);
+  if (hex.length !== 40 || !hex.startsWith('c055')) return null;
+  const f = new DataView(new ArrayBuffer(4));
+  for (let i = 7; i < 11; i++) f.setUint8(i - 7, dv.getUint8(i));
+  const metres = f.getFloat32(0, true);
+  if (!isFinite(metres) || metres <= 0) return null;
+  return Math.round(metres * 1000);
+}
+
+// Nordic UART: ASCII like "1.234 m" / "1234 mm" / bare number.
+function parseUartMm(dv) {
+  const text = new TextDecoder().decode(dv.buffer).trim();
   const mmMatch = text.match(/([\d.]+)\s*mm\b/i);
   const mMatch  = text.match(/([\d.]+)\s*m\b/i);
   if (mmMatch) return Math.round(parseFloat(mmMatch[1]));
@@ -1013,7 +1041,8 @@ function parseBtMeasurementMm(dataView) {
 }
 
 function onBtNotification(event) {
-  const valueMm = parseBtMeasurementMm(event.target.value);
+  const dv = event.target.value;
+  const valueMm = btProtocol === 'bosch' ? parseBoschMm(dv) : parseUartMm(dv);
   if (valueMm === null) return;
   if (btTargetInput) {
     btTargetInput.value = valueMm;
@@ -1025,10 +1054,26 @@ function onBtNotification(event) {
 
 function showBtFallback() {
   alert(
-    'Bluetooth measurement requires Chrome on Android, Windows, or macOS.\n\n' +
-    'Not supported on iPhone/iPad (Safari blocks Web Bluetooth).\n\n' +
-    'Type the measurement manually instead.'
+    'Bluetooth measurement is not supported in this browser.\n\n' +
+    'Works in Chrome or Edge on Android, Windows, or Mac.\n\n' +
+    'Not supported on any iPhone/iPad browser (Apple blocks Web Bluetooth) — ' +
+    'on iPhone you can use the free "Bluefy" browser from the App Store, or ' +
+    'just type the measurement in manually.'
   );
+}
+
+// Resolve whichever supported service the device actually exposes.
+async function btResolveService(server) {
+  try {
+    const svc = await server.getPrimaryService(BT_BOSCH_SERVICE);
+    return { protocol: 'bosch', char: await svc.getCharacteristic(BT_BOSCH_CHAR) };
+  } catch (_) {}
+  try {
+    const svc = await server.getPrimaryService(BT_BOSCH_SERVICE_2);
+    return { protocol: 'bosch', char: await svc.getCharacteristic(BT_BOSCH_CHAR_2) };
+  } catch (_) {}
+  const svc = await server.getPrimaryService(BT_UART_SERVICE);
+  return { protocol: 'uart', char: await svc.getCharacteristic(BT_UART_TX_CHAR) };
 }
 
 async function triggerBluetooth(targetInput) {
@@ -1040,23 +1085,37 @@ async function triggerBluetooth(targetInput) {
   }
 
   try {
-    showImportToast('Looking for Bluetooth device…');
+    showImportToast('Looking for laser meter — pick the "Unknown" device…');
+    // Bosch GLM (and some Leica) meters advertise NEITHER a name NOR their service
+    // UUID in the advertisement packet, so filters never match them. We must list
+    // every device and let the user pick (the Bosch shows as an unnamed/"Unknown"
+    // entry). optionalServices grants access to the GATT services after connecting.
     const device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [BT_UART_SERVICE] }],
-      optionalServices: [BT_UART_SERVICE]
+      acceptAllDevices: true,
+      optionalServices: [BT_BOSCH_SERVICE, BT_BOSCH_SERVICE_2, BT_UART_SERVICE]
     });
 
     showImportToast(`Connecting to ${device.name || 'device'}…`);
-    const server  = await device.gatt.connect();
-    const service = await server.getPrimaryService(BT_UART_SERVICE);
-    btCharacteristic = await service.getCharacteristic(BT_UART_TX_CHAR);
+    const server = await device.gatt.connect();
+    const { protocol, char } = await btResolveService(server);
+    btProtocol = protocol;
+    btCharacteristic = char;
+
     await btCharacteristic.startNotifications();
     btCharacteristic.addEventListener('characteristicvaluechanged', onBtNotification);
-    showImportToast(`✅ Connected — press measure on your device`);
+
+    if (btProtocol === 'bosch') {
+      // Bosch needs a short pause before the auto-sync write registers.
+      await new Promise(r => setTimeout(r, 250));
+      await btCharacteristic.writeValue(BT_BOSCH_AUTOSYNC);
+    }
+
+    showImportToast('✅ Connected — press measure on the device');
 
     device.addEventListener('gattserverdisconnected', () => {
-      showImportToast('Bluetooth device disconnected');
+      showImportToast('Laser meter disconnected');
       btCharacteristic = null;
+      btProtocol = null;
     });
   } catch (err) {
     if (err.name === 'NotFoundError') return; // user cancelled picker — silent
