@@ -24,7 +24,7 @@ is to **implement tasks cleanly without re-architecting**.
 
 ## Files
 
-- `main.js` — the full planner (**~4700 lines, working**): walls, GLB import, elevation
+- `main.js` — the full planner (**~9750 lines, working**): walls, GLB import, elevation
   view, undo/redo, touch + desktop input, quote totals, CSV export, Shopify fetch,
   Supabase wiring. Single file by design.
 - `index.html` — toolbar, panels, modals, drawer. Most styling is inline here.

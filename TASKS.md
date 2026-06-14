@@ -47,5 +47,5 @@ Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 - [ ] ⬜ 1.7 Shopify Customer Account → Supabase JWT bridge (deferred, not blocking launch) 🧠
 
 ## Phase 2 (Pro) — active
-- [x] ✅ 2.4 Task Y: Bluetooth laser measurement (Disto/Bosch GLM) — Steps 1–4 done: BT buttons on wall label editor + wall popup; Nordic UART Service pairing; mm parsing (m/mm/bare); graceful iOS/Firefox fallback alert; measurement writes to active input via input+change events
+- [x] ✅ 2.4 Task Y: Bluetooth laser measurement — COMPLETE. Confirmed working on Bosch GLM 50-27 CG (service 02a6c0d0). acceptAllDevices picker (GLM doesn't advertise name/service in BLE advert); Bosch binary protocol (c055 float32 + auto-sync handshake); Nordic UART fallback (Leica Disto etc.); Bluetooth SVG icon — blue when connected, dark when disconnected; graceful fallback alert with Bluefy hint for iOS. Chrome + Edge confirmed on desktop.
 - Full Phase 2 + Phase 3 lists in `ROADMAP.md`.
