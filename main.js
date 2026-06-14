@@ -946,7 +946,7 @@ labelEditor.innerHTML = [
   '<span style="color:#aaa;font-size:12px;font-family:Arial">Length</span>',
   '<input id="label-editor-input" type="number" step="100" min="100" style="width:90px;background:#333;border:1px solid #ff9500;border-radius:6px;color:#fff;padding:6px 8px;font-size:14px;font-weight:bold;box-sizing:border-box"/>',
   '<span style="color:#aaa;font-size:12px;font-family:Arial">mm</span>',
-  '<button id="label-editor-bt" style="background:none;border:1px solid #555;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:14px" title="Bluetooth measure">BT</button>',
+  '<button id="label-editor-bt" style="background:none;border:1px solid #555;color:#888;border-radius:6px;padding:5px 7px;cursor:pointer;line-height:0;transition:background 0.2s,border-color 0.2s,color 0.2s" title="Bluetooth measure"><svg xmlns=\'http://www.w3.org/2000/svg\' width=\'14\' height=\'14\' viewBox=\'0 0 24 24\' fill=\'currentColor\'><path d=\'M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z\'/></svg></button>',
   '<button id="label-editor-confirm" style="background:#ff9500;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:bold">OK</button>',
   '<button id="label-editor-cancel" style="background:none;border:1px solid #555;color:#aaa;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">X</button>'
 ].join('');
@@ -1114,11 +1114,13 @@ async function triggerBluetooth(targetInput) {
 
     const displayName = device.name || `Device ${device.id.slice(0, 8)}`;
     showImportToast(`✅ ${displayName} — press measure`);
+    setBtButtonState(true);
 
     device.addEventListener('gattserverdisconnected', () => {
       showImportToast('Laser meter disconnected');
       btCharacteristic = null;
       btProtocol = null;
+      setBtButtonState(false);
     });
   } catch (err) {
     if (err.name === 'NotFoundError') return; // user cancelled picker — silent
@@ -1133,6 +1135,23 @@ async function btWrite(characteristic, data) {
     return characteristic.writeValueWithResponse(data);
   }
   return characteristic.writeValue(data);
+}
+
+// Toggle Bluetooth button appearance: blue = connected, dark = idle.
+function setBtButtonState(connected) {
+  ['label-editor-bt', 'wp-bt'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    if (connected) {
+      btn.style.background = '#2980b9';
+      btn.style.borderColor = '#2980b9';
+      btn.style.color = '#fff';
+    } else {
+      btn.style.background = 'none';
+      btn.style.borderColor = '#555';
+      btn.style.color = '#888';
+    }
+  });
 }
 // ── End Bluetooth Measurement ────────────────────────────────────────────────
 
@@ -1314,7 +1333,7 @@ wallPopup.innerHTML = [
   '<label style="color:#aaa;font-size:10px;text-transform:uppercase">Length (mm)</label>',
   '<div style="display:flex;gap:5px;margin:3px 0 8px;align-items:center">',
   '<input id="wp-length" type="number" step="100" min="100" style="flex:1;min-width:0;background:#333;border:1px solid #ff9500;border-radius:6px;color:#fff;padding:6px 8px;font-size:14px;box-sizing:border-box"/>',
-  '<button id="wp-bt" style="background:none;border:1px solid #555;border-radius:6px;padding:6px 8px;cursor:pointer;font-size:13px;touch-action:manipulation" title="Bluetooth">BT</button>',
+  '<button id="wp-bt" style="background:none;border:1px solid #555;color:#888;border-radius:6px;padding:6px 7px;cursor:pointer;line-height:0;touch-action:manipulation;transition:background 0.2s,border-color 0.2s,color 0.2s" title="Bluetooth"><svg xmlns=\'http://www.w3.org/2000/svg\' width=\'14\' height=\'14\' viewBox=\'0 0 24 24\' fill=\'currentColor\'><path d=\'M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z\'/></svg></button>',
   '<button id="wp-confirm" style="background:#ff9500;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:bold;touch-action:manipulation">OK</button>',
   '</div>',
 
