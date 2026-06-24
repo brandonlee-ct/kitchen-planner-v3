@@ -116,3 +116,17 @@ Save Project & Restart Planner in hamburger · long-press select on touch ·
 cabinets sit on the 300mm slab (place, save, reload) · power point button in elevation ·
 Quote CSV + PDF export · door/window select + drag along wall with dims ·
 undo/redo · zoom speed normal with a cabinet selected.
+
+## Cursor Cloud specific instructions
+
+- Pure client-side app; only one service needs to run. Start it with `npm run dev`
+  (Vite, serves on `http://localhost:5173`, runs `vite --host`). `npm install` is the
+  full dependency refresh. `npm run build` / `npm run preview` validate the prod bundle.
+- **No `.env` is required to run.** Shopify Storefront and Supabase credentials are
+  public-safe tokens hardcoded in `main.js` / `auth.js`. With normal outbound internet
+  the Shopify product catalog loads at startup and "Send to Cart" works out of the box.
+- **There is no linter and no automated test suite** in this repo — `npm run lint`/`npm test`
+  do not exist. "Lint/test" means `npm run build` (must succeed) plus manually exercising
+  the UI per the smoke checklist above.
+- Supabase auth (Google OAuth) + project save/load/share is optional for testing; core
+  planning, quoting, CSV/PDF export, and GLB import all work fully without signing in.
