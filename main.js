@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { initAuth, signInWithGoogle, signOut, getUser, saveProject, updateProject, listProjects, loadProject, deleteProject, uploadThumbnail, setProjectPublic, loadPublicProject } from './auth.js';
+import { initAuth, signInWithGoogle, signOut, getUser, saveProject, updateProject, listProjects, loadProject, deleteProject, uploadThumbnail, setProjectPublic, loadPublicProject, ensureProjectCode, newProjectCode } from './auth.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
@@ -32,6 +32,10 @@ let currentProjectName = '';
 // inserting a duplicate. null = unsaved/new design (next Save inserts). A hard
 // reload (Restart Planner) resets this naturally.
 let currentProjectId = null;
+// Shared planner<->Trade join key for the open project (jobs.project_code).
+// Stamped onto the Shopify cart in Send to Cart. null until a project is
+// saved/loaded; an ephemeral code is minted at cart time for unsaved plans.
+let currentProjectCode = null;
 // ── Share / read-only mode ────────────────────────────────────────────────────
 let readOnlyMode = false;
 
@@ -5386,16 +5390,27 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
     quantity: qty,
   }));
 
+  // Stamp the shared project_code onto the cart so it lands on the Shopify
+  // order → Trade webhook → jobs.project_code. Saved projects carry a stable
+  // code; unsaved/anonymous plans get an ephemeral one so the order still
+  // carries a reference (the DB link only resolves for saved projects).
+  const projectCode = currentProjectCode || newProjectCode();
+  const input = {
+    lines,
+    attributes: [{ key: 'project_code', value: projectCode }],
+    note: 'Brown Box Kit planner — project ' + projectCode,
+  };
+
   btn.disabled = true;
   btn.textContent = 'Adding to cart…';
 
   try {
-    const data = await shopifyFetch(CART_CREATE_MUTATION, { input: { lines } });
+    const data = await shopifyFetch(CART_CREATE_MUTATION, { input });
     const { cart, userErrors } = data.cartCreate;
     if (userErrors?.length) {
       throw new Error(userErrors.map(e => e.message).join('; '));
     }
-    trackEvent('send_to_cart', { itemCount: lines.length });
+    trackEvent('send_to_cart', { itemCount: lines.length, projectCode });
     window.location.href = cart.checkoutUrl;
   } catch (err) {
     console.error('cartCreate failed:', err);
@@ -9112,17 +9127,24 @@ document.getElementById('btn-save-project').addEventListener('click', async () =
   document.getElementById('auth-modal').style.display = 'none';
   // ✅ FIX: store thumbnail in Supabase Storage (URL), fall back to base64 if upload fails
   const thumbUrl = await uploadThumbnail(thumbnail);
-  let id, error;
+  let id, error, project_code;
   if (isUpdate) {
     ({ error } = await updateProject(currentProjectId, name.trim(), sceneJson, thumbUrl ?? thumbnail));
   } else {
-    ({ id, error } = await saveProject(name.trim(), sceneJson, thumbUrl ?? thumbnail));
+    ({ id, project_code, error } = await saveProject(name.trim(), sceneJson, thumbUrl ?? thumbnail));
   }
   if (error) {
     showImportToast('Save failed: ' + error, true);
     return;
   }
   if (!isUpdate && id) currentProjectId = id;   // first save of a new design → remember its row
+  // Capture/backfill the shared project_code so Send to Cart can stamp it.
+  if (!isUpdate && project_code) {
+    currentProjectCode = project_code;
+  } else if (isUpdate && !currentProjectCode && currentProjectId) {
+    const { project_code: code } = await ensureProjectCode(currentProjectId);
+    if (code) currentProjectCode = code;
+  }
   sceneDirty = false;
   currentProjectName = name.trim();
   trackEvent(isUpdate ? 'project_updated' : 'project_saved', { name: name.trim() });
@@ -9261,6 +9283,12 @@ async function handleLoadProject(id) {
   loadScene(data.scene_json);
   currentProjectName = data.name || '';
   currentProjectId = id;   // ✅ FIX: subsequent Save updates this row, not a duplicate
+  // Shared join key: use the stored code, backfilling legacy rows that predate it.
+  currentProjectCode = data.project_code || null;
+  if (!currentProjectCode) {
+    const { project_code: code } = await ensureProjectCode(id);
+    if (code) currentProjectCode = code;
+  }
   closeProjectsModal();
   trackEvent('project_loaded', { name: currentProjectName });
   showImportToast('Loaded ✓');
@@ -9276,7 +9304,7 @@ async function handleDeleteProject(id, name) {
   }
   showImportToast('Deleted');
   // ✅ FIX: if the open project was deleted, forget its id so the next Save inserts fresh
-  if (currentProjectId === id) currentProjectId = null;
+  if (currentProjectId === id) { currentProjectId = null; currentProjectCode = null; }
 
   // Re-fetch and re-render
   const { data, error: listErr } = await listProjects();
