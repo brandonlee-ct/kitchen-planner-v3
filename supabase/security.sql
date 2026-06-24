@@ -1,13 +1,29 @@
 -- ============================================================
+--  ⚠️  HISTORICAL — DO NOT RE-RUN  ⚠️
+--
+--  This file was the planner's ORIGINAL security setup. The shared
+--  Supabase project is now also used by the Trade monorepo, which
+--  owns the canonical profiles schema + role set (see P2-MONOREPO-BRIEF.md).
+--
+--  Re-running this file would HARM the shared DB:
+--    • Section 1's CHECK (role in ('user','staff','admin')) would
+--      NARROW the role set and break every Trade role (hq_admin,
+--      driver, pos, …). The live CHECK is now wider.
+--    • Section 2's profiles_update_own has NO role pin, allowing
+--      self-escalation to admin. The monorepo migration replaced it
+--      with a hardened version that pins role. Do not revert it.
+--
+--  SOURCES OF TRUTH (apply these, NOT this file):
+--    • profiles / roles / role CHECK  -> monorepo supabase/migrations
+--    • planner admin access (projects) -> supabase/planner-admin-roles.sql
+--
+--  Kept only for history. Any shared-schema change is cross-repo and
+--  human-reviewed — never re-applied unilaterally.
+-- ============================================================
+--
+--  (original header below — for reference only)
 --  Brown Box Kit Planner — Supabase Security Setup
 --  Turns on Row Level Security (RLS) + admin/user roles.
---
---  HOW TO APPLY (≈2 minutes, do this tomorrow):
---    1. Open https://supabase.com/dashboard  → your project
---    2. Left sidebar → "SQL Editor" → "New query"
---    3. Paste this ENTIRE file → click "Run"
---    4. Then run the "MAKE YOURSELF ADMIN" step at the very bottom.
---
 --  Safe to run more than once (idempotent).
 -- ============================================================
 
