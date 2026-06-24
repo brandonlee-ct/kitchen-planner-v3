@@ -103,26 +103,66 @@ export async function uploadThumbnail(dataUrl) {
 // ── Project helpers ───────────────────────────────────────
 
 /**
- * Insert a new project row.
+ * Generate a short, human-friendly, collision-resistant project code.
+ * Shared join key between the planner and the Trade app (jobs.project_code).
+ * e.g. 'BBK-3F9A2C'. Stable for a project's life; persisted on the row.
+ * @returns {string}
+ */
+export function newProjectCode() {
+  const hex = crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase();
+  return 'BBK-' + hex;
+}
+
+/**
+ * Insert a new project row, stamping a fresh project_code.
  * @param {string} name
  * @param {object} sceneJson   — plain JS object (will be stored as jsonb)
  * @param {string} thumbnail   — base64 data URL or null
- * @returns {{ id: string|null, error: string|null }}
+ * @returns {{ id: string|null, project_code: string|null, error: string|null }}
  */
 export async function saveProject(name, sceneJson, thumbnail) {
-  if (!_user) return { id: null, error: 'Not signed in' };
+  if (!_user) return { id: null, project_code: null, error: 'Not signed in' };
+  const projectCode = newProjectCode();
   const { data, error } = await _client
     .from('projects')
     .insert({
-      user_id:    _user.id,
+      user_id:      _user.id,
       name,
-      scene_json: sceneJson,
-      thumbnail:  thumbnail ?? null,
+      scene_json:   sceneJson,
+      thumbnail:    thumbnail ?? null,
+      project_code: projectCode,
     })
-    .select('id')
+    .select('id, project_code')
     .single();
-  if (error) return { id: null, error: error.message };
-  return { id: data.id, error: null };
+  if (error) return { id: null, project_code: null, error: error.message };
+  return { id: data.id, project_code: data.project_code, error: null };
+}
+
+/**
+ * Ensure a project row has a project_code, backfilling legacy rows.
+ * No-op (returns the existing code) if one is already set.
+ * @param {string} id
+ * @returns {{ project_code: string|null, error: string|null }}
+ */
+export async function ensureProjectCode(id) {
+  if (!_user) return { project_code: null, error: 'Not signed in' };
+  const { data, error } = await _client
+    .from('projects')
+    .select('project_code')
+    .eq('id', id)
+    .eq('user_id', _user.id)
+    .single();
+  if (error) return { project_code: null, error: error.message };
+  if (data.project_code) return { project_code: data.project_code, error: null };
+
+  const projectCode = newProjectCode();
+  const { error: upErr } = await _client
+    .from('projects')
+    .update({ project_code: projectCode })
+    .eq('id', id)
+    .eq('user_id', _user.id);
+  if (upErr) return { project_code: null, error: upErr.message };
+  return { project_code: projectCode, error: null };
 }
 
 /**
@@ -156,7 +196,7 @@ export async function listProjects() {
   if (!_user) return { data: null, error: 'Not signed in' };
   const { data, error } = await _client
     .from('projects')
-    .select('id, name, thumbnail, updated_at, is_public, share_slug')
+    .select('id, name, thumbnail, updated_at, is_public, share_slug, project_code')
     .eq('user_id', _user.id)
     .order('updated_at', { ascending: false });
   if (error) return { data: null, error: error.message };
