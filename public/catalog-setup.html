@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add cabinets to the planner — Brown Box Kit</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #1a1a1a;
+      color: #eee;
+      line-height: 1.55;
+      padding: 24px 16px 48px;
+    }
+    .wrap { max-width: 640px; margin: 0 auto; }
+    h1 { color: #ff9500; font-size: 22px; margin: 0 0 8px; }
+    .lead { color: #aaa; font-size: 14px; margin-bottom: 28px; }
+    h2 { color: #ff9500; font-size: 16px; margin: 28px 0 10px; border-bottom: 1px solid #333; padding-bottom: 6px; }
+    ol { padding-left: 22px; margin: 0 0 12px; }
+    li { margin-bottom: 10px; font-size: 14px; }
+    li strong { color: #fff; }
+    .success {
+      background: #252525;
+      border-left: 3px solid #ff9500;
+      padding: 10px 14px;
+      margin: 12px 0 20px;
+      font-size: 13px;
+      color: #ccc;
+    }
+    .success b { color: #ff9500; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 12px 0 20px;
+    }
+    th, td {
+      border: 1px solid #333;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    th { background: #252525; color: #ff9500; }
+    td code { background: #333; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    .note { font-size: 12px; color: #888; margin-top: 8px; }
+    a { color: #ff9500; }
+    .back {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #ff9500;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .back:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="/">← Back to Kitchen Planner</a>
+
+    <h1>Add new GLB cabinets to the planner</h1>
+    <p class="lead">
+      The planner reads your Shopify shop automatically every time someone opens it.
+      You do <strong>not</strong> upload GLB files into the planner itself — you set them up
+      in Shopify, then refresh the planner.
+    </p>
+
+    <h2>1. What happens automatically</h2>
+    <p style="font-size:14px;color:#ccc;margin:0 0 12px">
+      When the planner loads, it asks Shopify for all active products and their
+      <code>planner.*</code> metafields. Any product you configure correctly in Shopify
+      appears in the Products panel (⊞ button) after a refresh.
+    </p>
+    <div class="success">
+      <b>Success looks like:</b> you change nothing in the planner code — only Shopify Admin.
+    </div>
+
+    <h2>2. Before you start</h2>
+    <ol>
+      <li>
+        <strong>Have the GLB file hosted.</strong> In Shopify Admin go to
+        <strong>Content → Files</strong>, upload your <code>.glb</code> file, click it, and
+        <strong>Copy link</strong>. That URL is your <code>glb_url</code>.
+      </li>
+    </ol>
+    <div class="success">
+      <b>Success looks like:</b> a link starting with <code>https://cdn.shopify.com/...</code>
+      ending in <code>.glb</code>.
+    </div>
+
+    <h2>3. In Shopify Admin — add or edit the product</h2>
+    <ol>
+      <li>Open <strong>Products</strong> → click your cabinet product (or <strong>Add product</strong>).</li>
+      <li>
+        <strong>Add a product photo</strong> (Media). This becomes the thumbnail in the
+        planner catalogue.
+      </li>
+      <li>
+        Set <strong>Price</strong> on the variant (needed for Quote and Send to Cart).
+      </li>
+      <li>
+        Scroll to <strong>Metafields</strong> on the product (or
+        <strong>Settings → Custom data → Products</strong> to define them once).
+        Add these under namespace <code>planner</code>:
+      </li>
+    </ol>
+
+    <table>
+      <thead>
+        <tr><th>Metafield key</th><th>Example value</th><th>What it does</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>glb_url</code></td>
+          <td><code>https://cdn.shopify.com/.../cabinet.glb</code></td>
+          <td>3D model shown in the room</td>
+        </tr>
+        <tr>
+          <td><code>width_mm</code></td>
+          <td><code>600</code></td>
+          <td>Cabinet width in millimetres</td>
+        </tr>
+        <tr>
+          <td><code>height_mm</code></td>
+          <td><code>720</code></td>
+          <td>Height in mm</td>
+        </tr>
+        <tr>
+          <td><code>depth_mm</code></td>
+          <td><code>580</code></td>
+          <td>Depth in mm</td>
+        </tr>
+        <tr>
+          <td><code>category</code></td>
+          <td><code>base</code></td>
+          <td>Placement: base, wall, corner, tall, island</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="note">
+      Type for metafields: <code>glb_url</code> = URL (single line text);
+      dimensions = integer; <code>category</code> = single line text.
+    </p>
+    <div class="success">
+      <b>Success looks like:</b> all five metafields filled on the product page in Shopify.
+    </div>
+
+    <h2>4. Publish the product</h2>
+    <ol>
+      <li>Status must be <strong>Active</strong> (not Draft).</li>
+      <li>
+        Under <strong>Sales channels</strong>, include <strong>Online Store</strong>
+        (or the channel your Storefront API uses).
+      </li>
+      <li>Click <strong>Save</strong>.</li>
+    </ol>
+    <div class="success">
+      <b>Success looks like:</b> the product is visible on your brownboxkit.co.nz shop.
+    </div>
+
+    <h2>5. Verify in the planner</h2>
+    <ol>
+      <li>
+        Open the planner:
+        <a href="https://planner.brownboxkit.co.nz" target="_blank" rel="noopener">planner.brownboxkit.co.nz</a>
+        (or your local dev URL).
+      </li>
+      <li>
+        <strong>Hard refresh</strong> so it reloads the catalogue:
+        desktop <strong>Ctrl+F5</strong>; iPhone/iPad pull down to refresh the page.
+      </li>
+      <li>Tap the <strong>⊞ Products</strong> button (top-left toolbar).</li>
+      <li>Find your product under its product type group — you should see its photo and name.</li>
+      <li>Tap the product to place it in the room. The 3D GLB should load (not a plain brown box only).</li>
+    </ol>
+    <div class="success">
+      <b>Success looks like:</b> product in the list with image, places in the room with the real cabinet shape.
+    </div>
+
+    <h2>6. Troubleshooting</h2>
+    <table>
+      <thead>
+        <tr><th>Problem</th><th>Likely cause</th><th>Fix</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Not in the product list</td>
+          <td>Draft, wrong channel, or title contains “(Draft)”</td>
+          <td>Activate product; add Online Store channel; hard refresh planner</td>
+        </tr>
+        <tr>
+          <td>Brown box only, no 3D detail</td>
+          <td>Bad or missing <code>glb_url</code></td>
+          <td>Re-copy URL from Shopify Files; check metafield on product</td>
+        </tr>
+        <tr>
+          <td>Wrong size in room</td>
+          <td>Typo in <code>width_mm</code> / <code>height_mm</code> / <code>depth_mm</code></td>
+          <td>Fix metafields; refresh planner</td>
+        </tr>
+        <tr>
+          <td>Auto-Design skips this cabinet</td>
+          <td><code>category</code> not <code>base</code> or non-standard width</td>
+          <td>Use category <code>base</code> and standard widths (300–900&nbsp;mm) for auto-layout</td>
+        </tr>
+        <tr>
+          <td>No thumbnail image</td>
+          <td>No product photo in Shopify</td>
+          <td>Add image under product Media in Shopify Admin</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="note" style="margin-top:32px">
+      Brown Box Kit Kitchen Planner · catalogue loads from Shopify Storefront API on every page open.
+    </p>
+  </div>
+</body>
+</html>

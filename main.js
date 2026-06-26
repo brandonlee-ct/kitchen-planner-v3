@@ -4591,6 +4591,7 @@ const PRODUCTS_QUERY = `
           height_mm: metafield(namespace: "planner", key: "height_mm") { value }
           depth_mm:  metafield(namespace: "planner", key: "depth_mm")  { value }
           category:  metafield(namespace: "planner", key: "category")  { value }
+          featuredImage { url altText }
           variants(first: 50) {
             edges {
               node {
@@ -4630,6 +4631,8 @@ function shopifyNodeToProduct(node) {
     productType: node.productType || 'Other',
     category:    node.category?.value || node.productType || 'Other',
     modelPath:   glbUrl,
+    imageUrl:    node.featuredImage?.url || null,
+    imageAlt:    node.featuredImage?.altText || node.title,
     width, height, depth,
     skus: skus.length ? skus : [{ id: node.handle, label: 'Standard', price: 0, priceDisplay: 'NZ$0.00', available: false }]
   };
@@ -4653,7 +4656,7 @@ function renderProductPanel() {
 
   if (products.length === 0) {
     const empty = document.createElement('div');
-    empty.style.cssText = 'padding:16px;color:#888;font-size:13px;text-align:center';
+    empty.className = 'product-empty';
     empty.textContent = 'No products available.';
     productList.appendChild(empty);
     return;
@@ -4668,24 +4671,63 @@ function renderProductPanel() {
 
   Array.from(groups.keys()).sort().forEach(groupName => {
     const header = document.createElement('div');
-    header.style.cssText = 'padding:10px 12px 6px;color:#ff9500;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #2a2a2a;margin-top:4px';
+    header.className = 'product-group-header';
     header.textContent = groupName;
     productList.appendChild(header);
 
     groups.get(groupName).sort((a, b) => a.name.localeCompare(b.name)).forEach(product => {
       const div = document.createElement('div');
       div.className = 'product-item';
+
+      const thumb = document.createElement('div');
+      thumb.className = 'product-thumb';
+      if (product.imageUrl) {
+        const img = document.createElement('img');
+        img.className = 'product-thumb-img';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.src = product.imageUrl;
+        img.alt = product.imageAlt || product.name;
+        img.onerror = () => {
+          img.remove();
+          thumb.classList.add('product-thumb-placeholder');
+          thumb.textContent = '📦';
+        };
+        thumb.appendChild(img);
+      } else {
+        thumb.classList.add('product-thumb-placeholder');
+        thumb.textContent = '📦';
+      }
+
+      const body = document.createElement('div');
+      body.className = 'product-item-body';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'product-item-name';
+      nameEl.textContent = product.name;
+
+      const metaEl = document.createElement('div');
+      metaEl.className = 'product-item-meta';
       const priceFrom = product.skus.length
         ? nzPrice(Math.min(...product.skus.map(s => s.price)))
         : '';
-      div.innerHTML =
-        '<div style="font-weight:600">' + product.name + '</div>' +
-        '<div style="font-size:11px;color:#aaa;margin-top:2px">' +
-          product.width + ' × ' + product.depth + ' × ' + product.height + 'mm' +
-          (priceFrom ? ' · from ' + priceFrom : '') +
-        '</div>' +
-        (product.modelPath ? '' :
-          '<div style="font-size:10px;color:#666;margin-top:2px">⬜ placeholder model</div>');
+      metaEl.textContent =
+        product.width + ' × ' + product.depth + ' × ' + product.height + 'mm' +
+        (priceFrom ? ' · from ' + priceFrom : '');
+
+      body.appendChild(nameEl);
+      body.appendChild(metaEl);
+
+      if (!product.modelPath) {
+        const badge = document.createElement('div');
+        badge.className = 'product-item-badge';
+        badge.textContent = 'placeholder model';
+        body.appendChild(badge);
+      }
+
+      div.appendChild(thumb);
+      div.appendChild(body);
+
       div.addEventListener('click', () => {
         placeProduct(product);
         if (window.innerWidth <= 768) closeProductPanel();

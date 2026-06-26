@@ -1,9 +1,22 @@
 # Brown Box Kit Planner — Task Board
 
-Living status board. Source of truth for what's done / next. See `ROADMAP.md` for plain-English
-detail and `ARCHITECTURE.md` for the technical version.
+> **Single source of truth / index.** This board is the one place for what's done and what's next.
+> Detailed specs live in the linked files — update THIS board when a task moves.
+> Plain-English plan: `ROADMAP.md` · Technical plan: `ARCHITECTURE.md`.
+> Current execution order (how / now): `.cursor/plans/auto-design_go-live_sprint_ea6d98db.plan.md`.
 
 Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
+
+## Programme map — 4 tracks
+Every active piece of work belongs to one track. Each links to its own spec; the detailed
+checklists further down are grouped by these tracks.
+
+| Track | What | Spec | Status |
+|---|---|---|---|
+| **1 — Planner Phase 1 (Shopify MVP)** | Core planner, items 1.1–1.14 | `ROADMAP.md` / `ARCHITECTURE.md` | ✅ Launched 14 Jun 2026 — only `1.7` login bridge open 🧠 |
+| **2 — Auto-Design** (own track) | "Magic button" auto-layout | `AUTO-DESIGN-PLAN.md` | ⏳ Wiring behind hybrid gate (role `super_admin`/`hq_admin`/`admin` OR `?autodesign=1`, default OFF). Solver stays in-browser; API/extraction deferred to Phase 3. |
+| **3 — Cross-repo integration** (NEW) | Planner ↔ Trade link | `P2-MONOREPO-BRIEF.md` | ⏳ `project_code` join key + planner-admin RLS. SQL authored, **not applied**; awaiting owner apply + Trade key confirm. |
+| **4 — Phase 2 (Pro)** | Post-launch upgrades | `ROADMAP.md` Part 3 | ⏳ Bluetooth laser measure done; rest queued. |
 
 ## Milestone A — Harden the live prototype
 - [x] ✅ 1.1 Bug-fix sweep (wall selection on Android/iOS, save/load toasts, 2D labels after load)
@@ -24,9 +37,12 @@ Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 - [x] ✅ 1.6 Embed planner in Shopify storefront (Task O Phase 1: `?embed=1` mode — `getUrlMode`/`applyUrlMode`, `.mode-embed` slim chrome, README usage docs; subdomain-link + iframe paths). App Block deferred to Phase 2.
 - [x] ✅ 1.11 Read-only share links (`?share=<slug>`) — share button per project row, slug generated + stored in Supabase (`is_public`, `share_slug` columns), read-only badge, save controls hidden for viewers
 
-## Parked (built but not wired in)
-- Auto-design solver module (`auto-design.js`, `auto-design-rules.js`, test harness, fixtures) —
-  isolated, not imported by `main.js`, no UI. Connect later via a single `runAutoDesign()` seam.
+## Track 2 — Auto-Design ⏳  (spec: `AUTO-DESIGN-PLAN.md`)
+- [x] ✅ Pure solver modules (`auto-design.js`, `auto-design-rules.js`, tests, fixtures) — isolated, no UI/3D deps (API-ready), unit-tested and committed.
+- [ ] ⏳ Wire into planner via wizard + adapter + toolbar button, behind the hybrid rollout gate
+  (role `super_admin`/`hq_admin`/`admin` OR `?autodesign=1`; default OFF; `AUTO_DESIGN_DEFAULT` flips at launch; hard kill `window.AUTO_DESIGN_KILL`). See the go-live sprint plan.
+- [ ] ⬜ NZBC disclaimer in wizard Step 4 (Phase 4 polish; copy drafted: 30-word wizard + 60-word PDF footer).
+- Architecture (Opus): solver stays **in-browser** for launch; API / shared-package extraction deferred to Phase 3 / first reuse (the pure module is the extraction seam).
 
 ## Milestone C — Bridge + review
 - [ ] ⬜ 1.7 Shopify Customer Account → Supabase JWT bridge 🧠
@@ -35,11 +51,23 @@ Legend: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 - [x] ✅ 1.13 Privacy policy + T&Cs — links in hamburger menu → brownboxkit.co.nz/pages/privacy-policy + /terms-of-service; NZ Privacy Act 2020 + CGA content drafted
 - [x] ✅ 1.14 Pre-launch architecture review 🧠 (Task Q: core stability + Phase 1 completeness + drift + production-readiness audit; verdict "ready with fixes" → launch-hardening blockers B1–B4 fixed in `7c32a89`)
 
+## Track 3 — Cross-repo integration ⏳  (spec: `P2-MONOREPO-BRIEF.md`)
+Links planner projects to Trade jobs via a shared DB key — no direct calls between codebases.
+- [ ] ⏳ `projects.project_code` join key — generated on save, stamped on the Shopify cart as the `project_code` attribute, backfills legacy rows. Code in `auth.js` + `main.js`. SQL: `supabase/project-code.sql` (authored, **not applied**).
+- [ ] ⏳ Planner-admin RLS — `public.planner_is_admin()` restricts cross-user project access to `super_admin`/`hq_admin`/`admin`; every other shared/Trade role is scoped out. SQL: `supabase/planner-admin-roles.sql` (authored, **not applied**). Does NOT touch shared `is_admin()`/`profiles`/role CHECK.
+- [ ] 👤 Owner: apply both SQL files in Supabase (additive, reversible) — Deploy 1 of the go-live sprint.
+- [ ] 👤 Trade: confirm the cart attribute key is exactly `project_code`; add `super_admin` to the shared `profiles.role` CHECK.
+
+## Open — needs Opus 🧠
+- [ ] 1.7 Shopify Customer Account → Supabase JWT single-login bridge (deferred; not blocking launch — see Milestone C).
+- [ ] **Doc-fix (Law O):** `AUTO-DESIGN-PLAN.md` §1.8 (feature/auto-design branch) contradicts `AGENTS.md` (core planner work on `main`). The live go-live sprint follows `AGENTS.md` (straight commits on `main`). Reconcile by amending §1.8; until then, `AGENTS.md` wins.
+
 ## Setup / tooling
 - [x] ✅ AGENTS.md (project memory for all agents)
 - [x] ✅ ARCHITECTURE.md + ROADMAP.md (plans)
 - [x] ✅ executor + reviewer subagents (`.cursor/agents/`)
 - [x] ✅ Supabase security SQL drafted
+- [x] ✅ Catalogue setup guide ([public/catalog-setup.html](public/catalog-setup.html)) + product thumbnails in panel (Shopify `featuredImage`)
 
 ## 🚀 Phase 1 LAUNCHED — 14 Jun 2026
 - [x] ✅ Shopify nav link added: "Design Your Kitchen" → https://planner.brownboxkit.co.nz (Option A, standalone tab)
