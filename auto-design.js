@@ -62,7 +62,7 @@ function checkOpeningOverlaps(openings, wallIndex, warnings) {
 
 // ── NZBC rule checker for hob ─────────────────────────────────────────────────
 function checkHobNZBC(hobStartMm, hobWidthMm, windows, wallIndex, warnings) {
-  const pendingSuffix = NZ_BUILDING_RULES._meta.lastReviewed === null
+  const pendingSuffix = NZ_BUILDING_RULES._meta.lastReviewed == null
     ? ' — values pending installer review' : '';
 
   for (const win of windows) {

@@ -30,6 +30,9 @@ const APPLIANCES = [
 
 const MAX_STEP = 4;
 
+const AD_NZBC_DISCLAIMER =
+  'Auto-Design layouts are a starting point only. Gas (AS/NZS 5601.1), ventilation (NZBC G4) and water-supply (NZBC G12) figures are guidance and must be confirmed by your licensed installer before building.';
+
 let ctx = null;
 let spec = null;
 let step = 1;
@@ -105,6 +108,7 @@ export function closeAutoDesignWizard() {
   const wasOpen = isOpen();
   elModal.style.display = 'none';
   document.body.classList.remove('ad-modal-open');
+  updateStep4Disclaimer(false);
   spec = null;
   step = 1;
   if (wasOpen && !generating) ctx?.trackEvent?.('wizard_cancelled', {});
@@ -184,6 +188,8 @@ function renderStep() {
   else if (step === 2) renderStep2();
   else if (step === 3) renderStep3();
   else if (step === 4) renderStep4();
+
+  updateStep4Disclaimer(step === MAX_STEP);
 
   // Move focus into the panel for keyboard users.
   const first = elBody.querySelector('button, input, select');
@@ -356,6 +362,24 @@ function renderStep4() {
     archetype: spec.archetype, cabinetCount: result.cabinets.length,
     warningCount: (result.warnings || []).length,
   });
+}
+
+// Step 4 only: 30-word NZBC disclaimer sits above the Generate button in the footer.
+function updateStep4Disclaimer(show) {
+  const footer = document.getElementById('ad-footer');
+  if (!footer) return;
+  let el = document.getElementById('ad-disclaimer');
+  if (!el) {
+    el = document.createElement('p');
+    el.id = 'ad-disclaimer';
+    el.className = 'ad-disclaimer ad-hint';
+    el.style.cssText = 'margin:0 0 10px;font-size:11px;line-height:1.4;color:#aaa;max-width:100%';
+    const btnWrap = elGenerate?.parentElement;
+    if (btnWrap && btnWrap.parentElement === footer) footer.insertBefore(el, btnWrap);
+    else footer.appendChild(el);
+  }
+  el.textContent = AD_NZBC_DISCLAIMER;
+  el.style.display = show ? 'block' : 'none';
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
