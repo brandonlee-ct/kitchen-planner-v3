@@ -6,6 +6,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 let _client = null;
 let _user   = null;
+let _role   = null;
 
 export function initAuth() {
   _client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -13,11 +14,13 @@ export function initAuth() {
   _client.auth.onAuthStateChange((_event, session) => {
     _user = session?.user ?? null;
     updateAuthUI();
+    loadUserRole();
   });
 
   _client.auth.getSession().then(({ data }) => {
     _user = data.session?.user ?? null;
     updateAuthUI();
+    loadUserRole();
   });
 }
 
@@ -38,6 +41,41 @@ export async function signOut() {
 
 export function getUser() {
   return _user;
+}
+
+/**
+ * Current user's shared profiles.role (e.g. 'hq_admin'), or null when signed
+ * out or not yet loaded. READ-ONLY — the planner never writes roles, and
+ * tolerates role values it doesn't recognise. For role-aware UI gating only
+ * (e.g. Auto-Design rollout); data security is enforced by RLS, never by this
+ * client-side value.
+ * @returns {string|null}
+ */
+export function getUserRole() {
+  return _role;
+}
+
+/**
+ * Fetch the signed-in user's role from the shared profiles table once, then
+ * re-run role-aware UI hooks. Never throws; unknown/missing role -> null.
+ */
+async function loadUserRole() {
+  if (!_client || !_user) {
+    _role = null;
+    window.refreshAutoDesignFlag?.();
+    return;
+  }
+  try {
+    const { data, error } = await _client
+      .from('profiles')
+      .select('role')
+      .eq('id', _user.id)
+      .single();
+    _role = error ? null : (data?.role ?? null);
+  } catch (e) {
+    _role = null;
+  }
+  window.refreshAutoDesignFlag?.();
 }
 
 function updateAuthUI() {

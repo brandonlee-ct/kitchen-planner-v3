@@ -19,6 +19,7 @@
   <div class="bar-centre">
     <button id="btn-draw-wall" class="tb-icon" title="Draw Wall">🧱</button>
     <button id="btn-free-draw" title="Free Draw (desktop) — free angle, camera locked">Free Draw</button>
+    <button id="btn-auto-design" class="tb-icon" title="Auto-Design a kitchen">🪄</button>
     <button id="btn-toggle-view" class="tb-icon" title="Toggle 2D / 3D view">2D</button>
     <button id="btn-undo" disabled title="Undo (Ctrl+Z)">↩</button>
     <button id="btn-redo" disabled title="Redo (Ctrl+Y)">↪</button>
@@ -51,6 +52,36 @@
   <a href="https://brownboxkit.co.nz/pages/terms-of-service" target="_blank" rel="noopener"
     style="display:block;padding:10px 16px;padding-top:0;color:#888;font-size:12px;
     text-decoration:none;font-family:Arial">📄 Terms of Service</a>
+</div>
+
+<!-- ── Auto-Design Wizard Modal ────────────────────────── -->
+<!-- Shell only; auto-design-wizard.js renders the step bodies into #ad-step-body. -->
+<div id="auto-design-modal" style="display:none;position:fixed;inset:0;z-index:2100;
+  align-items:center;justify-content:center;font-family:Arial;">
+  <div id="auto-design-backdrop" style="position:absolute;inset:0;
+    background:rgba(0,0,0,0.78);"></div>
+  <div id="ad-panel" style="position:relative;background:#1e1e1e;
+    border:2px solid #ff9500;border-radius:14px;width:min(440px,94vw);
+    max-height:90vh;display:flex;flex-direction:column;color:#fff;
+    box-shadow:0 8px 40px rgba(0,0,0,0.6);box-sizing:border-box;">
+    <div id="ad-header" style="display:flex;align-items:center;justify-content:space-between;
+      padding:16px 18px;border-bottom:1px solid #333;">
+      <div style="color:#ff9500;font-weight:bold;font-size:17px;">🪄 Auto-Design</div>
+      <button id="ad-close" class="tb-icon" title="Close" style="background:none;border:none;
+        color:#aaa;font-size:24px;cursor:pointer;line-height:1;min-width:44px;
+        min-height:44px;">×</button>
+    </div>
+    <div id="ad-step-body" style="padding:16px 18px;overflow-y:auto;flex:1 1 auto;"></div>
+    <div id="ad-footer" style="display:flex;align-items:center;justify-content:space-between;
+      padding:14px 18px;border-top:1px solid #333;gap:10px;">
+      <span id="ad-step-label" style="color:#888;font-size:12px;"></span>
+      <div style="display:flex;gap:8px;">
+        <button id="ad-back" class="ad-btn">Back</button>
+        <button id="ad-next" class="ad-btn ad-primary">Next</button>
+        <button id="ad-generate" class="ad-btn ad-primary">Generate</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ── Restart Confirm Modal ───────────────────────────── -->

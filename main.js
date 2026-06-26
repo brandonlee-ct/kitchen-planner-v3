@@ -1,9 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { initAuth, signInWithGoogle, signOut, getUser, saveProject, updateProject, listProjects, loadProject, deleteProject, uploadThumbnail, setProjectPublic, loadPublicProject, ensureProjectCode, newProjectCode } from './auth.js';
+import { initAuth, signInWithGoogle, signOut, getUser, getUserRole, saveProject, updateProject, listProjects, loadProject, deleteProject, uploadThumbnail, setProjectPublic, loadPublicProject, ensureProjectCode, newProjectCode } from './auth.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { runAutoDesign } from './auto-design.js';
+import { applyAutoDesignResult, hashSpec } from './auto-design-adapter.js';
+import { initAutoDesignWizard, openAutoDesignWizard, closeAutoDesignWizard } from './auto-design-wizard.js';
 const IS_TOUCH = navigator.maxTouchPoints > 0;
 const mm = v => v / 1000;
 
@@ -392,6 +395,16 @@ function executeUndo(entry) {
   } else if (entry.type === 'wall-height') {
     const w = entry.data.wallObj;
     if (walls.includes(w)) { w.height = entry.data.before; rebuildWallMeshInPlace(w); }
+  } else if (entry.type === 'auto-design-replace') {
+    // NOTE: this entry intentionally holds live references to every removed/placed
+    // mesh for the lifetime of its history slot. When the slot ages out of
+    // MAX_HISTORY the references drop and GC collects them. Do NOT "optimise" the
+    // mesh arrays away — undo/redo depends on re-adding these EXACT objects.
+    autoDesignSwap(entry.data.builtWalls, entry.data.placedMeshes,
+                   entry.data.removedWalls, entry.data.removedMeshes);
+  } else if (entry.type === 'delete-item-batch') {
+    entry.data.meshes.forEach(m => { scene.add(m); if (!placedItems.includes(m)) placedItems.push(m); });
+    updateQuote();
   }
 }
 function executeRedo(entry) {
@@ -458,7 +471,47 @@ function executeRedo(entry) {
   } else if (entry.type === 'wall-height') {
     const w = entry.data.wallObj;
     if (walls.includes(w)) { w.height = entry.data.after; rebuildWallMeshInPlace(w); }
+  } else if (entry.type === 'auto-design-replace') {
+    // Mirror of undo: remove the old scene, restore the generated one.
+    autoDesignSwap(entry.data.removedWalls, entry.data.removedMeshes,
+                   entry.data.builtWalls, entry.data.placedMeshes);
+  } else if (entry.type === 'delete-item-batch') {
+    entry.data.meshes.forEach(m => scene.remove(m));
+    placedItems = placedItems.filter(m => !entry.data.meshes.includes(m));
+    updateQuote();
   }
+}
+
+// ── Auto-Design: undo/redo swap helper ───────────────────────────────────────
+// Removes one (walls, cabinets) set from the scene and restores another, re-adding
+// the SAME mesh objects (never recreate, never dispose). Opening meshes are NOT
+// re-added directly — syncOpeningsTo3D() recreates them from each wall's openings.
+function autoDesignSwap(removeWalls, removeMeshes, addWalls, addMeshes) {
+  (removeWalls || []).forEach(w => {
+    scene.remove(w.mesh);
+    if (w.capMeshes) w.capMeshes.forEach(c => scene.remove(c));
+    if (w.label2D) wall2DLabelGroup.remove(w.label2D);
+    clearWallOpeningMeshes(w);
+    walls = walls.filter(x => x !== w);
+    if (selectedWall === w) selectedWall = null;
+  });
+  (removeMeshes || []).forEach(m => scene.remove(m));
+  placedItems = placedItems.filter(m => !(removeMeshes || []).includes(m));
+
+  (addWalls || []).forEach(w => {
+    scene.add(w.mesh);
+    if (!walls.includes(w)) walls.push(w);
+    if (w.openings && w.openings.length) syncOpeningsTo3D(w);
+  });
+  (addMeshes || []).forEach(m => {
+    if (m.userData && (m.userData.type === 'door' || m.userData.type === 'window' || m.userData.type === 'gpo')) return;
+    scene.add(m);
+    if (!placedItems.includes(m)) placedItems.push(m);
+  });
+
+  buildFloorMesh();   // recompute floor for whichever wall set is now active
+  rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays(); hideWallPopup();
+  updateRoomArea(); updateQuote();
 }
 
 let glbModalFile        = null;
@@ -1208,6 +1261,18 @@ function loadProductModel(product, placeholderMesh) {
         stack.forEach(entry => {
           if (entry.data && entry.data.mesh === placeholderMesh) {
             entry.data.mesh = model;
+          }
+          // ✅ FIX: batched entry types hold mesh ARRAYS, not a single mesh.
+          // Without patching these, undo after a GLB lands operates on a stale
+          // placeholder and the loaded model is orphaned in the scene.
+          if (entry.data) {
+            ['placedMeshes', 'removedMeshes', 'meshes'].forEach(key => {
+              const arr = entry.data[key];
+              if (Array.isArray(arr)) {
+                const idx = arr.indexOf(placeholderMesh);
+                if (idx !== -1) arr[idx] = model;
+              }
+            });
           }
         });
       });
@@ -4653,7 +4718,7 @@ async function loadShopifyProducts() {
 loadShopifyProducts();
 
       
-      function placeProduct(product) {
+      function placeProduct(product, skipHistory = false) {
         const w = mm(product.width), h = mm(product.height), d = mm(product.depth);
         const mesh = new THREE.Mesh(
           new THREE.BoxGeometry(w, h, d),
@@ -4673,10 +4738,13 @@ loadShopifyProducts();
         mesh.userData = { product, skuIndex: 0 };
         scene.add(mesh);
         placedItems.push(mesh);
-        pushHistory({ type: 'add-item', data: { mesh } });
+        // ✅ skipHistory: loadScene restores many items at once; pushing per item
+        // would overflow MAX_HISTORY (20) with junk entries on load.
+        if (!skipHistory) pushHistory({ type: 'add-item', data: { mesh } });
         updateQuote();
         // ✅ FIX: load GLB model to replace placeholder if modelPath is set
         loadProductModel(product, mesh);
+        return mesh;
       }
       
       function updateQuote() {
@@ -7553,6 +7621,170 @@ canvas.addEventListener('pointercancel', (e) => {
 // ── Save / Load helpers ──────────────────────────────
 // ── Save / Load helpers ───────────────────────────────────────────────────────
 
+// ── Auto-Design ───────────────────────────────────────────────────────────────
+// Magic-button kitchen generation. All orchestration lives in this one section to
+// keep the merge surface small. The pure solver (auto-design.js) and the scene
+// bridge (auto-design-adapter.js) are separate, unit-testable modules.
+//
+// ── Auto-Design rollout gate ──────────────────────────────────────────────
+// Default OFF for the public. The feature becomes visible when ANY of these hold;
+// refreshAutoDesignFlag() re-evaluates it (incl. once the user's role loads):
+//   1. Role   — super_admin / hq_admin / admin always see it (read from profiles).
+//   2. Opt-in — ?autodesign=1 once; persisted in localStorage for internal testers.
+//   3. Launch — flip AUTO_DESIGN_DEFAULT to true to enable for everyone.
+// Hard kill (overrides all): window.AUTO_DESIGN_KILL = true; window.refreshAutoDesignFlag();
+const AUTO_DESIGN_DEFAULT = false;            // ← flip to true at business launch
+const AUTO_DESIGN_ADMIN_ROLES = ['super_admin', 'hq_admin', 'admin'];
+
+try {
+  if (new URLSearchParams(location.search).get('autodesign') === '1') {
+    localStorage.setItem('bbk_autodesign', '1');
+  }
+} catch (e) { /* private mode / storage blocked — ignore */ }
+
+function computeAutoDesignEnabled() {
+  if (window.AUTO_DESIGN_KILL === true) return false;
+  if (AUTO_DESIGN_DEFAULT) return true;
+  try { if (localStorage.getItem('bbk_autodesign') === '1') return true; } catch (e) {}
+  return AUTO_DESIGN_ADMIN_ROLES.includes(getUserRole());
+}
+
+window.AUTO_DESIGN_ENABLED = computeAutoDesignEnabled();
+
+// Placement WITHOUT history, at an exact solver-supplied position (no category
+// height/corner logic — the solver already computed world coordinates). The
+// generation is captured as ONE 'auto-design-replace' history entry instead.
+function placeProductAt(product, position, rotationY) {
+  const w = mm(product.width), h = mm(product.height), d = mm(product.depth);
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshStandardMaterial({ color: 0x8B7355 })
+  );
+  // `> 0` not `||`: the solver emits y:0 meaning floor-seated; the fallback
+  // (slab top + half height) must fire only when no explicit y is given.
+  const y = position.y > 0 ? position.y : SLAB_H + h / 2;
+  mesh.position.set(position.x, y, position.z);
+  mesh.rotation.y = rotationY || 0;
+  mesh.castShadow = true;
+  mesh.userData = { product, skuIndex: 0 };
+  scene.add(mesh);
+  placedItems.push(mesh);
+  if (product.modelPath) loadProductModel(product, mesh);
+  return mesh;
+}
+
+// Like clearScene() but UNDOABLE: removes the current scene from view WITHOUT
+// disposing geometry/materials and WITHOUT wiping the undo/redo stacks. The
+// returned objects live on inside the 'auto-design-replace' history entry.
+function detachSceneForReplace() {
+  const removedWalls = [...walls];
+  removedWalls.forEach(w => {
+    scene.remove(w.mesh);
+    if (w.capMeshes) w.capMeshes.forEach(c => scene.remove(c));
+    if (w.label2D) wall2DLabelGroup.remove(w.label2D);
+    clearWallOpeningMeshes(w);   // opening meshes are recreated from w.openings on undo
+  });
+  // After clearWallOpeningMeshes, placedItems holds only non-opening items.
+  const removedMeshes = [...placedItems];
+  removedMeshes.forEach(m => scene.remove(m));
+
+  walls = [];
+  placedItems = [];
+  while (wall2DOverlayGroup.children.length > 0)
+    wall2DOverlayGroup.remove(wall2DOverlayGroup.children[0]);
+  hideWallPopup();
+  buildFloorMesh();   // no walls now → removes the old floor
+  updateRoomArea();
+  updateQuote();
+  return { removedWalls, removedMeshes };
+}
+
+// Wizard onGenerate handler: turn a solver result into real walls + cabinets.
+function generateAutoDesignKitchen(spec, result) {
+  if (!window.AUTO_DESIGN_ENABLED) return;
+
+  const hasContent = walls.length > 0 || placedItems.length > 0;
+  if (hasContent && !confirm('Replace the current kitchen with the auto-designed layout? You can undo this.')) {
+    trackEvent('wizard_generate_cancelled', {});
+    return;
+  }
+
+  const detached = hasContent ? detachSceneForReplace()
+                              : { removedWalls: [], removedMeshes: [] };
+
+  const { builtWalls, placedMeshes, skippedCabinets } = applyAutoDesignResult(result, spec, {
+    THREE,
+    buildWall,
+    placeProductAt,
+    syncOpeningsTo3D,
+    products,
+  });
+
+  pushHistory({
+    type: 'auto-design-replace',
+    data: {
+      removedWalls:  detached.removedWalls,
+      removedMeshes: detached.removedMeshes,
+      builtWalls,
+      placedMeshes,
+      spec: { ...spec },
+    },
+  });
+
+  window.lastAutoDesignSpec = { ...spec };
+
+  buildFloorMesh();
+  rebuildAllCaps(); refreshAll2DLabels(); rebuild2DWallOverlays();
+  update2DLabelVisibility(); updateRoomArea(); updateQuote();
+
+  // Surface solver + adapter feedback.
+  (result.warnings || []).forEach(w => {
+    if (w.severity === 'error' || w.severity === 'warn') {
+      showImportToast(w.message, w.severity === 'error');
+    }
+  });
+  if (skippedCabinets.length) {
+    showImportToast(`${skippedCabinets.length} cabinet(s) skipped (no matching product)`, true);
+    console.warn('[auto-design] skipped cabinets:', skippedCabinets);
+  }
+
+  closeAutoDesignWizard();
+  trackEvent('wizard_generated', {
+    archetype:    spec.archetype,
+    widthMm:      spec.widthMm,
+    depthMm:      spec.depthMm,
+    cabinetCount: placedMeshes.length,
+    skippedCount: skippedCabinets.length,
+    warningCount: (result.warnings || []).length,
+  });
+  showImportToast('Kitchen generated ✓');
+}
+
+// Wire the wizard + toolbar button (null-safe per house rules).
+initAutoDesignWizard({
+  runAutoDesign,
+  products: () => products,
+  trackEvent,
+  onGenerate: generateAutoDesignKitchen,
+});
+
+function refreshAutoDesignFlag() {
+  window.AUTO_DESIGN_ENABLED = computeAutoDesignEnabled();
+  const btn = document.getElementById('btn-auto-design');
+  if (btn) btn.style.display = window.AUTO_DESIGN_ENABLED ? '' : 'none';
+}
+window.refreshAutoDesignFlag = refreshAutoDesignFlag;
+
+(() => {
+  const btn = document.getElementById('btn-auto-design');
+  if (!btn) return;
+  refreshAutoDesignFlag();
+  btn.addEventListener('click', () => {
+    if (!window.AUTO_DESIGN_ENABLED) return;
+    openAutoDesignWizard();
+  });
+})();
+
 function serialiseScene() {
   let skippedImportedCount = 0;
 
@@ -7584,9 +7816,17 @@ function serialiseScene() {
     if (mesh.userData.type === 'door' || mesh.userData.type === 'window' || mesh.userData.type === 'gpo') return;
     // Skip items with no variantId (can't round-trip to Shopify)
     const sku = product.skus?.[mesh.userData.skuIndex ?? 0];
-    if (!sku?.variantId) return;
+    if (!sku?.variantId) {
+      // Dev safety: the mock auto-design catalogue has no variantIds, so a
+      // generated kitchen saved against it silently loses cabinets. Warn loudly.
+      if (mesh.userData.autoGenerated) {
+        console.warn('[serialiseScene] dropping auto-generated cabinet with no variantId:',
+          mesh.userData.kitchenRole, product.id);
+      }
+      return;
+    }
 
-    itemsData.push({
+    const itemData = {
       productHandle: product.id,
       variantId:     sku.variantId,
       position: {
@@ -7596,7 +7836,16 @@ function serialiseScene() {
       },
       rotationY: mesh.rotation.y,
       skuIndex:  mesh.userData.skuIndex ?? 0,
-    });
+    };
+    // Auto-design provenance (additive — older readers ignore these keys).
+    if (mesh.userData.autoGenerated) {
+      itemData.autoGenerated   = true;
+      itemData.kitchenRole     = mesh.userData.kitchenRole;
+      itemData.manuallyModified = !!mesh.userData.manuallyModified;
+      itemData.autoWall        = mesh.userData.autoWall;   // { specHash, wallIndex }
+      itemData.provenance      = mesh.userData.provenance;
+    }
+    itemsData.push(itemData);
   });
 
   const sceneJson = {
@@ -7612,6 +7861,10 @@ function serialiseScene() {
     },
     walls: wallsData,
     items: itemsData,
+    // Auto-design: last wizard spec (for Regenerate) + per-item provenance live
+    // on the items above. Additive within v3 — older builds ignore unknown keys,
+    // so reader and writer stay compatible without a version bump.
+    kitchenSpec: window.lastAutoDesignSpec || null,
     camera: {
       is3D:       is3D,
       position3D: { x: camera3D.position.x, y: camera3D.position.y, z: camera3D.position.z },
@@ -7738,18 +7991,28 @@ function loadScene(sceneJson) {
       return;
     }
 
-    // placeProduct creates the mesh and adds it to scene + placedItems
-    placeProduct(product);
-
-    // Grab the mesh that was just pushed onto placedItems
-    const mesh = placedItems[placedItems.length - 1];
+    // placeProduct creates the mesh and adds it to scene + placedItems.
+    // skipHistory=true: a load must not pollute the undo stack (MAX_HISTORY is 20;
+    // a generated kitchen has 15+ items and would blow it away on load).
+    const mesh = placeProduct(product, true);
     if (!mesh) return;
 
     // Restore transform (cabinetYOffset migrates legacy grid-referenced saves)
     mesh.position.set(item.position.x, item.position.y + cabinetYOffset, item.position.z);
     mesh.rotation.y = item.rotationY;
     mesh.userData.skuIndex = item.skuIndex ?? 0;
+    // Restore auto-design provenance if present (v3+ saves; absent = manual item).
+    if (item.autoGenerated) {
+      mesh.userData.autoGenerated    = true;
+      mesh.userData.kitchenRole      = item.kitchenRole;
+      mesh.userData.manuallyModified = !!item.manuallyModified;
+      mesh.userData.autoWall         = item.autoWall;
+      mesh.userData.provenance       = item.provenance;
+    }
   });
+
+  // Restore the last wizard spec so Regenerate works after a reload.
+  window.lastAutoDesignSpec = sceneJson.kitchenSpec || null;
 
   // Restore camera
   if (sceneJson.camera) {
