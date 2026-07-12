@@ -4,6 +4,19 @@ You are helping ship a Shopify-integrated 3D kitchen planner for **Brown Box Kit
 (brownboxkit.co.nz). The architecture has already been designed by Opus — your job
 is to **implement tasks cleanly without re-architecting**.
 
+## Roles, authority & boot rule — READ FIRST
+
+- **Roles:** `H` = Human owner (apex; only role that approves gates) → directs
+  `O` = PM Opus (plans, writes task briefs) → delegates to `S` = coding sub-agent
+  (Composer, builds one bounded brief at a time). `A` = Fable auditor is owner-side
+  assurance (separate chat; audits O's outputs, reports to H — never commands O).
+  Full charters + fresh-chat boot prompts: **`ROLES.md`**.
+- **Boot rule (every fresh session, any role):** before acting, read `TASKS.md`
+  (single source of truth) and state in one line which board item your task maps to.
+  If it maps to none, or contradicts a doc — **stop and ask**. Deviation only by
+  written amendment, never silently.
+- **Laws:** `LESSONS-LEARNED.md` is binding for every contributor, human and AI.
+
 ## Project context
 
 - Brown Box Kit is a New Zealand flat-pack kitchen cabinet retailer on Shopify.
@@ -44,9 +57,9 @@ is to **implement tasks cleanly without re-architecting**.
 - Save Project → Supabase `projects` table, `scene_json` jsonb column, keyed by `user_id`.
 - Wall handles must be ~`0.22` radius on touch, `0.15` on mouse (see `SphereGeometry`, ~line 571).
 - `IS_TOUCH` constant already exists in `main.js` — use it.
-- **PLANNED (not yet in code):** "Send to Cart" via Shopify `cartCreate` mutation →
-  redirect to `cart.checkoutUrl`. Treat as the agreed design when implementing; do not
-  assume it already exists.
+- **SHIPPED (live since 14 Jun 2026):** "Send to Cart" via Shopify `cartCreate` mutation →
+  redirect to `cart.checkoutUrl`, smoke-tested on the live site. It also stamps cart
+  attributes `project_code` + `display_po` for Trade intake (see `CHECKOUT-CAPTURE.md`).
 
 ## House rules for this codebase
 

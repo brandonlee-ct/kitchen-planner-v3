@@ -20,6 +20,8 @@ You review changes WITHOUT editing. Output a short PASS/FAIL checklist plus any 
 6. **CSS breakpoints** — 430px / 768px respected; no stray new breakpoints.
 7. **Security** — no service-role keys or secrets in client code; Supabase calls assume RLS.
 8. **Element IDs** — any new `index.html` IDs are wired in `main.js` (and vice-versa).
+9. **Board mapping** — the change maps to a `TASKS.md` board item and stays within its
+   brief's scope (no freelanced extras).
 
 ## Output format
 - `PASS` / `FAIL` per item (one line each).

@@ -136,10 +136,10 @@ Box Kit). In plain English, it means:
 
 ## Who does what (your management model)
 
-- **Opus** = the architect. Designs the hard/risky parts and writes clear task briefs.
-- **Me (in Cursor)** = the builder. I take a brief, write and run the code, save it safely,
-  and report back. I can handle ~90% of the hands-on work.
-- **Your trainee** = guided helper. Real-device testing, entering product data in Shopify,
-  checking quality against a checklist. I'll write simple step-by-step briefs for them.
-- **You** = the project manager. You decide priorities, approve plans, and do the few things
-  only an account owner can (Shopify/Supabase logins, business & legal calls).
+> **Superseded (13 Jul 2026).** The management model is now the S / O / H / A structure —
+> full charters and fresh-chat boot prompts live in [ROLES.md](ROLES.md); the compact
+> legend is in [PROGRESS.md](PROGRESS.md). In short: **H** (you, the owner) directs
+> **O** (PM Opus — plans, architecture escalation, writes task briefs), who delegates to
+> **S** (Composer coding sub-agent — builds one bounded brief at a time), while **A**
+> (Fable auditor, owner-side) audits the PM's outputs and advises you. Real-device
+> testing and Shopify data entry remain guided human tasks under H.

@@ -187,18 +187,12 @@ per-tenant Shopify connect, usage metering, versioning, team accounts, public AP
 
 ## 8. Delegation model (your PM workflow)
 
-- **Opus** = architect/PM brain: auth bridge, schema/security sign-off, three.js math,
-  pre-launch review. Writes task briefs.
-- **Me (Cursor executor)** = implements briefs, edits + runs code, checkpoints to git,
-  reports real results. Owns ~90% of execution.
-- **Trainee (human)** = guided tasks: real-device testing (iPhone/iPad/Android), Shopify
-  admin data entry (metafields), QA against a checklist, content drafts. I can produce
-  step-by-step task briefs for them.
-- **Reusable subagents** (proposed, awaiting your go-ahead to create the files):
-  - `executor` — implements a task brief; obeys `AGENTS.md` house rules.
-  - `reviewer` — read-only; checks a change for touch+mouse parity, undo/redo history,
-    three.js dispose, and breakpoint compliance before you ship.
-- **Source of truth** = your Master Scope; I can keep a living `TASKS.md` status board.
+> **Superseded (13 Jul 2026).** The delegation model is now the S / O / H / A structure —
+> see [ROLES.md](ROLES.md) for the full charters and boot prompts: **H** = owner (apex,
+> approves gates), **O** = PM Opus (planning, architecture escalation, task briefs),
+> **S** = Composer coding sub-agent (bounded builds), **A** = Fable auditor (owner-side
+> assurance). The `executor`/`reviewer` subagents exist in `.cursor/agents/` and serve
+> the O→S pipeline. **Source of truth for status = `TASKS.md`.**
 
 ---
 
