@@ -38,7 +38,7 @@ checklists further down are grouped by these tracks.
 - [x] ✅ 1.11 Read-only share links (`?share=<slug>`) — share button per project row, slug generated + stored in Supabase (`is_public`, `share_slug` columns), read-only badge, save controls hidden for viewers
 
 ### Items 0–5 improvement sprint (briefs: `S-BRIEFS-ITEMS-0-5.md`, plan approved 24 Jul 2026)
-- [ ] ⬜ 1.15a Catalogue audit tool — `?catalogaudit=1` read-only report of missing/unparseable `planner.*` metafields + applied fallbacks (S1)
+- [x] ✅ 1.15a Catalogue audit tool — `?catalogaudit=1` read-only report of missing/unparseable `planner.*` metafields + applied fallbacks (S1). Built + reviewer PASS + build ✓, commit `1052d25`. Awaiting H live verification.
 - [ ] ⬜ 1.15b Robust dimension parsing — integer/decimal/Dimension-JSON + unit conversion in `shopifyNodeToProduct`; visible "default size" badge (S2)
 - [ ] 👤 1.15c Owner Shopify data pass — fix `planner.*` metafield types/values, populate unlinked products, split composite models (per `public/catalog-setup.html`) [owner task, not an S brief]
 - [ ] ⬜ 1.16a Draft stash on OAuth sign-in — stash scene to localStorage before `signInWithGoogle`, restore after boot, `sceneDirty=true` (S3)
