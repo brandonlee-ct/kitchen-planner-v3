@@ -427,6 +427,12 @@ function executeUndo(entry) {
   } else if (entry.type === 'delete-item-batch') {
     entry.data.meshes.forEach(m => { scene.add(m); if (!placedItems.includes(m)) placedItems.push(m); });
     updateQuote();
+  } else if (entry.type === 'add-service-item') {
+    serviceItems = serviceItems.filter(x => x !== entry.data.record);
+    updateQuote();
+  } else if (entry.type === 'remove-service-item') {
+    serviceItems.push(entry.data.record);
+    updateQuote();
   }
 }
 function executeRedo(entry) {
@@ -501,6 +507,12 @@ function executeRedo(entry) {
     entry.data.meshes.forEach(m => scene.remove(m));
     placedItems = placedItems.filter(m => !entry.data.meshes.includes(m));
     updateQuote();
+  } else if (entry.type === 'add-service-item') {
+    serviceItems.push(entry.data.record);
+    updateQuote();
+  } else if (entry.type === 'remove-service-item') {
+    serviceItems = serviceItems.filter(x => x !== entry.data.record);
+    updateQuote();
   }
 }
 
@@ -553,7 +565,7 @@ let lastMouseY = 0;
 
 let mode = 'select';
 let hoveredWall = null;
-let placedItems = [], walls = [], wallCorners = [];
+let placedItems = [], serviceItems = [], walls = [], wallCorners = [];
 let wallStart = null, firstPoint = null, previewLine = null;
 let firstWallLocked = false;
 
@@ -4927,8 +4939,28 @@ async function loadShopifyProducts() {
 
 loadShopifyProducts();
 
-      
-      function placeProduct(product, skipHistory = false) {
+function addServiceItem(product, skipHistory = false) {
+  const skuIndex = 0;
+  const sku = product.skus?.[skuIndex];
+  const record = {
+    productHandle: product.id,
+    variantId:     sku?.variantId || null,
+    name:          product.name,
+    price:         sku?.price ?? 0,
+    priceDisplay:  sku?.priceDisplay || nzPrice(sku?.price ?? 0),
+    skuIndex,
+    skuLabel:      sku?.label || 'Standard',
+  };
+  serviceItems.push(record);
+  if (!skipHistory) pushHistory({ type: 'add-service-item', data: { record } });
+  updateQuote();
+  return record;
+}
+
+function placeProduct(product, skipHistory = false) {
+  if (product.category === 'service') {
+    return addServiceItem(product, skipHistory);
+  }
         const w = mm(product.width), h = mm(product.height), d = mm(product.depth);
         const mesh = new THREE.Mesh(
           new THREE.BoxGeometry(w, h, d),
@@ -4956,8 +4988,8 @@ loadShopifyProducts();
         loadProductModel(product, mesh);
         return mesh;
       }
-      
-      function updateQuote() {
+
+function updateQuote() {
         const itemList = document.getElementById('item-list');
         const totalEl  = document.getElementById('total-price');
         itemList.innerHTML = '';
@@ -4970,6 +5002,13 @@ loadShopifyProducts();
           const div = document.createElement('div');
           div.className = 'quote-item';
           div.innerHTML = '<strong>' + product.name + '</strong><br>' + sku.label + ' - $' + sku.price.toFixed(2);
+          itemList.appendChild(div);
+        });
+        serviceItems.forEach(si => {
+          total += si.price;
+          const div = document.createElement('div');
+          div.className = 'quote-item';
+          div.innerHTML = '<strong>' + si.name + '</strong><br>' + si.skuLabel + ' - $' + si.price.toFixed(2);
           itemList.appendChild(div);
         });
         totalEl.textContent = '$' + total.toFixed(2);
@@ -5657,6 +5696,10 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
     if (!sku?.variantId) return;
     lineMap.set(sku.variantId, (lineMap.get(sku.variantId) || 0) + 1);
   });
+  serviceItems.forEach(si => {
+    if (!si.variantId) return;
+    lineMap.set(si.variantId, (lineMap.get(si.variantId) || 0) + 1);
+  });
 
   if (lineMap.size === 0) {
     showImportToast('Add cabinets to your plan first.', true);
@@ -5727,6 +5770,22 @@ function buildQuoteRows() {
         qty: 1,
         unitPrice: sku.price,
         total: sku.price,
+      });
+    }
+  });
+  serviceItems.forEach(si => {
+    const key = si.variantId || `${si.name}|${si.skuLabel}`;
+    const existing = rowMap.get(key);
+    if (existing) {
+      existing.qty += 1;
+      existing.total += si.price;
+    } else {
+      rowMap.set(key, {
+        name: si.name,
+        variant: si.skuLabel || '',
+        qty: 1,
+        unitPrice: si.price,
+        total: si.price,
       });
     }
   });
@@ -5842,6 +5901,10 @@ document.getElementById('btn-export').addEventListener('click', () => {
     const sku = product.skus[skuIndex ?? 0];
     lines.push(`"${product.name}","${sku.label}",${sku.price.toFixed(2)}`);
     total += sku.price;
+  });
+  serviceItems.forEach(si => {
+    lines.push(`"${si.name}","${si.skuLabel}",${si.price.toFixed(2)}`);
+    total += si.price;
   });
   lines.push(`"","Total","${total.toFixed(2)}"`);
   const csvContent = lines.join('\n');
@@ -8067,7 +8130,9 @@ function serialiseScene() {
     // referenced the grid (y=0); loadScene migrates those by lifting +SLAB_H.
     // v3: walls carry a per-wall `height` (mm). v1/v2 saves are migrated by
     // stamping settings.ceilingHeight onto each wall on load.
-    version: 3,
+    // v4: top-level `serviceItems` for quote-only products (no 3D mesh). v1–v3
+    // saves migrate to serviceItems: [] on load.
+    version: 4,
     settings: {
       ceilingHeight: settings.ceilingHeight,
       wallThickness: settings.wallThickness,
@@ -8075,6 +8140,12 @@ function serialiseScene() {
     },
     walls: wallsData,
     items: itemsData,
+    serviceItems: serviceItems.map(si => ({
+      productHandle: si.productHandle,
+      variantId:     si.variantId,
+      skuIndex:      si.skuIndex,
+      price:         si.price,
+    })),
     // Auto-design: last wizard spec (for Regenerate) + per-item provenance live
     // on the items above. Additive within v3 — older builds ignore unknown keys,
     // so reader and writer stay compatible without a version bump.
@@ -8116,6 +8187,7 @@ function clearScene() {
     disposeModel(mesh);
   });
   placedItems = [];
+  serviceItems = [];
 
   // Clear 2D labels array
   label2DObjects = [];
@@ -8156,7 +8228,7 @@ function clearScene() {
 }
 
 function loadScene(sceneJson) {
-  if (!sceneJson || ![1, 2, 3].includes(sceneJson.version)) {
+  if (!sceneJson || ![1, 2, 3, 4].includes(sceneJson.version)) {
     console.warn('[loadScene] unrecognised scene version', sceneJson?.version);
     return;
   }
@@ -8164,6 +8236,7 @@ function loadScene(sceneJson) {
   // v1 stored cabinet y against the grid (y=0); v2 stores it against the slab
   // top. Lift legacy items so they stand on the raised floor like new ones.
   const cabinetYOffset = (sceneJson.version === 1) ? SLAB_H : 0;
+  // v1–v3 saves have no serviceItems; treat as empty (forward-compatible).
 
   clearScene();
 
@@ -8209,7 +8282,10 @@ function loadScene(sceneJson) {
     // skipHistory=true: a load must not pollute the undo stack (MAX_HISTORY is 20;
     // a generated kitchen has 15+ items and would blow it away on load).
     const mesh = placeProduct(product, true);
-    if (!mesh) return;
+    // A legacy save may hold a product later reclassified to category=service;
+    // placeProduct now returns a plain serviceItems record (no mesh) — it has
+    // already been migrated into serviceItems, so skip the mesh transform.
+    if (!mesh || !mesh.isMesh) return;
 
     // Restore transform (cabinetYOffset migrates legacy grid-referenced saves)
     mesh.position.set(item.position.x, item.position.y + cabinetYOffset, item.position.z);
@@ -8223,6 +8299,22 @@ function loadScene(sceneJson) {
       mesh.userData.autoWall         = item.autoWall;
       mesh.userData.provenance       = item.provenance;
     }
+  });
+
+  // Rebuild quote-only service items (skipHistory — load must not pollute undo stack)
+  (sceneJson.serviceItems || []).forEach(si => {
+    const product = products.find(p => p.id === si.productHandle);
+    const skuIndex = si.skuIndex ?? 0;
+    const sku = product?.skus?.[skuIndex];
+    serviceItems.push({
+      productHandle: si.productHandle,
+      variantId:     si.variantId || sku?.variantId || null,
+      name:          product?.name || si.productHandle,
+      price:         si.price ?? sku?.price ?? 0,
+      priceDisplay:  sku?.priceDisplay || nzPrice(si.price ?? sku?.price ?? 0),
+      skuIndex,
+      skuLabel:      sku?.label || 'Standard',
+    });
   });
 
   // Restore the last wizard spec so Regenerate works after a reload.
