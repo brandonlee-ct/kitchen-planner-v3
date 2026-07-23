@@ -4608,10 +4608,56 @@ const PRODUCTS_QUERY = `
 
 const nzPrice = amount => 'NZ$' + parseFloat(amount).toFixed(2);
 
+// ── Robust dimension parsing (TASKS.md 1.15b / S2) ────────────────────────────
+// Parse a planner.*_mm metafield value into millimetres. Handles plain integer
+// strings ("600"), decimal strings ("600.0"), raw numbers, and Shopify Dimension
+// -type JSON ({"value":600.0,"unit":"MILLIMETERS"}) with unit conversion:
+// MILLIMETERS ×1, CENTIMETERS ×10, METERS ×1000, INCHES ×25.4 → rounded to mm.
+// Returns null when genuinely unparseable so the caller decides the fallback + flag.
+function parseDimMm(rawValue) {
+  if (rawValue === null || rawValue === undefined) return null;
+
+  // Raw number type
+  if (typeof rawValue === 'number') {
+    return isFinite(rawValue) ? Math.round(rawValue) : null;
+  }
+
+  if (typeof rawValue === 'string') {
+    const trimmed = rawValue.trim();
+    if (trimmed === '') return null;
+
+    // Shopify Dimension-type JSON, e.g. {"value":600.0,"unit":"MILLIMETERS"}
+    if (trimmed.charAt(0) === '{') {
+      try {
+        const obj = JSON.parse(trimmed);
+        const val = parseFloat(obj.value);
+        if (!isFinite(val)) return null;
+        const unit = String(obj.unit || 'MILLIMETERS').toUpperCase();
+        const factor = { MILLIMETERS: 1, CENTIMETERS: 10, METERS: 1000, INCHES: 25.4 }[unit];
+        if (factor === undefined) return null;
+        return Math.round(val * factor);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Plain integer or decimal string
+    const num = parseFloat(trimmed);
+    return isFinite(num) ? Math.round(num) : null;
+  }
+
+  return null;
+}
+
 function shopifyNodeToProduct(node) {
-  const width  = parseInt(node.width_mm?.value)  || 600;
-  const height = parseInt(node.height_mm?.value) || 720;
-  const depth  = parseInt(node.depth_mm?.value)  || 580;
+  const parsedW = parseDimMm(node.width_mm?.value);
+  const parsedH = parseDimMm(node.height_mm?.value);
+  const parsedD = parseDimMm(node.depth_mm?.value);
+  const width  = parsedW || 600;
+  const height = parsedH || 720;
+  const depth  = parsedD || 580;
+  // Flag when any dimension fell back to the default constant (missing/garbage/zero).
+  const usesDefaultSize = !parsedW || !parsedH || !parsedD;
   const glbUrl = node.glb_url?.value || null;
 
   const variants = node.variants.edges.map(e => e.node);
@@ -4634,6 +4680,7 @@ function shopifyNodeToProduct(node) {
     imageUrl:    node.featuredImage?.url || null,
     imageAlt:    node.featuredImage?.altText || node.title,
     width, height, depth,
+    usesDefaultSize,
     skus: skus.length ? skus : [{ id: node.handle, label: 'Standard', price: 0, priceDisplay: 'NZ$0.00', available: false }]
   };
 }
@@ -4804,6 +4851,13 @@ function renderProductPanel() {
         badge.className = 'product-item-badge';
         badge.textContent = 'placeholder model';
         body.appendChild(badge);
+      }
+
+      if (product.usesDefaultSize) {
+        const sizeBadge = document.createElement('div');
+        sizeBadge.className = 'product-item-badge';
+        sizeBadge.textContent = 'default size';
+        body.appendChild(sizeBadge);
       }
 
       div.appendChild(thumb);
