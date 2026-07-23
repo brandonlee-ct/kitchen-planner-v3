@@ -151,6 +151,11 @@ export function newProjectCode() {
   return 'BBK-' + hex;
 }
 
+/** Six-digit PO for Trade job display (cart attribute → order note_attributes.display_po). */
+export function newDisplayPo() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
 /**
  * Insert a new project row, stamping a fresh project_code.
  * @param {string} name

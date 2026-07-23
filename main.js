@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { initAuth, signInWithGoogle, signOut, getUser, getUserRole, saveProject, updateProject, listProjects, loadProject, deleteProject, uploadThumbnail, setProjectPublic, loadPublicProject, ensureProjectCode, newProjectCode } from './auth.js';
+import { initAuth, signInWithGoogle, signOut, getUser, getUserRole, saveProject, updateProject, listProjects, loadProject, deleteProject, uploadThumbnail, setProjectPublic, loadPublicProject, ensureProjectCode, newProjectCode, newDisplayPo } from './auth.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { runAutoDesign } from './auto-design.js';
@@ -5505,10 +5505,14 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
   // code; unsaved/anonymous plans get an ephemeral one so the order still
   // carries a reference (the DB link only resolves for saved projects).
   const projectCode = currentProjectCode || newProjectCode();
+  const displayPo = newDisplayPo();
   const input = {
     lines,
-    attributes: [{ key: 'project_code', value: projectCode }],
-    note: 'Brown Box Kit planner — project ' + projectCode,
+    attributes: [
+      { key: 'project_code', value: projectCode },
+      { key: 'display_po', value: displayPo },
+    ],
+    note: 'Brown Box Kit planner — project ' + projectCode + ' · PO ' + displayPo,
   };
 
   btn.disabled = true;
@@ -5520,7 +5524,7 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
     if (userErrors?.length) {
       throw new Error(userErrors.map(e => e.message).join('; '));
     }
-    trackEvent('send_to_cart', { itemCount: lines.length, projectCode });
+    trackEvent('send_to_cart', { itemCount: lines.length, projectCode, displayPo });
     window.location.href = cart.checkoutUrl;
   } catch (err) {
     console.error('cartCreate failed:', err);
