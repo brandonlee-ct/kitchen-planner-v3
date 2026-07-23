@@ -4872,6 +4872,9 @@ function renderProductPanel() {
   });
 }
 
+let _resolveCatalogueReady;
+window.bbkCatalogueReady = new Promise(resolve => { _resolveCatalogueReady = resolve; });
+
 async function loadShopifyProducts() {
   const productList = document.getElementById('product-list');
   productList.innerHTML =
@@ -4895,6 +4898,8 @@ async function loadShopifyProducts() {
       '<div style="padding:16px;color:#c0392b;font-size:13px;text-align:center">' +
       'Failed to load products.<br><span style="font-size:11px;color:#888">' +
       (err.message || 'Check console') + '</span></div>';
+  } finally {
+    _resolveCatalogueReady?.();
   }
 }
 
@@ -8272,6 +8277,12 @@ document.getElementById('btn-auth-close').addEventListener('click', () => {
 });
 
 document.getElementById('btn-google-signin').addEventListener('click', () => {
+  if (walls.length || placedItems.length || sceneDirty) {
+    try {
+      const { sceneJson } = serialiseScene();
+      localStorage.setItem('bbk_draft_signin', JSON.stringify(sceneJson));
+    } catch (e) { /* private mode / storage blocked — ignore */ }
+  }
   signInWithGoogle();
 });
 
@@ -9538,6 +9549,23 @@ applyUrlMode();
 initAuth();
 animate();
 trackEvent('planner_opened', { mode: URL_MODE });
+
+// ── OAuth sign-in draft restore (S3 / TASKS.md 1.16a) ─────────────────────────
+(async () => {
+  if (new URLSearchParams(location.search).get('share')) return;
+  await window.bbkCatalogueReady;
+  let draft;
+  try {
+    const raw = localStorage.getItem('bbk_draft_signin');
+    if (!raw) return;
+    draft = JSON.parse(raw);
+  } catch (e) { return; }
+  if (!draft) return;
+  loadScene(draft);
+  sceneDirty = true;
+  try { localStorage.removeItem('bbk_draft_signin'); } catch (e) {}
+  showImportToast('Restored your unsaved design');
+})();
 
 // ── Shared project load (read-only mode) ─────────────────────────────────────
 (async () => {
