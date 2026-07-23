@@ -4704,18 +4704,18 @@ async function fetchAllShopifyProducts() {
 // logic (|| 600 / 720 / 580, glb || null → placeholder, category?.value || productType ||
 // 'Other') — it does NOT change any planner behaviour.
 function runCatalogueAudit(nodes) {
-  // Mirror shopifyNodeToProduct's per-dimension parse + fallback exactly.
+  // Mirror shopifyNodeToProduct's per-dimension parse + fallback exactly (via parseDimMm).
   function auditDim(raw, fallback) {
-    const parsed = parseInt(raw);              // matches parseInt(node.X_mm?.value)
+    const parsed = parseDimMm(raw);            // matches parseDimMm(node.X_mm?.value)
     const applied = parsed || fallback;        // matches `|| fallback`
     let status;
     if (raw === null || raw === undefined || raw === '') status = 'missing';
-    else if (isNaN(parsed)) status = 'unparseable';
+    else if (parsed === null) status = 'unparseable'; // non-empty but parseDimMm → null
     else if (!parsed) status = 'zero → fallback'; // parses but falsy (e.g. "0")
     else status = 'OK';
     return {
       raw: (raw === null || raw === undefined) ? null : raw,
-      parsed: isNaN(parsed) ? null : parsed,
+      parsed,
       applied,
       status,
       usedFallback: !parsed
