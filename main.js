@@ -296,12 +296,34 @@ let redoStack = [];
 // Cleared on successful save and on project load.
 let sceneDirty = false;
 
+// ── Draft autosave (S4 / TASKS.md 1.16b) ─────────────────────────────────────
+const BBK_DRAFT_AUTOSAVE_KEY = 'bbk_draft_autosave';
+const AUTOSAVE_DEBOUNCE_MS = 1000;
+let _autosaveTimer = null;
+
+function clearDraftAutosave() {
+  try { localStorage.removeItem(BBK_DRAFT_AUTOSAVE_KEY); } catch (e) {}
+}
+
+function scheduleDraftAutosave() {
+  if (readOnlyMode || new URLSearchParams(location.search).get('share')) return;
+  if (_autosaveTimer) clearTimeout(_autosaveTimer);
+  _autosaveTimer = setTimeout(() => {
+    _autosaveTimer = null;
+    try {
+      const { sceneJson } = serialiseScene();
+      localStorage.setItem(BBK_DRAFT_AUTOSAVE_KEY, JSON.stringify(sceneJson));
+    } catch (e) {}
+  }, AUTOSAVE_DEBOUNCE_MS);
+}
+
 function pushHistory(entry) {
   sceneDirty = true;
   undoStack.push(entry);
   if (undoStack.length > MAX_HISTORY) undoStack.shift();
   redoStack = [];
   updateUndoRedoButtons();
+  scheduleDraftAutosave();
 }
 function updateUndoRedoButtons() {
   const u = document.getElementById('btn-undo');
@@ -9567,6 +9589,31 @@ trackEvent('planner_opened', { mode: URL_MODE });
   showImportToast('Restored your unsaved design');
 })();
 
+// ── Draft autosave resume prompt (S4 / TASKS.md 1.16b) ────────────────────────
+let _pendingDraftRestore = null;
+
+function showDraftResumePrompt(draft) {
+  _pendingDraftRestore = draft;
+  const modal = document.getElementById('draft-resume-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+(async () => {
+  if (new URLSearchParams(location.search).get('share')) return;
+  let hadSigninDraft = false;
+  try { hadSigninDraft = !!localStorage.getItem('bbk_draft_signin'); } catch (e) {}
+  await window.bbkCatalogueReady;
+  if (hadSigninDraft) return; // S3 wins — sign-in draft restore takes precedence
+  let draft;
+  try {
+    const raw = localStorage.getItem(BBK_DRAFT_AUTOSAVE_KEY);
+    if (!raw) return;
+    draft = JSON.parse(raw);
+  } catch (e) { return; }
+  if (!draft) return;
+  showDraftResumePrompt(draft);
+})();
+
 // ── Shared project load (read-only mode) ─────────────────────────────────────
 (async () => {
   const shareSlug = new URLSearchParams(location.search).get('share');
@@ -9624,6 +9671,7 @@ document.getElementById('btn-save-project').addEventListener('click', async () =
     if (code) currentProjectCode = code;
   }
   sceneDirty = false;
+  clearDraftAutosave();
   currentProjectName = name.trim();
   trackEvent(isUpdate ? 'project_updated' : 'project_saved', { name: name.trim() });
   showImportToast(isUpdate ? 'Updated ✓' : 'Saved ✓');
@@ -9759,6 +9807,7 @@ async function handleLoadProject(id) {
   }
 
   loadScene(data.scene_json);
+  clearDraftAutosave();
   currentProjectName = data.name || '';
   currentProjectId = id;   // ✅ FIX: subsequent Save updates this row, not a duplicate
   // Shared join key: use the stored code, backfilling legacy rows that predate it.
@@ -9919,6 +9968,28 @@ document.getElementById('hmenu-save-project').addEventListener('click', () => {
   }
 });
 
+// ── Draft resume modal wiring (S4 / 1.16b) ───────────────────────────────────
+const draftResumeModal = document.getElementById('draft-resume-modal');
+const btnDraftResumeRestore = document.getElementById('btn-draft-resume-restore');
+const btnDraftResumeDiscard = document.getElementById('btn-draft-resume-discard');
+
+if (btnDraftResumeRestore) btnDraftResumeRestore.addEventListener('click', () => {
+  if (_pendingDraftRestore) {
+    loadScene(_pendingDraftRestore);
+    sceneDirty = true;
+    _pendingDraftRestore = null;
+  }
+  if (draftResumeModal) draftResumeModal.style.display = 'none';
+});
+if (btnDraftResumeDiscard) btnDraftResumeDiscard.addEventListener('click', () => {
+  clearDraftAutosave();
+  _pendingDraftRestore = null;
+  if (draftResumeModal) draftResumeModal.style.display = 'none';
+});
+if (draftResumeModal) draftResumeModal.addEventListener('click', (e) => {
+  if (e.target === draftResumeModal) draftResumeModal.style.display = 'none';
+});
+
 // ── Hamburger: Restart Planner (confirm modal → hard reload) ──
 const refreshModal = document.getElementById('refresh-confirm-modal');
 
@@ -9937,6 +10008,7 @@ refreshModal.addEventListener('click', (e) => {
 });
 document.getElementById('btn-refresh-confirm').addEventListener('click', () => {
   sceneDirty = false;   // user confirmed — don't double-warn via beforeunload
+  clearDraftAutosave();
   location.reload();
 });
 

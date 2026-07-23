@@ -87,6 +87,30 @@
   </div>
 </div>
 
+<!-- ── Draft Resume Modal (S4 / 1.16b) ─────────────────── -->
+<div id="draft-resume-modal" style="display:none;position:fixed;inset:0;
+  z-index:2000;background:rgba(0,0,0,0.85);align-items:center;
+  justify-content:center;font-family:Arial;">
+  <div style="background:#1e1e1e;border:2px solid #ff9500;border-radius:12px;
+    width:min(340px,92vw);padding:28px 24px;color:#fff;box-sizing:border-box;">
+    <div style="color:#ff9500;font-weight:bold;font-size:18px;
+      margin-bottom:6px">Resume your unsaved design?</div>
+    <div style="color:#ccc;font-size:13px;margin-bottom:24px;line-height:1.5">
+      We saved a draft of your last session. Restore it or start with a blank planner.
+    </div>
+    <button id="btn-draft-resume-restore" style="width:100%;background:#ff9500;
+      color:#111;border:none;border-radius:8px;padding:12px;
+      font-size:14px;font-weight:bold;cursor:pointer;margin-bottom:12px">
+      ↩ Restore draft
+    </button>
+    <button id="btn-draft-resume-discard" style="width:100%;background:none;
+      border:1px solid #444;color:#aaa;border-radius:8px;
+      padding:10px;font-size:13px;cursor:pointer">
+      Discard — start blank
+    </button>
+  </div>
+</div>
+
 <!-- ── Restart Confirm Modal ───────────────────────────── -->
 <div id="refresh-confirm-modal" style="display:none;position:fixed;inset:0;
   z-index:2000;background:rgba(0,0,0,0.85);align-items:center;
