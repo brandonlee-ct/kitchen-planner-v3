@@ -4650,6 +4650,87 @@ async function fetchAllShopifyProducts() {
   return all;
 }
 
+// ── Catalogue audit (?catalogaudit=1) ─────────────────────────────────────────
+// S1 / TASKS.md 1.15a — read-only diagnostic. Given the RAW Shopify nodes (drafts
+// included, before the (Draft) filter), report missing/unparseable planner.* metafields
+// and which fallback shopifyNodeToProduct() would apply. Mirrors that function's fallback
+// logic (|| 600 / 720 / 580, glb || null → placeholder, category?.value || productType ||
+// 'Other') — it does NOT change any planner behaviour.
+function runCatalogueAudit(nodes) {
+  // Mirror shopifyNodeToProduct's per-dimension parse + fallback exactly.
+  function auditDim(raw, fallback) {
+    const parsed = parseInt(raw);              // matches parseInt(node.X_mm?.value)
+    const applied = parsed || fallback;        // matches `|| fallback`
+    let status;
+    if (raw === null || raw === undefined || raw === '') status = 'missing';
+    else if (isNaN(parsed)) status = 'unparseable';
+    else if (!parsed) status = 'zero → fallback'; // parses but falsy (e.g. "0")
+    else status = 'OK';
+    return {
+      raw: (raw === null || raw === undefined) ? null : raw,
+      parsed: isNaN(parsed) ? null : parsed,
+      applied,
+      status,
+      usedFallback: !parsed
+    };
+  }
+
+  const rows = [];
+  let missingGlb = 0, unparseableDims = 0, missingCategory = 0, draftCount = 0;
+
+  nodes.forEach(node => {
+    const isDraft = /\(Draft\)/i.test(node.title || '');
+    if (isDraft) draftCount++;
+
+    const rawGlb = node.glb_url?.value || null;
+    const glbPresent = !!rawGlb;
+    if (!glbPresent) missingGlb++;
+
+    const w = auditDim(node.width_mm?.value, 600);
+    const h = auditDim(node.height_mm?.value, 720);
+    const d = auditDim(node.depth_mm?.value, 580);
+    if (w.status === 'unparseable' || h.status === 'unparseable' || d.status === 'unparseable') {
+      unparseableDims++;
+    }
+
+    const rawCategory = node.category?.value || null;
+    if (!rawCategory) missingCategory++;
+    const categoryApplied = rawCategory || node.productType || 'Other';
+
+    const fallbacksApplied = [];
+    if (!glbPresent) fallbacksApplied.push('glb → placeholder box');
+    if (w.usedFallback) fallbacksApplied.push('width → 600');
+    if (h.usedFallback) fallbacksApplied.push('height → 720');
+    if (d.usedFallback) fallbacksApplied.push('depth → 580');
+    if (!rawCategory) fallbacksApplied.push('category → ' + categoryApplied);
+
+    rows.push({
+      handle: node.handle,
+      title: node.title,
+      draft: isDraft,
+      productType: node.productType || '',
+      glb: glbPresent ? 'OK' : 'MISSING',
+      glb_url: rawGlb || '',
+      width_raw: w.raw, width_parsed: w.parsed, width_status: w.status,
+      height_raw: h.raw, height_parsed: h.parsed, height_status: h.status,
+      depth_raw: d.raw, depth_parsed: d.parsed, depth_status: d.status,
+      category_raw: rawCategory || '', category_applied: categoryApplied,
+      fallbacksApplied: fallbacksApplied.length ? fallbacksApplied.join('; ') : '—'
+    });
+  });
+
+  console.group('%c🗂️ Catalogue audit (?catalogaudit=1)', 'font-weight:bold;font-size:13px');
+  console.log('Total products fetched: ' + rows.length + ' (including ' + draftCount + ' draft' + (draftCount === 1 ? '' : 's') + ')');
+  console.log('Missing planner.glb_url: ' + missingGlb);
+  console.log('Products with unparseable dimension(s): ' + unparseableDims);
+  console.log('Missing planner.category: ' + missingCategory);
+  console.table(rows);
+  console.groupEnd();
+
+  return rows;
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 function renderProductPanel() {
   const productList = document.getElementById('product-list');
   productList.innerHTML = '';
@@ -4744,6 +4825,12 @@ async function loadShopifyProducts() {
 
   try {
     const nodes = await fetchAllShopifyProducts();
+    // S1 (TASKS.md 1.15a): read-only catalogue audit. Runs ONLY with ?catalogaudit=1,
+    // reusing the raw nodes just fetched (drafts included, before the (Draft) filter) —
+    // no extra fetch, no behaviour change when the param is absent.
+    if (new URLSearchParams(location.search).get('catalogaudit') === '1') {
+      runCatalogueAudit(nodes);
+    }
     products = nodes
       .filter(n => !/\(Draft\)/i.test(n.title))
       .map(shopifyNodeToProduct);
