@@ -37,6 +37,15 @@ checklists further down are grouped by these tracks.
 - [x] ✅ 1.6 Embed planner in Shopify storefront (Task O Phase 1: `?embed=1` mode — `getUrlMode`/`applyUrlMode`, `.mode-embed` slim chrome, README usage docs; subdomain-link + iframe paths). App Block deferred to Phase 2.
 - [x] ✅ 1.11 Read-only share links (`?share=<slug>`) — share button per project row, slug generated + stored in Supabase (`is_public`, `share_slug` columns), read-only badge, save controls hidden for viewers
 
+### Items 0–5 improvement sprint (briefs: `S-BRIEFS-ITEMS-0-5.md`, plan approved 24 Jul 2026)
+- [ ] ⬜ 1.15a Catalogue audit tool — `?catalogaudit=1` read-only report of missing/unparseable `planner.*` metafields + applied fallbacks (S1)
+- [ ] ⬜ 1.15b Robust dimension parsing — integer/decimal/Dimension-JSON + unit conversion in `shopifyNodeToProduct`; visible "default size" badge (S2)
+- [ ] 👤 1.15c Owner Shopify data pass — fix `planner.*` metafield types/values, populate unlinked products, split composite models (per `public/catalog-setup.html`) [owner task, not an S brief]
+- [ ] ⬜ 1.16a Draft stash on OAuth sign-in — stash scene to localStorage before `signInWithGoogle`, restore after boot, `sceneDirty=true` (S3)
+- [ ] ⬜ 1.16b Draft autosave + resume prompt — debounced localStorage autosave on `pushHistory`; "Resume your unsaved design?" on load; keep `beforeunload` (S4)
+- [ ] ⬜ 1.17 Service products quote-only — `planner.category=service` become quote-only line items (no 3D box); `scene_json` v4 + v1–v3 migration; undo/redo (S5)
+- [ ] ⬜ 1.18 Component SKUs — `planner.component_skus` expands Send-to-Cart into component lines; quote/CSV/PDF breakdown; surfaced in audit tool (S6) [Sprint 2]
+
 ## Track 2 — Auto-Design ⏳  (spec: `AUTO-DESIGN-PLAN.md`)
 - [x] ✅ Pure solver modules (`auto-design.js`, `auto-design-rules.js`, tests, fixtures) — isolated, no UI/3D deps (API-ready), unit-tested and committed.
 - [ ] ⏳ Wire into planner via wizard + adapter + toolbar button, behind the hybrid rollout gate
@@ -54,9 +63,15 @@ checklists further down are grouped by these tracks.
 ## Track 3 — Cross-repo integration ⏳  (spec: `P2-MONOREPO-BRIEF.md`)
 Links planner projects to Trade jobs via a shared DB key — no direct calls between codebases.
 - [ ] ⏳ `projects.project_code` join key — generated on save, stamped on the Shopify cart as the `project_code` attribute, backfills legacy rows. Code in `auth.js` + `main.js`. SQL: `supabase/project-code.sql` (authored, **not applied**).
+- [ ] ⏳ Checkout capture for Trade — cart stamps `project_code` + `display_po`; owner applies Shopify checkout settings (phone required, address autocomplete). See [CHECKOUT-CAPTURE.md](CHECKOUT-CAPTURE.md). **Built in code, NOT verified** until owner test order.
 - [ ] ⏳ Planner-admin RLS — `public.planner_is_admin()` restricts cross-user project access to `super_admin`/`hq_admin`/`admin`; every other shared/Trade role is scoped out. SQL: `supabase/planner-admin-roles.sql` (authored, **not applied**). Does NOT touch shared `is_admin()`/`profiles`/role CHECK.
 - [ ] 👤 Owner: apply both SQL files in Supabase (additive, reversible) — Deploy 1 of the go-live sprint.
 - [ ] 👤 Trade: confirm the cart attribute key is exactly `project_code`; add `super_admin` to the shared `profiles.role` CHECK.
+- 📄 Reference only (NON-AUTHORITATIVE, not scope): [SuperAPP-BBK-Combined-Architecture.md](SuperAPP-BBK-Combined-Architecture.md) — candidate future PMAI↔BBK bridges (design push / H&S docs / KPI read). Mirror of the PMAI-side note; nothing here is planned or buildable without owner rulings in both repos.
+
+## Track 5 — DIY guided mode (spec-first)  (spec: `DIY-MODE-PLAN.md`)
+- [x] ✅ DIY-1 `DIY-MODE-PLAN.md` written + **signed off by H 24 Jul 2026** — 5-step wizard spec (square room; walls/ceiling; openings/GPOs; admin mood boards + 4 placeholder palettes; guided drag-drop; NZBC G3/AS1 checker). Reuses auto-design wizard chassis + hybrid gate. Mood-board storage **ruled: Supabase table** (H applies additive SQL when DIY-3 is scheduled). (S7)
+- [ ] ⬜ DIY-2 DIY button + square room + Steps 1–2 only, reusing wizard modal + room/opening tools — **unblocked; ready for O to write the build brief**
 
 ## Open — needs Opus 🧠
 - [ ] 1.7 Shopify Customer Account → Supabase JWT single-login bridge (deferred; not blocking launch — see Milestone C).

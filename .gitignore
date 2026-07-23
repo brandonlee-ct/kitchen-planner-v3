@@ -9,6 +9,9 @@ node_modules/
 # Vite build output
 dist/
 
+# Build / task logs — never commit throwaway build output
+*.log
+
 # OS files
 .DS_Store
 Thumbs.db
