@@ -183,7 +183,7 @@ These are the `AGENTS.md` house rules. Each brief's "Out of scope / do NOT touch
 
 ## S5 — Service products are quote-only (no 3D placeholder box) · scene_json v4
 
-**Objective (one sentence):** Products with `planner.category = "service"` (e.g. Site Measure, Off-site Quotation) must never place a 3D placeholder box; they appear in the panel and are added as quote-only line items that flow into the quote panel, CSV, PDF, and Send-to-Cart — persisted via a new `serviceItems` array in `scene_json` at **version 4** with a migration for v1–v3, and full undo/redo for add/remove.
+**Objective (one sentence):** Products with `planner.category = "service"` (currently one: **INSTALL QUOTE REQUEST**, Shopify handle `site-measure`; "Off-site Quotation" was deleted by owner decision 27 Jul) must never place a 3D placeholder box; they appear in the panel and are added as quote-only line items that flow into the quote panel, CSV, PDF, and Send-to-Cart — persisted via a new `serviceItems` array in `scene_json` at **version 4** with a migration for v1–v3, and full undo/redo for add/remove.
 
 **Board item (TASKS.md):** New item, **Track 1 → touches Track 3's Send-to-Cart pipeline read-only** — "Service products quote-only" (`1.17`). Item 5. **Architecture-adjacent** (persisted-shape change) — this brief was designed by O; S implements exactly as specified and stops-and-asks on any deviation.
 
@@ -215,7 +215,7 @@ These are the `AGENTS.md` house rules. Each brief's "Out of scope / do NOT touch
 - Do not change any function signature (`placeProduct`, `serialiseScene`, `loadScene`, `updateQuote`, `buildQuoteRows` keep their current signatures).
 
 **Acceptance criteria:**
-- Clicking a `category=service` product (e.g. Site Measure) adds it to the quote **without** placing any 3D box in the scene (nothing appears in the viewport; `placedItems` unchanged).
+- Clicking a `category=service` product (INSTALL QUOTE REQUEST) adds it to the quote **without** placing any 3D box in the scene (nothing appears in the viewport; `placedItems` unchanged).
 - The service item appears in the quote panel, CSV, and PDF, and is added as a cart line by Send-to-Cart (when it has a `variantId`).
 - Add a service item → undo removes it from the quote → redo restores it.
 - Save a scene with service items → reload → load → service items and quote total restored; no box appears.
@@ -224,12 +224,12 @@ These are the `AGENTS.md` house rules. Each brief's "Out of scope / do NOT touch
 
 **How to test (Law L):**
 1. `git checkout main && git pull`; check out this task's branch; `npm run dev`; open `http://localhost:5173/`.
-2. Ensure at least one product in Shopify has `planner.category = service` (Site Measure / Off-site Quotation). If none exists in the connected store, ask H to set one, or temporarily verify against `?catalogaudit=1` (S1) to find the category values — flag to O if no service product exists to test against.
+2. Ensure the service product exists: **INSTALL QUOTE REQUEST** (handle `site-measure`) has `planner.category = service` (owner set this 29 Jul; confirm via `?catalogaudit=1`). "Off-site Quotation" no longer exists (deleted by owner).
 3. Click the service product → confirm **no box** appears, but a quote line does. Check quote total, then export CSV and PDF and confirm the service line is present. Click Send to Cart → confirm the service variant is a cart line.
 4. Undo → service line disappears from quote; Redo → returns.
 5. Save the project, reload the page, load it → service item + total restored, still no box.
 6. Load an older saved project (v1/v2/v3) → confirm clean load.
-7. Confirm the v4 writer without a debug hook (`serialiseScene()` is NOT exposed on prod — the console hook was removed per Task Q): make an edit, then in DevTools → Application → Local Storage read `bbk_draft_autosave` and confirm `version: 4` + a `serviceItems` array; or inspect the saved project's `scene_json` in Supabase after Save. (On a dev build you may still call `serialiseScene()` directly.)
+7. Confirm the v4 writer WITHOUT a debug hook (`serialiseScene()` is module-scoped and NOT callable on live — the console hook was removed per Task Q): make one edit, then in the DevTools console run `JSON.parse(localStorage.getItem('bbk_draft_autosave')).version` → **expect `4`**. (On a dev build you may still call `serialiseScene()` directly.)
 8. Repeat the add/undo flow on **touch (iPad)**.
 9. Run the **AGENTS.md post-task smoke checklist** (desktop + touch) — pay special attention to "cabinets sit on the 300mm slab (place, save, reload)" and Quote CSV + PDF, since this brief touches quote + persistence.
 
