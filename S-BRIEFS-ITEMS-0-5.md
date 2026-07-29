@@ -229,7 +229,7 @@ These are the `AGENTS.md` house rules. Each brief's "Out of scope / do NOT touch
 4. Undo → service line disappears from quote; Redo → returns.
 5. Save the project, reload the page, load it → service item + total restored, still no box.
 6. Load an older saved project (v1/v2/v3) → confirm clean load.
-7. In DevTools, `serialiseScene()` (or inspect a save) → confirm `version === 4` and `serviceItems` array present.
+7. Confirm the v4 writer without a debug hook (`serialiseScene()` is NOT exposed on prod — the console hook was removed per Task Q): make an edit, then in DevTools → Application → Local Storage read `bbk_draft_autosave` and confirm `version: 4` + a `serviceItems` array; or inspect the saved project's `scene_json` in Supabase after Save. (On a dev build you may still call `serialiseScene()` directly.)
 8. Repeat the add/undo flow on **touch (iPad)**.
 9. Run the **AGENTS.md post-task smoke checklist** (desktop + touch) — pay special attention to "cabinets sit on the 300mm slab (place, save, reload)" and Quote CSV + PDF, since this brief touches quote + persistence.
 
