@@ -51,7 +51,9 @@ These map to order `note_attributes` on `orders/paid`. Trade intake reads them i
    - `shipping_address.name` = `Mr Test` (not Google account name)
    - `shipping_address.phone` or order `phone` populated
    - `email` populated
-   - `shipping_address.province` / `province_code` normalized (not `AUK` typo)
+   - `shipping_address.province` = `Auckland` with `province_code` = `AUK` — this is the
+     expected normalized PASS state (`AUK` is Shopify's ISO 3166-2 region code for Auckland;
+     A ruling 19 Aug 2026). FAIL only if free-text `AUK` was typed as the province **name**.
    - **Additional details** / note attributes: `project_code`, `display_po`
 5. Export webhook payload or screenshot for Trade PM. Trade job should show name, email, phone,
    address, PO after intake (requires S-INV promote + `display_po` migration on shared DB).
