@@ -4730,8 +4730,12 @@ function parseComponentSkus(rawValue, label) {
                  : typeof rawQty === 'string' ? Number(rawQty.trim())
                  : NaN;
     if (!Number.isInteger(qtyNum) || qtyNum < 1) {
+      // JSON.stringify turns NaN and Infinity into the string "null", which would have
+      // reported two of the exact cases this rule exists to catch as something else.
+      const shown = (typeof rawQty === 'number' && !Number.isFinite(rawQty))
+        ? String(rawQty) : JSON.stringify(rawQty);
       console.warn('planner.component_skus qty must be a whole number of 1 or more (got ' +
-        JSON.stringify(rawQty) + ') on ' + (label || 'product') + ' — entry skipped:', variantId);
+        shown + ') on ' + (label || 'product') + ' — entry skipped:', variantId);
       return;
     }
     out.push({ variantId: String(variantId), qty: qtyNum });
@@ -4899,7 +4903,11 @@ function runCatalogueAudit(nodes) {
   let missingGlb = 0, unparseableDims = 0, missingCategory = 0, draftCount = 0;
   let withComponents = 0, unparseableComponents = 0, unresolvedComponentProducts = 0;
   let draftComponentProducts = 0, skippedComponentProducts = 0;
-  let storeOnlyCount = 0;
+  // Counted separately: this report runs on the RAW nodes, so a store-only product that is
+  // also (Draft) was already excluded by the draft filter. Lumping the two together would
+  // print a number larger than the panel actually hides, and H reads this line against the
+  // Shopify data.
+  let storeOnlyCount = 0, storeOnlyDraftCount = 0;
 
   nodes.forEach(node => {
     const isDraft = /\(Draft\)/i.test(node.title || '');
@@ -4923,7 +4931,7 @@ function runCatalogueAudit(nodes) {
     // through the shared helper, so this column can never disagree with what the
     // catalogue panel actually hides.
     const storeOnly = isStoreOnlyCategory(categoryApplied);
-    if (storeOnly) storeOnlyCount++;
+    if (storeOnly) { if (isDraft) storeOnlyDraftCount++; else storeOnlyCount++; }
 
     const comp = auditComponentSkus(node.component_skus?.value, node.handle);
     // ✅ FIX (C8): count off the structured fields, not off substrings of the status
@@ -4965,12 +4973,14 @@ function runCatalogueAudit(nodes) {
   console.log('Missing planner.glb_url: ' + missingGlb);
   console.log('Products with unparseable dimension(s): ' + unparseableDims);
   console.log('Missing planner.category: ' + missingCategory);
-  // 1.19: store-only products are hidden from the catalogue panel but stay in `products`,
-  // so they still resolve by name and price when referenced in planner.component_skus.
-  console.log('Store-only products (hidden from the catalogue panel): ' + storeOnlyCount +
-    ' — planner.category in {' + Array.from(STORE_ONLY_CATEGORIES).join(', ') + '}');
   console.log('Products with planner.component_skus: ' + withComponents +
     (unparseableComponents ? ' (' + unparseableComponents + ' unparseable)' : ''));
+  // 1.19: appended AFTER every pre-existing count line so none of them shifts position —
+  // R4 walks H down this list. Store-only products are hidden from the catalogue panel but
+  // stay in `products`, so they still resolve by name and price in planner.component_skus.
+  console.log('Store-only products (hidden from the catalogue panel): ' + storeOnlyCount +
+    (storeOnlyDraftCount ? ' (plus ' + storeOnlyDraftCount + ' already excluded as (Draft))' : '') +
+    ' — planner.category in {' + Array.from(STORE_ONLY_CATEGORIES).join(', ') + '}');
   // ✅ FIX (C8): draft-parent and skipped components are reported on their own lines.
   // A draft-parent component is the dangerous one — it reads fine here but resolves to
   // nothing in the planner and can make Shopify reject the entire cart.

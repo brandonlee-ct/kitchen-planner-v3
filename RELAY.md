@@ -92,6 +92,63 @@ closes a cycle; keep this table's author line current when you edit it.
 
 # Log (newest first)
 
+### 2026-08-19 · O → A · Second reviewer pass on `1.19`/`C8`: verdict ship, four nits actioned
+
+**Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session of 19 Aug)
+**Board items:** `1.19`, `C8`
+**Claim level:** **verified-local, NOT live** — all three verification runs re-run against the
+amended code, and every ✅ still withheld
+**Relaying work by:** the reviewer subagent produced the findings; O actioned four and signs for
+the judgement about which four
+**Supersedes:** nothing. This is an addition to the entry directly below, not a correction of it.
+
+The reviewer was re-run on the final four-commit diff and returned **ship, no blocking findings**,
+with nine non-blocking notes. Four were worth taking because each one changes what H actually reads,
+and all four are in commit `d0f1a9c`:
+
+1. **The skip warning misreported two of the exact cases the rule exists to catch.**
+   `JSON.stringify(NaN)` and `JSON.stringify(Infinity)` both return the string `"null"`, so a
+   `qty` of `Infinity` printed as `(got null)`. Non-finite numbers now print truthfully. Warning
+   text only — the skip behaviour was already correct.
+2. **The store-only count could exceed the number actually hidden.** The audit runs on the raw
+   nodes, *before* the `(Draft)` filter, so a store-only product that is also `(Draft)` was being
+   counted as hidden by `1.19` when the draft filter had already excluded it. The two are now
+   counted separately and the line reads `N (plus M already excluded as (Draft))`. This one matters
+   because criterion (d) exists so H can check the Shopify data against that number.
+3. **The new count line had been inserted above the 1.18 line, shifting it from fifth to sixth.**
+   No value changed, but R4 walks H down that list in order, so the store-only line is now appended
+   after **every** pre-existing line — the same rule the brief already set for the columns.
+4. **Two docs inaccuracies fixed.** `TASKS.md` called `1.19` "insertion-only" when
+   `renderProductPanel` also changed two existing expressions (the grouping loop and the empty-state
+   test); it now says so, and says the change is a no-op when nothing is marked store-only. And the
+   `C8` brief's how-to-test did not start with the branch checkout, while the entry below claimed
+   both briefs did — Law L, so the brief was fixed rather than the claim softened.
+
+**Deliberately NOT actioned, with reasons.** (a) The `(Draft)` regex now appears three times bound
+only by a comment, where `1.19` proves the better pattern with `isStoreOnlyCategory` — a real
+observation, but an `isDraftTitle()` helper touching `loadShopifyProducts` is a refactor of working
+code outside both briefs. (b) `withComponents` still derives its count from
+`status.indexOf('OK') === 0` and is gated on `count > 0`, so a product whose entries were **all**
+rejected is absent from that line; the dedicated skipped-entries warning covers the case, and today
+every product reads `absent`, so changing it would alter a pre-existing count line the C8 DoD says
+must not change. (c) A duplicate parser warning under `?catalogaudit=1` (the value is parsed once by
+the audit and once by `shopifyNodeToProduct`) — pre-existing from 1.18, audit-mode only, cosmetic.
+All three are logged here rather than fixed quietly, so A can overrule any of them.
+
+**Evidence — all three runs re-run against the amended code:** quantity harness **20/20** (pre-fix
+control still fails 6), browser verification **21/21**, `AGENTS.md` post-task smoke checklist
+**38/38** desktop + touch, `npm run build` ✓. The regenerated before/after audit output confirms the
+four original count lines keep their original positions and values.
+
+⚠ **One limitation the reviewer stated and O is repeating rather than burying:** the reviewer ran
+without a shell, so its pass is a file-level read of the working tree, not an executed build or a
+byte-level diff against `d7fd48a`. The executed evidence above is O's, not the reviewer's.
+
+**Asks of A:** overrule any of the three deferred nits if you disagree — particularly (b), since it
+sits on the audit line R4 tells H to trust.
+
+---
+
 ### 2026-08-19 · O → H + A · PR #7 merged; `1.19` store-only filter + `C8` fixes built (code)
 
 **Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session of 19 Aug)
