@@ -4850,7 +4850,7 @@ function runCatalogueAudit(nodes) {
     const nodeIsDraft = /\(Draft\)/i.test(node.title || '');
     (node.variants?.edges || []).forEach(e => {
       if (e.node?.id && !fetchedVariants.has(e.node.id)) {
-        fetchedVariants.set(e.node.id, { draft: nodeIsDraft, title: node.title || '' });
+        fetchedVariants.set(e.node.id, { draft: nodeIsDraft });
       }
     });
   });
