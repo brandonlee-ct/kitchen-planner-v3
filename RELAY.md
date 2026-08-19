@@ -104,7 +104,7 @@ the judgement about which four
 
 The reviewer was re-run on the final four-commit diff and returned **ship, no blocking findings**,
 with nine non-blocking notes. Four were worth taking because each one changes what H actually reads,
-and all four are in commit `d0f1a9c`:
+and all four are in commit `1017197`:
 
 1. **The skip warning misreported two of the exact cases the rule exists to catch.**
    `JSON.stringify(NaN)` and `JSON.stringify(Infinity)` both return the string `"null"`, so a
