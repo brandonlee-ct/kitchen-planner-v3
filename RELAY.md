@@ -16,25 +16,51 @@
 
 ## How to use it
 
+- **ALWAYS NAME THE AUTHOR (H ruling, 19 Aug 2026).** Every entry, report, prompt, runbook and
+  amendment in this file **must** carry an explicit `**Author:**` line naming the role **and** the
+  actual agent or human behind it, tagged from the § Authors & sessions table below. A role letter
+  alone is not enough: `O` is a seat, not an identity, and three different sessions can occupy it in
+  a day. Without an author an entry cannot be audited, chased, or held to account — so an entry with
+  no author is a defect, and A should reject it rather than act on it.
 - **Append only.** Add a new entry at the top of the log; never rewrite or delete a past entry.
   If an entry was wrong, add a correction entry that supersedes it and say so (Law R: lead with
-  the correction).
+  the correction). Retro-fitting a missing `**Author:**` onto an existing entry is the one edit
+  that is always allowed, because it adds provenance rather than changing a claim.
 - **One entry per handoff.** Entry header: `### <date> · <FROM> → <TO> · <subject>`.
 - **Every entry states evidence.** "Built", "pushed", and "verified" are three different claims
   (Law A). Say which one you are making, and name the artifact (commit SHA, file, screenshot).
+- **Attribute work you are only relaying.** If you are reporting someone else's output — an S build,
+  a reviewer verdict, a tester's observation — say so in the entry body. The `**Author:**` is
+  whoever wrote the entry and stands behind it; it does not transfer credit or blame for the work
+  being described.
 - **Cite the board item.** Every entry names the [TASKS.md](TASKS.md) item it maps to. If it maps
   to none, that is the finding — say so and stop (Law B).
 - **Never fabricate.** If a doc, file, order, or verification does not exist, write that it does
   not exist (Law R).
 
+### Authors & sessions
+
+Add a row the first time a new session writes here; then use its tag in `**Author:**` lines.
+Never reuse another session's tag.
+
+| Tag | Role | Who actually wrote it | Session / provenance |
+|---|---|---|---|
+| `O-opus-19aug26` | **O** — PM | Opus, running as a Cursor cloud agent | run `bc-01a017e7-1c8c-7589-b21f-99d002f1c928`, 19 Aug 2026 |
+
+> Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
+> `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
+> their output and signs for it. If that changes, they get their own tags and sign their own entries.
+
 ### Entry template
 
 ```
 ### YYYY-MM-DD · FROM → TO · subject
+**Author:** <tag> — <role> (<who/what>)      ← MANDATORY, never omit
 **Board item:** TASKS.md <id>
 **Claim level:** built | pushed | verified-local | verified-live
 **What happened:** ...
 **Evidence:** commit / file / artifact
+**Relaying work by:** <who did the work, if not the author>
 **Open questions / asks:** ...
 **Blocked on:** role + exactly what is needed
 ```
@@ -42,6 +68,9 @@
 ---
 
 ## Standing register — who owes what
+
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent). Maintained by whoever closes a cycle; keep
+this table's author line current when you edit it.
 
 | # | Item | Board | Owner of next action | Blocking reason |
 |---|---|---|---|---|
@@ -58,8 +87,54 @@
 
 # Log (newest first)
 
+### 2026-08-19 · O → A · H ruling applied: every entry, report and prompt must name its author
+
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
+**Board item:** none — this is a governance amendment to this file, not planner work. Flagging that
+explicitly per Law B rather than inventing a board item to sit under.
+**Claim level:** applied to this file (documentation change only; no code touched)
+
+**Instruction received (from H, 19 Aug 2026):** "Relay Md should have the author in every prompt, or
+report."
+
+**What changed.**
+1. Authorship is now the **first rule** in § How to use it, not a footnote. Law S: a rule at the top
+   of the loaded file beats the same rule mid-document, so it is placed where a fresh session will
+   actually read it before writing.
+2. Added § **Authors & sessions** — a tag table mapping each author tag to the real agent or human
+   plus its session id, so a claim can be traced to a specific run rather than to a role letter.
+   `O` is a seat, not an identity; several sessions can occupy it in one day.
+3. The entry template now carries a `**Author:**` field marked MANDATORY, plus an optional
+   `**Relaying work by:**` field, because most O entries report S's or the reviewer's output and the
+   two should not be conflated: the author is whoever stands behind the entry, not whoever did the
+   work being described.
+4. **Retro-fitted every pre-existing section** — all 7 log entries, the standing register, and
+   runbooks R1–R5 now name their author. This is the one edit the append-only rule permits, since it
+   adds provenance without altering a claim; that exemption is now written into the rule itself.
+5. Runbooks are explicitly in scope, since H said "prompt **or** report". Each `R#` is a prompt to H,
+   so each signs itself. R4 additionally records that its Shopify Admin steps were **not** executed
+   by their author and so may not match the current Admin UI (Law M) — exactly the kind of thing an
+   unattributed runbook hides.
+
+**Why this matters beyond bookkeeping.** Three of this cycle's entries are things O has asked A to
+rule on, and one is a **correction withdrawing O's own earlier PASS**. Any of those is worthless if A
+cannot tell which session made the claim: A cannot weigh a source it cannot identify, and Law K asks
+A to hold the line against pressure — which requires knowing who is applying it.
+
+**Evidence:** 13 authored sections, verified by grep — every `###` log entry, every `R#` runbook, and
+the standing register carry an `**Author:**` line directly under their heading. No `.js`, `.html`, or
+`.css` file touched.
+
+**Ask of A:** if you want authorship enforced rather than merely written down (Law S: a blocking hook
+beats prose), the natural mechanism is a CI check that fails when a `###` entry in this file has no
+`**Author:**` line within two lines of its heading. O has not added one — that is a repo-tooling
+decision for H.
+
+---
+
 ### 2026-08-19 · O → A · CORRECTION + upgraded C3 evidence: first manual test was invalid, real control test now passes
 
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
 **Board item:** TASKS.md 🔴 Bug brief `C3`
 **Claim level:** **verified-local on the production bundle, with a control** — still not verified-live
 **Supersedes:** the evidence paragraph in the C3 entry below (the fix and the commit are unchanged)
@@ -110,6 +185,8 @@ back-navigation test by a browser-only tester is exposed to the same false PASS.
 
 ### 2026-08-19 · O → A · Real-world finding for the pending out-of-stock ruling (C3 related decision)
 
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
+**Relaying work by:** observed during O's own C3 live-checkout testing
 **Board item:** Bug brief `C3` → "_Related owner decision: out-of-stock cabinet handling at
 checkout_" (awaiting an A ruling), and Track 1 `1.15c` item #6 OOS
 **Claim level:** observed on the live store, incidental to C3 testing
@@ -137,6 +214,9 @@ warn before Send-to-Cart) that needs no Shopify change. O can brief either once 
 
 ### 2026-08-19 · O → A · Post-task smoke checklist run (AGENTS.md) — one item genuinely blocked
 
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
+**Relaying work by:** a GUI test agent driving desktop Chrome under O's instruction, plus S's 390px
+touch run. O reviewed every result and signs for this table.
 **Board items:** all four in this cycle (the checklist is mandatory after ANY task)
 **Claim level:** verified-local on the dev build, desktop; touch partly covered
 
@@ -170,6 +250,9 @@ regression rather than a discovery failure. 👤/🧠 worth one H check.
 
 ### 2026-08-19 · O → A · ⚠ Live catalogue drift observed — does NOT lift the 1.15c hold
 
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
+**Relaying work by:** S's 1.18 test harness incidentally captured the counts; O verified and reports
+them, and O is the one refusing to move the board on them.
 **Board item:** TASKS.md `1.15c`
 **Claim level:** observed (agent-side) — **explicitly NOT the H verification the hold requires**
 
@@ -204,6 +287,9 @@ the relay only, exactly as now, until H reports a clean dated reading.
 
 ### 2026-08-19 · O → A · Task 1.18 Component SKUs: code complete, dormant until H sets a metafield
 
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
+**Relaying work by:** S (Composer) wrote the code to O's re-issued S6 brief; the reviewer subagent
+returned the fix-then-ship verdict. The four rulings below are **O's own** and O owns them.
 **Board item:** TASKS.md `1.18` (brief S6)
 **Claim level:** **verified-local** (against the live catalogue, via a local build) — NOT verified-live
 **Commit:** `ade39f8`
@@ -268,6 +354,10 @@ Storefront API), then live-verify. Until then this is code-complete and dormant,
 
 ### 2026-08-19 · O → A · Bug C3 fixed: Send-to-Cart no longer stuck after browser Back
 
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
+**Relaying work by:** S (Composer) wrote the fix to O's brief S8; the reviewer subagent returned the
+ship verdict. **Note:** the evidence paragraph in this entry was later superseded by O's own
+production control test — see the CORRECTION entry at the top of the log.
 **Board item:** TASKS.md 🔴 Bug brief `C3`
 **Claim level:** **verified-local** (real Chrome bfcache restore, with a control) — NOT verified-live
 **Commit:** `2a9b9fd`
@@ -312,6 +402,7 @@ iPad/iPhone Safari.
 
 ### 2026-08-19 · O → A · Cycle open: C3 + 1.18 built; 1.15c + Track 3 remain owner-gated
 
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent). First entry in this file.
 **Board items:** Bug brief `C3`, `1.18`, `1.15c`, Track 3.
 
 **Instruction received (from H):** carry out the four top open items; create this relay; delegate
@@ -376,8 +467,15 @@ S was instructed to re-locate by function name, not line number.
 
 > Law H: numbered steps, one action per step, and no technical decision left to H cold.
 > O's recommendation is given as the default in each case.
+>
+> **Runbooks are prompts, so they are authored too** (H ruling, 19 Aug 2026). Each `R#` below carries
+> its own `**Author:**` line. If you revise someone else's runbook, add your tag and say what you
+> changed — do not silently inherit theirs, because H needs to know who to go back to when a step
+> does not match reality (Law M: a mismatch means the author skipped verification).
 
 ### R1 · 1.15c — Shopify catalogue data pass  (unblocks nothing else; safe to do any time)
+
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
 
 The A hold means **step 1 comes first and the board stays frozen until it is reported.**
 
@@ -394,6 +492,9 @@ The A hold means **step 1 comes first and the board stays frozen until it is rep
 6. Re-run step 1 and confirm the counts moved in the direction you expect.
 
 ### R2 · Track 3 — apply the two SQL files  (this is Deploy 1 of the go-live sprint)
+
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent). The SQL files themselves were authored
+earlier by another session and are unchanged by this cycle; O wrote only these apply steps.
 
 Both files are already authored in this repo and are additive and reversible. Neither has been
 applied. **O cannot apply them** — that needs the Supabase SQL editor, which is owner-only, and
@@ -414,6 +515,8 @@ Law Q forbids an agent touching a shared schema alone.
 
 ### R3 · Track 3 — the two confirmations O cannot make
 
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
+
 1. **Trade cart-attribute key.** Ask Trade to confirm the key their intake reads is exactly
    `project_code`, and to add `super_admin` to the shared `profiles.role` CHECK.
    O's note: the planner already stamps `project_code` and `display_po` (`main.js`, `btn-send-cart`
@@ -428,6 +531,10 @@ Law Q forbids an agent touching a shared schema alone.
    Do not let anyone close this by assumption.
 
 ### R4 · 1.18 — how to switch Component SKUs on (do NOT do this until A rules on BOM-vs-add-on)
+
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent). Steps 1–2 are Shopify Admin procedure that
+O has **not** executed and cannot verify from here (Law M) — if a menu path differs, that is on this
+author, so report it rather than guessing.
 
 **Read the ruling-1 warning in the 1.18 log entry first.** If `component_skus` was meant as a bill
 of materials rather than add-ons, populating a metafield now would start **overcharging** customers.
@@ -453,6 +560,8 @@ Confirm the intent with A before step 1.
    at qty 4.
 
 ### R5 · C3 — live verification (2 minutes, desktop then iPad)
+
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
 
 1. Open `https://planner.brownboxkit.co.nz` **after the next Vercel deploy of `main`**.
 2. Place any cabinet, then click `🛒 Send to Cart` and let it reach the Shopify checkout.
