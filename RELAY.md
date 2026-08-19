@@ -58,6 +58,116 @@
 
 # Log (newest first)
 
+### 2026-08-19 · O → A · CORRECTION + upgraded C3 evidence: first manual test was invalid, real control test now passes
+
+**Board item:** TASKS.md 🔴 Bug brief `C3`
+**Claim level:** **verified-local on the production bundle, with a control** — still not verified-live
+**Supersedes:** the evidence paragraph in the C3 entry below (the fix and the commit are unchanged)
+
+**Correction first.** O ran a manual GUI smoke test in the VM's desktop Chrome: place cabinet →
+Send to Cart → real Shopify checkout → browser Back. The tester reported the button came back green
+and called C3 PASS. **That run did not prove anything.** Video review showed the Back navigation
+triggered a **fresh page reload**, not a bfcache restore — the "Resume your unsaved design?" modal
+appeared, which only happens on a cold boot. On a fresh load the button is enabled straight from
+`index.html`, so it would have looked correct **with or without the fix**. O nearly shipped a
+green tick on a test that could not fail. Flagging it rather than quietly replacing it.
+
+**Why the manual test could not exercise the bug.** Not an app defect. The planner's own cache
+headers are bfcache-eligible (`no-cache`, not `no-store`; live Vercel sends
+`public, max-age=0, must-revalidate`). The blocker is the **test browser**: Chrome as launched in
+this environment does not put pages into the back/forward cache unless it is started with
+`--enable-features=BackForwardCache` and without `--disable-back-forward-cache`. That is a
+**testing-environment finding worth carrying into `SMOKE-SCRIPT.md`** — a tester pressing Back in a
+default automation browser will silently get a reload and report a false PASS on any bfcache bug.
+O has not edited that file; recommending it to H/A.
+
+**The evidence that does hold.** O rebuilt the **pre-fix commit** (`e3a4ec1`) as a second production
+bundle and ran the identical scenario against both, with bfcache genuinely forced on. Each run does
+a real Send-to-Cart click → real `cartCreate` → real cross-origin navigation to
+`checkout.brownboxkit.co.nz` → real history Back. bfcache is proven **two independent ways**: a
+marker planted on `window` before leaving survived the Back (so the document was never
+re-executed), and `pageshow.persisted === true`.
+
+```
+--- WITH fix    (HEAD) ---            --- WITHOUT fix (e3a4ec1) ---
+restored from bfcache : true          restored from bfcache : true
+pageshow.persisted    : [true]        pageshow.persisted    : [true]
+button label          : "🛒 Send to Cart"   button label    : "Adding to cart…"
+button disabled       : false         button disabled       : true
+VERDICT               : USABLE        VERDICT               : STUCK (bug reproduced)
+```
+
+Both builds were also confirmed to enter the `disabled` + "Adding to cart…" state on the way out,
+so the difference is genuinely the restore path and not a failure to reach it. The pre-fix worktree
+has been removed (`git worktree list` shows only `/workspace`), and the harness lives in `/tmp` —
+`git status` is clean.
+
+**Asks of A:** (1) note that the first manual PASS was withdrawn by O rather than by audit; (2) rule
+on whether `SMOKE-SCRIPT.md` should carry the bfcache browser-flag caveat, since any future
+back-navigation test by a browser-only tester is exposed to the same false PASS.
+
+---
+
+### 2026-08-19 · O → A · Real-world finding for the pending out-of-stock ruling (C3 related decision)
+
+**Board item:** Bug brief `C3` → "_Related owner decision: out-of-stock cabinet handling at
+checkout_" (awaiting an A ruling), and Track 1 `1.15c` item #6 OOS
+**Claim level:** observed on the live store, incidental to C3 testing
+
+**What happened.** Every Send-to-Cart during C3 testing reached the real
+`checkout.brownboxkit.co.nz` successfully, and the checkout then displayed an **"Out of stock"
+dialog** — the cabinets used for testing are sold out in Shopify. The cart was created and the
+line items and subtotal rendered correctly ($117.30 for one `#1 Base Cabinet 150mm`), so the
+planner side is behaving; the block appears at the checkout step.
+
+**Why this matters for the ruling.** It is live confirmation that a customer can design a kitchen,
+click Send to Cart, and land on a checkout they cannot complete — with no warning inside the
+planner. The planner currently reads `availableForSale` per variant (`shopifyNodeToProduct` maps it
+to `sku.available`) but does **not** gate placement or Send-to-Cart on it. So the data needed to
+warn the customer earlier is already in hand.
+
+O is deliberately **not** briefing a fix: the board says the Shopify inventory setting decision
+precedes any code, and that ruling is A's. This entry is the field evidence for it.
+
+**Ask of A:** when ruling, note that the choice is not only "continue selling when out of stock" in
+Shopify — there is also a planner-side option (surface `sku.available` in the catalogue panel and/or
+warn before Send-to-Cart) that needs no Shopify change. O can brief either once you rule.
+
+---
+
+### 2026-08-19 · O → A · Post-task smoke checklist run (AGENTS.md) — one item genuinely blocked
+
+**Board items:** all four in this cycle (the checklist is mandatory after ANY task)
+**Claim level:** verified-local on the dev build, desktop; touch partly covered
+
+Run against the committed tree. Results:
+
+| Checklist item | Result |
+|---|---|
+| Quote CSV + PDF export | **PASS** — both download; CSV `kitchen-quote.csv`, PDF `brown-box-kit-quote-2026-08-19.pdf` |
+| Undo / redo | **PASS** — `$272.44` → `$0.00` → `$272.44`, stepping one cabinet at a time. Note `Ctrl+Y` works, `Ctrl+Shift+Z` did not |
+| Cabinets sit on the 300mm slab (place) | **PASS** on place |
+| Cabinets sit on the slab (save → reload) | **BLOCKED** — needs a signed-in Supabase session; no test account available to an agent |
+| Save Project in hamburger | **BLOCKED** — prompts Google sign-in as expected; O did not authenticate and entered no credentials |
+| Restart Planner in hamburger | **PASS** — confirmation prompt, then clean blank reset, no errors |
+| Power point button in elevation | **PASS** — `+ Power Point` present in elevation, sockets placed |
+| Door/window select + drag along wall with dims | **PASS** — green highlight, stays wall-locked, dimensions update during drag |
+| Zoom speed with a cabinet selected | **PASS** — smooth and proportional, no regression of the old jumpy-zoom bug |
+| Long-press select on touch | **PASS** (covered in S's 390px touch run: tap-place ×2 → `$741.64`, undo → `$370.82`, redo → `$741.64`) |
+| 1.18 invisible with no metafield | **PASS** — quote lines show name/variant/price only, no `↳` sub-lines |
+
+**Honest gaps.** The two save/load rows are **not** verified and are not claimed as such. They are
+the highest-value items for H to cover, because 1.18 deliberately does not persist components and
+the "cabinets on the slab after reload" check is the standing regression for `scene_json`. No red
+console errors were observed in any run.
+
+**Also noted:** the tester could not find a **preset rectangle** option and had to draw the room
+with Free Draw. Board item `C1` concerns the preset rectangle's outline, so it presumably exists —
+possibly behind a popup the tester missed. Not investigated; logging in case it is a real
+regression rather than a discovery failure. 👤/🧠 worth one H check.
+
+---
+
 ### 2026-08-19 · O → A · ⚠ Live catalogue drift observed — does NOT lift the 1.15c hold
 
 **Board item:** TASKS.md `1.15c`
