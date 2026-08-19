@@ -19,6 +19,7 @@ checklists further down are grouped by these tracks.
 | **2 — Auto-Design** (own track) | "Magic button" auto-layout | `AUTO-DESIGN-PLAN.md` | ⏳ Wiring behind hybrid gate (role `super_admin`/`hq_admin`/`admin` OR `?autodesign=1`, default OFF). Solver stays in-browser; API/extraction deferred to Phase 3. |
 | **3 — Cross-repo integration** (NEW) | Planner ↔ Trade link | `P2-MONOREPO-BRIEF.md` | ⏳ `project_code` join key + planner-admin RLS. SQL authored, **not applied**; awaiting owner apply + Trade key confirm. |
 | **4 — Phase 2 (Pro)** | Post-launch upgrades | `ROADMAP.md` Part 3 | ⏳ Bluetooth laser measure done; rest queued. |
+| **6 — Complete-Unit SKU system** (spec-first) | Units = cabinet + benchtop + sink/oven/hob, itemised SKUs | `UNIT-SKU-PLAN.md` | ⬜ Spec written 19 Aug 2026; **build NOT scheduled** — U2 gated on U0 owner data + 1.18 live + F8 direction ruling. |
 
 ## Milestone A — Harden the live prototype
 - [x] ✅ 1.1 Bug-fix sweep (wall selection on Android/iOS, save/load toasts, 2D labels after load)
@@ -83,6 +84,17 @@ Links planner projects to Trade jobs via a shared DB key — no direct calls bet
 - [x] ✅ DIY-1 `DIY-MODE-PLAN.md` written + **signed off by H 24 Jul 2026** — 5-step wizard spec (square room; walls/ceiling; openings/GPOs; admin mood boards + 4 placeholder palettes; guided drag-drop; NZBC G3/AS1 checker). Reuses auto-design wizard chassis + hybrid gate. Mood-board storage **ruled: Supabase table** (H applies additive SQL when DIY-3 is scheduled). (S7)
 - [ ] ⬜ DIY-2 DIY button + square room + Steps 1–2 only, reusing wizard modal + room/opening tools — **unblocked; ready for O to write the build brief**
 
+## Track 6 — Complete-Unit SKU system (spec-first)  (spec: `UNIT-SKU-PLAN.md`)
+> H's product ruling (19 Aug 2026): a planner item is a **Unit** — one anchor cabinet SKU plus
+> named slots (benchtop, sink, oven, hob) each filled by its own companion SKU; every SKU its own
+> cart line, customer only ever handles one object. Store-only parts (hinges/panels/legs sold as
+> spares) never appear in the planner. Goal: simpler and faster than IKEA/Kaboodle/Planner 5D.
+- [x] ✅ U-spec `UNIT-SKU-PLAN.md` written 19 Aug 2026 (phases U0–U3, entry gates, competitor findings, metafield v1→v2 contract).
+- [ ] 👤 U0 Owner data pass — upload companion SKUs (benchtop/sink/oven/hob) with `planner.category`; keep parts store-only; fill `component_skus` per RELAY.md R4. **Gate: A+H confirm add-on vs BOM intent first** (RELAY.md 1.18 ruling 1).
+- [ ] ⏳ U1 Land C3 + 1.18 (already built) — A audit, merge to `main`, H live-verify R4/R5. Tracked under Bug brief C3 + item 1.18; listed here because U2 builds on 1.18's code.
+- [ ] ⬜ U2 Slotted units — metafield v2 slot parser (v1-compatible), unit card UI (slot chips / swap sheet / remove, touch + desktop), `scene_json` v5 + v1–v4 migration, swap/remove in undo/redo, audit-tool slot validation. **NOT scheduled. Entry gate: U0 done + 1.18 live-verified + F8 direction ruling made.**
+- [ ] ⬜ U3 Kitchen intelligence — benchtop run detection + run-length pricing with cutout flags; per-slot GLB composition (dispose pattern); auto-design places Units. **NOT scheduled. Entry gate: U2 live + Track 2 auto-design live.**
+
 ## Open — needs Opus 🧠
 - [ ] 1.7 Shopify Customer Account → Supabase JWT single-login bridge (deferred; not blocking launch — see Milestone C).
 - [ ] **Doc-fix (Law O):** `AUTO-DESIGN-PLAN.md` §1.8 (feature/auto-design branch) contradicts `AGENTS.md` (core planner work on `main`). The live go-live sprint follows `AGENTS.md` (straight commits on `main`). Reconcile by amending §1.8; until then, `AGENTS.md` wins.
@@ -100,6 +112,7 @@ Polish / UX (cosmetic, non-blocking — O to write briefs when scheduled):
 - [ ] ⬜ C2 `INSTALL QUOTE REQUEST` shows placeholder default-size badge + box icon in catalogue — expected audit fallback; optional polish.
 - [ ] ⬜ C4 Signed-in state not obvious — make the 👤 icon bright green after sign-in.
 - [x] ✅ C5 Fixed the S5 "how to test" note (`S-BRIEFS-ITEMS-0-5.md`, 29 Jul) — replaced the non-callable `serialiseScene()` check with `JSON.parse(localStorage.getItem('bbk_draft_autosave')).version` → expect 4.
+- [ ] ⬜ C7 Cabinet↔cabinet and cabinet↔wall snapping "not perfect" (H, 19 Aug 2026 — reported as a known rough edge, no specific repro yet). First step is an H repro note (which cabinets, which view, desktop or touch); then O scopes a bounded brief. Snap logic today: `getPlacementCategory` + Task N rules (1.10).
 - [ ] ⬜ C6 CSV export field hardening (**pre-existing, surfaced by the 1.18 reviewer 19 Aug — NOT a regression**). The `btn-export` CSV handler interpolates product names straight into quoted fields, so a name containing `"` breaks the field and a name starting with `=` is a spreadsheet formula-injection vector. Deliberately left untouched by 1.18 (out of that brief's scope — house rule: don't refactor working code). Bounded fix when scheduled: one escaping helper applied to every CSV field. Note the UTF-8 BOM part is already done as part of 1.18.
 
 Future scope (H requests — not scheduled; O to scope/brief later):
@@ -108,6 +121,10 @@ Future scope (H requests — not scheduled; O to scope/brief later):
 - [ ] ⬜ F3 PDF plan + elevation construction drawings with mm dimensions (quality target: better than IKEA Kitchen Planner).
 - [ ] ⬜ F4 Guest vs sign-in landing page before planner — capture user info early, reduce lost work; O to research industry best practice before scoping.
 - [ ] ⬜ F5 Team/delegation: verifier role (browser-only smoke, no Git); GitHub Organization + protected `main` + PR review when code contributors join; amend `ROLES.md` with human roles.
+- [ ] ⬜ F6 Login-before-access gate (H, 19 Aug 2026) — planner requires sign-in before use. Supersedes/extends F4 (guest-vs-sign-in landing page): F4 researched the *choice*, F6 is H's ruling that access needs login. Captures user identity early, protects against copycats, feeds F7 data. O to scope with F4's research; relates to open item 1.7 (Shopify↔Supabase login bridge).
+- [ ] ⬜ F7 Real usage analytics + copycat control (H, 19 Aug 2026) — replace the Phase-1 `trackEvent()` console stub (1.12) with a real backend (e.g. PostHog/Supabase events): who uses the planner, session counts, funnel to Send-to-Cart; plus anti-copycat measures (usage attribution, watermarking exports, referrer/domain checks for the embed). Needs an O scoping pass — parts may need more than frontend.
+- [ ] ⬜ F8 🧠👤 Direction split ruling — planner branches into two products. **Direction 1:** simpler kitchen planner — preset walls, auto-design, construction plan output (plan view + elevations; extends F3). **Direction 2:** 2–3 storey full-house customisation — plan views, elevations, cross-sections, multiple cameras. H + O must rule which comes first and what stays shared (one codebase vs branch). **This ruling gates Track 6 U2** (the unit UI is designed once, for the direction that carries it).
+- [ ] ⬜ F9 3D photos (H, 19 Aug 2026 — needs one clarifying answer from H before scoping): photorealistic renders of the designed kitchen, or photo capture/export of the 3D view? (A 📷 camera-capture button already exists from 1.3 — if F9 means higher-quality renders, that is new scope.)
 
 ## Setup / tooling
 - [x] ✅ AGENTS.md (project memory for all agents)

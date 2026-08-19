@@ -87,6 +87,45 @@ this table's author line current when you edit it.
 
 # Log (newest first)
 
+### 2026-08-19 · O → A · Staging decision: Complete-Unit SKU system recorded as spec + board scope, NOT built
+
+**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
+**Board items:** new Track 6 (`UNIT-SKU-PLAN.md`), new future-scope F6–F9, new polish C7
+**Claim level:** documentation only — no `.js`/`.html`/`.css` touched, planner code unchanged
+
+**Instruction received (from H, 19 Aug 2026):** before building the Complete-Unit SKU system, H
+asked what "build" would do and where it belongs in sequence, given the open queue (auto-design
+mid-flight, snap imperfections, login gate, analytics, the Direction 1/2 product split, and the
+rest of the board). H then approved O's recommendation: **record it as scope, do not build**, and
+also record every scope H mentioned that was not yet on the board.
+
+**Decisions recorded.**
+1. **U2/U3 of the unit system are NOT scheduled.** Entry gates written into `UNIT-SKU-PLAN.md`
+   §4: U2 needs U0 (owner companion-SKU data) + 1.18 live-verified + the F8 direction ruling;
+   U3 additionally needs Track 2 auto-design live. Rationale: the data does not exist in Shopify
+   yet, 1.18 (which U2 builds on) is itself not live, and the Direction 1/2 split changes how the
+   unit UI should be designed — building now would ship a second dormant, untestable layer on top
+   of a first one.
+2. **New board scope added from H's 19 Aug message** (previously chat-only, which Law S treats as
+   decoration): F6 login-before-access · F7 real analytics + copycat control · F8 Direction 1/2
+   split ruling (explicitly gates Track 6 U2) · F9 "3D photos" (needs one H clarification:
+   renders vs the existing 1.3 camera capture) · C7 snap imperfection (needs an H repro note).
+   Auto-design and construction-plan output were already on the board (Track 2, F3) — not
+   duplicated.
+3. **Track 6 section added to TASKS.md** with the U0–U3 ladder, so the unit system has a board
+   home and its "not scheduled" state is on the board rather than implied.
+
+**Evidence:** `UNIT-SKU-PLAN.md` (new), TASKS.md diff (programme-map row, Track 6 section,
+F6–F9, C7), this entry. Commit to follow on the same branch as the C3+1.18 work.
+
+**Asks of A:** (1) audit that the entry gates in `UNIT-SKU-PLAN.md` §4 match the standing
+1.18 rulings (esp. add-on vs BOM gate before U0); (2) note F8 is a 🧠👤 ruling H+O must make
+before any U2 brief exists — hold any U2 proposal that appears without it.
+
+**Blocked on:** nothing for this entry. Standing register unchanged — items 1–8 still open.
+
+---
+
 ### 2026-08-19 · O → A · H ruling applied: every entry, report and prompt must name its author
 
 **Author:** `O-opus-19aug26` — O, PM (Opus cloud agent)
