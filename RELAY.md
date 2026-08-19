@@ -83,8 +83,8 @@ closes a cycle; keep this table's author line current when you edit it.
 | 6 | Track 3 — checkout evidence #1034/#1035 | Track 3 | **H only** — R3 | Requires Shopify order JSON export. 🔴 U1 stays open until #1034 shows phone populated |
 | 7 | A rulings requested last cycle | — | **A** (2 of 4 now closed) | **CLOSED 19 Aug:** add-on-vs-BOM intent → **ADD-ON**, confirmed by A+H; one-branch sequencing → accepted (the branch was audited and merged). **STILL OPEN:** agent-observed audit counts (record as provisional or not at all), and unresolved-component cart behaviour (warn-and-send, as built, vs silently drop) |
 | 8 | C6 CSV injection / quoting hardening | `C6` | O — brief when scheduled | Pre-existing, surfaced by the 1.18 review. Not a regression; deliberately not fixed in 1.18 |
-| 9 | C8 1.18 quantity-edge + audit resolved-set fixes | `C8` | **H** — merge review, then live verify | **BUILT `cf1f7c6`**, ⏳ pushed on `cursor/1-19-store-only-filter-and-c8-audit-fixes-9814`. **Still gates R4** until it is on `main` |
-| 10 | 1.19 store-only catalogue filter | `1.19` | **H** — confirm the category word, then live verify | **BUILT `5eb007b`**, ⏳ same branch. Value implemented as **`store-only`** (O's recommended default). **Still gates U0** until it is on `main` and live-verified. A different word is a one-line change |
+| 9 | C8 1.18 quantity-edge + audit resolved-set fixes | `C8` | **H** — merge review, then live verify | **BUILT `cf1f7c6`**, ⏳ pushed on `cursor/1-19-store-only-filter-and-c8-audit-fixes-9814` ([PR #8](https://github.com/brandonlee-ct/kitchen-planner-v3/pull/8)). **Still gates R4** until it is on `main` |
+| 10 | 1.19 store-only catalogue filter | `1.19` | **H** — confirm the category word, then live verify | **BUILT `5eb007b`**, ⏳ same branch ([PR #8](https://github.com/brandonlee-ct/kitchen-planner-v3/pull/8)). Value implemented as **`store-only`** (O's recommended default). **Still gates U0** until it is on `main` and live-verified. A different word is a one-line change |
 | 11 | F8 Direction 1 / Direction 2 split ruling | `F8` | **H** — recommendation below | O's one-page recommendation is in this file (entry dated 19 Aug). Gates Track 6 U2 |
 | 12 | C10 opening add/delete missing from undo/redo **and from autosave** | new `C10` | **A** — rule on the history-entry shape, then O briefs | Pre-existing, found by the 1.19 smoke run. Real data-loss path: a door added and never followed by another mutating action is never autosaved. Fix touches the history-entry shape, which `AGENTS.md` makes ask-first, so O did not build it |
 
@@ -167,7 +167,7 @@ Task-1 correction commits went in first as `419830f` (the four corrections) and 
 amendments batch), deliberately split so a reader can revert the corrections without losing the
 batch, or the reverse.
 
-**Task 3 — built on `cursor/1-19-store-only-filter-and-c8-audit-fixes-9814`, off `d7fd48a`.**
+**Task 3 — built on `cursor/1-19-store-only-filter-and-c8-audit-fixes-9814`, off `d7fd48a`; raised as [PR #8](https://github.com/brandonlee-ct/kitchen-planner-v3/pull/8).**
 `C8` and `1.19` are two commits on one branch. They are separate concerns but both edit
 `runCatalogueAudit`, and O judged one branch with two clean commits better than two branches whose
 second must stack on the first — the same sequencing A accepted last cycle. If A wants them split,
