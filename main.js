@@ -4625,6 +4625,7 @@ const PRODUCTS_QUERY = `
           height_mm: metafield(namespace: "planner", key: "height_mm") { value }
           depth_mm:  metafield(namespace: "planner", key: "depth_mm")  { value }
           category:  metafield(namespace: "planner", key: "category")  { value }
+          component_skus: metafield(namespace: "planner", key: "component_skus") { value }
           featuredImage { url altText }
           variants(first: 50) {
             edges {
@@ -4683,6 +4684,54 @@ function parseDimMm(rawValue) {
   return null;
 }
 
+// ── Component SKUs parsing (TASKS.md 1.18) ────────────────────────────────────
+// Parse a planner.component_skus metafield value — a JSON array shaped
+// [{ "variantId": "gid://shopify/ProductVariant/123", "qty": 2 }] — into a clean
+// [{ variantId, qty }] list. Components are ADDITIONAL cart/quote lines shipped with the
+// placed item; the item still maps to its own primary variant (never a substitution).
+// Anything malformed degrades to [] (feature simply off for that product) rather than
+// throwing — a bad metafield must never block the catalogue load.
+function parseComponentSkus(rawValue, label) {
+  if (rawValue === null || rawValue === undefined || rawValue === '') return [];
+
+  let parsed;
+  try {
+    parsed = typeof rawValue === 'string' ? JSON.parse(rawValue) : rawValue;
+  } catch (e) {
+    console.warn('planner.component_skus is not valid JSON on ' + (label || 'product') + ' — ignored:', rawValue);
+    return [];
+  }
+  if (!Array.isArray(parsed)) {
+    console.warn('planner.component_skus is not an array on ' + (label || 'product') + ' — ignored:', rawValue);
+    return [];
+  }
+
+  const out = [];
+  parsed.forEach(entry => {
+    const variantId = entry && typeof entry === 'object' ? entry.variantId : null;
+    if (!variantId) {
+      console.warn('planner.component_skus entry has no variantId on ' + (label || 'product') + ' — skipped:', entry);
+      return;
+    }
+    // Quantity rules (O ruling): an explicit zero or negative qty is a data error, not an
+    // invitation to invent a quantity — component prices land in the quote total, so
+    // silently shipping 1 would overcharge the customer. Skip those entries. Only a
+    // genuinely missing / non-numeric qty falls back to 1, where the intent really is one.
+    const rawQty = entry.qty;
+    const qtyMissing = rawQty === null || rawQty === undefined || rawQty === '';
+    const qtyNum = qtyMissing ? NaN : Number(rawQty);
+    if (isFinite(qtyNum) && qtyNum <= 0) {
+      console.warn('planner.component_skus qty must be greater than 0 (got ' + rawQty + ') on ' +
+        (label || 'product') + ' — entry skipped:', variantId);
+      return;
+    }
+    const qtyFloored = Math.floor(qtyNum);
+    const qty = isFinite(qtyFloored) && qtyFloored >= 1 ? qtyFloored : 1;
+    out.push({ variantId: String(variantId), qty });
+  });
+  return out;
+}
+
 function shopifyNodeToProduct(node) {
   const parsedW = parseDimMm(node.width_mm?.value);
   const parsedH = parseDimMm(node.height_mm?.value);
@@ -4715,6 +4764,7 @@ function shopifyNodeToProduct(node) {
     imageAlt:    node.featuredImage?.altText || node.title,
     width, height, depth,
     usesDefaultSize,
+    componentSkus: parseComponentSkus(node.component_skus?.value, node.handle),
     skus: skus.length ? skus : [{ id: node.handle, label: 'Standard', price: 0, priceDisplay: 'NZ$0.00', available: false }]
   };
 }
@@ -4756,8 +4806,41 @@ function runCatalogueAudit(nodes) {
     };
   }
 
+  // 1.18: every variantId in the fetched set, drafts included — a wider set than the
+  // runtime `products` array, which drops (Draft) titles. Used to flag component entries
+  // that no fetched variant matches: those still go to the cart (they may be real but
+  // unfetched), and cartCreate rejects the WHOLE cart if Shopify refuses one, so H needs
+  // the warning here rather than at checkout.
+  const allFetchedVariantIds = new Set();
+  nodes.forEach(node => {
+    (node.variants?.edges || []).forEach(e => {
+      if (e.node?.id) allFetchedVariantIds.add(e.node.id);
+    });
+  });
+
+  // 1.18: report planner.component_skus status (OK / OK (n unresolved) / absent /
+  // unparseable) + parsed count. Purely additive — every existing column and count line
+  // below is untouched, and both new keys sit after the last pre-existing column.
+  function auditComponentSkus(raw, label) {
+    if (raw === null || raw === undefined || raw === '') return { status: 'absent', count: 0 };
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      return { status: 'unparseable', count: 0 };
+    }
+    if (!Array.isArray(parsed)) return { status: 'unparseable', count: 0 };
+    const comps = parseComponentSkus(raw, label);
+    const unresolved = comps.filter(c => !allFetchedVariantIds.has(c.variantId)).length;
+    return {
+      status: unresolved ? 'OK (' + unresolved + ' unresolved)' : 'OK',
+      count: comps.length,
+    };
+  }
+
   const rows = [];
   let missingGlb = 0, unparseableDims = 0, missingCategory = 0, draftCount = 0;
+  let withComponents = 0, unparseableComponents = 0, unresolvedComponentProducts = 0;
 
   nodes.forEach(node => {
     const isDraft = /\(Draft\)/i.test(node.title || '');
@@ -4778,6 +4861,12 @@ function runCatalogueAudit(nodes) {
     if (!rawCategory) missingCategory++;
     const categoryApplied = rawCategory || node.productType || 'Other';
 
+    const comp = auditComponentSkus(node.component_skus?.value, node.handle);
+    // startsWith, not ===: the status also carries the 'OK (n unresolved)' variant.
+    if (comp.status.indexOf('OK') === 0 && comp.count > 0) withComponents++;
+    if (comp.status === 'unparseable') unparseableComponents++;
+    if (comp.status.indexOf('unresolved') !== -1) unresolvedComponentProducts++;
+
     const fallbacksApplied = [];
     if (!glbPresent) fallbacksApplied.push('glb → placeholder box');
     if (w.usedFallback) fallbacksApplied.push('width → 600');
@@ -4796,7 +4885,9 @@ function runCatalogueAudit(nodes) {
       height_raw: h.raw, height_parsed: h.parsed, height_status: h.status,
       depth_raw: d.raw, depth_parsed: d.parsed, depth_status: d.status,
       category_raw: rawCategory || '', category_applied: categoryApplied,
-      fallbacksApplied: fallbacksApplied.length ? fallbacksApplied.join('; ') : '—'
+      fallbacksApplied: fallbacksApplied.length ? fallbacksApplied.join('; ') : '—',
+      // 1.18: appended AFTER every pre-existing column so none of them shifts position.
+      component_skus_status: comp.status, component_skus_count: comp.count
     });
   });
 
@@ -4805,6 +4896,10 @@ function runCatalogueAudit(nodes) {
   console.log('Missing planner.glb_url: ' + missingGlb);
   console.log('Products with unparseable dimension(s): ' + unparseableDims);
   console.log('Missing planner.category: ' + missingCategory);
+  console.log('Products with planner.component_skus: ' + withComponents +
+    (unparseableComponents ? ' (' + unparseableComponents + ' unparseable)' : '') +
+    (unresolvedComponentProducts ? ' — ⚠ ' + unresolvedComponentProducts +
+      ' with unresolved component variant(s): Send to Cart fails if Shopify rejects one' : ''));
   console.table(rows);
   console.groupEnd();
 
@@ -4989,6 +5084,59 @@ function placeProduct(product, skipHistory = false) {
         return mesh;
       }
 
+// ── Component SKUs → resolved lines (TASKS.md 1.18) ───────────────────────────
+// Turn a product's componentSkus into priced lines for the cart, the quote panel, the
+// CSV and the PDF. Prices are looked up in the already-loaded catalogue so the quote
+// total matches what Send-to-Cart actually charges. Returns [] for every product without
+// the metafield, which keeps the whole feature a no-op on today's catalogue.
+let componentVariantIndex = null;
+let componentVariantIndexSource = null;
+const componentWarnedVariants = new Set();
+
+function getComponentVariantIndex() {
+  // Rebuilt only when `products` is replaced (catalogue reload), never per placed item.
+  if (componentVariantIndex && componentVariantIndexSource === products) return componentVariantIndex;
+  componentWarnedVariants.clear();
+  const index = new Map();
+  products.forEach(p => {
+    (p.skus || []).forEach(s => {
+      if (s.variantId && !index.has(s.variantId)) {
+        index.set(s.variantId, { name: p.name, label: s.label || '', price: Number(s.price) || 0 });
+      }
+    });
+  });
+  componentVariantIndex = index;
+  componentVariantIndexSource = products;
+  return index;
+}
+
+function resolveComponentLines(product) {
+  const comps = product?.componentSkus;
+  if (!Array.isArray(comps) || comps.length === 0) return [];
+  const index = getComponentVariantIndex();
+  return comps.map(c => {
+    const hit = index.get(c.variantId);
+    if (!hit) {
+      // Never invent a name or a price. The variant may still exist in Shopify (outside
+      // the fetched page set), so it stays on the cart at qty but shows as unknown/$0.
+      // Warn once per variant — this runs on every quote render.
+      if (!componentWarnedVariants.has(c.variantId)) {
+        componentWarnedVariants.add(c.variantId);
+        console.warn('component_skus: variant not in the loaded catalogue, shown as unknown at $0.00: ' +
+          c.variantId + ' (on ' + (product.name || product.id) + ')');
+      }
+      return {
+        variantId: c.variantId,
+        qty:       c.qty,
+        name:      'Unknown component (' + c.variantId + ')',
+        label:     '',
+        unitPrice: 0,
+      };
+    }
+    return { variantId: c.variantId, qty: c.qty, name: hit.name, label: hit.label, unitPrice: hit.price };
+  });
+}
+
 function updateQuote() {
         const itemList = document.getElementById('item-list');
         const totalEl  = document.getElementById('total-price');
@@ -5002,6 +5150,16 @@ function updateQuote() {
           const div = document.createElement('div');
           div.className = 'quote-item';
           div.innerHTML = '<strong>' + product.name + '</strong><br>' + sku.label + ' - $' + sku.price.toFixed(2);
+          // 1.18: component breakdown under the item, priced into the same total so the
+          // panel agrees with the CSV, the PDF and what Send-to-Cart charges.
+          resolveComponentLines(product).forEach(c => {
+            const compTotal = c.unitPrice * c.qty;
+            total += compTotal;
+            const compEl = document.createElement('div');
+            compEl.className = 'quote-component';
+            compEl.textContent = '↳ ' + c.qty + ' × ' + c.name + ' - $' + compTotal.toFixed(2);
+            div.appendChild(compEl);
+          });
           itemList.appendChild(div);
         });
         serviceItems.forEach(si => {
@@ -5695,6 +5853,12 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
     const sku = product.skus[skuIndex ?? 0];
     if (!sku?.variantId) return;
     lineMap.set(sku.variantId, (lineMap.get(sku.variantId) || 0) + 1);
+    // 1.18: components are ADDITIONAL lines on top of the primary variant. Adding them
+    // to the SAME map means identical components across items aggregate into one line,
+    // and each placement contributes its own qty (so qty × placed count).
+    resolveComponentLines(product).forEach(c => {
+      lineMap.set(c.variantId, (lineMap.get(c.variantId) || 0) + c.qty);
+    });
   });
   serviceItems.forEach(si => {
     if (!si.variantId) return;
@@ -5767,6 +5931,9 @@ window.addEventListener('pageshow', () => {
 // SKUs by Shopify variantId when present, else by product name + sku label.
 function buildQuoteRows() {
   const rowMap = new Map();
+  // 1.18: per-single-parent component lines, keyed like rowMap so they can be scaled by
+  // the aggregated parent qty once the grouping is done.
+  const componentMap = new Map();
   placedItems.forEach(obj => {
     const ud = obj.userData;
     // Skip openings and any non-catalog / imported GLB items.
@@ -5788,6 +5955,8 @@ function buildQuoteRows() {
         unitPrice: sku.price,
         total: sku.price,
       });
+      const comps = resolveComponentLines(product);
+      if (comps.length) componentMap.set(key, comps);
     }
   });
   serviceItems.forEach(si => {
@@ -5806,7 +5975,23 @@ function buildQuoteRows() {
       });
     }
   });
-  return Array.from(rowMap.values());
+  // 1.18: attach the component breakdown, scaled to the aggregated parent qty. The
+  // parent row's own `total` stays the parent price only — the component rows carry their
+  // own totals, so the PDF's grand total counts each exactly once. Rows for products with
+  // no component_skus get no `components` key at all.
+  return Array.from(rowMap.entries()).map(([key, row]) => {
+    const comps = componentMap.get(key);
+    if (comps) {
+      row.components = comps.map(c => ({
+        name:      c.name,
+        label:     c.label,
+        qty:       c.qty * row.qty,
+        unitPrice: c.unitPrice,
+        total:     c.unitPrice * c.qty * row.qty,
+      }));
+    }
+    return row;
+  });
 }
 
 // ── Quote PDF: NZD currency formatter (NZ$0.00) ──
@@ -5866,15 +6051,28 @@ function buildQuotePDF(rows, snapshot, projectName) {
 
   // Itemised table
   let grandTotal = 0;
-  const body = rows.map(r => {
+  const body = [];
+  rows.forEach(r => {
     grandTotal += r.total;
-    return [
+    body.push([
       r.name,
       r.variant || '—',
       String(r.qty),
       fmtNZD(r.unitPrice),
       fmtNZD(r.total),
-    ];
+    ]);
+    // 1.18: component rows print directly under their parent, indented in the Product
+    // column, reusing the same five columns. Each counts once toward the grand total.
+    (r.components || []).forEach(c => {
+      grandTotal += c.total;
+      body.push([
+        '    > ' + c.name,
+        c.label || '—',
+        String(c.qty),
+        fmtNZD(c.unitPrice),
+        fmtNZD(c.total),
+      ]);
+    });
   });
 
   autoTable(doc, {
@@ -5918,6 +6116,13 @@ document.getElementById('btn-export').addEventListener('click', () => {
     const sku = product.skus[skuIndex ?? 0];
     lines.push(`"${product.name}","${sku.label}",${sku.price.toFixed(2)}`);
     total += sku.price;
+    // 1.18: component sub-lines under the item, priced into the same running total so the
+    // CSV total matches the on-screen quote and the PDF grand total.
+    resolveComponentLines(product).forEach(c => {
+      const compTotal = c.unitPrice * c.qty;
+      lines.push(`"  ↳ Includes: ${c.name}","${c.label || 'Component'} × ${c.qty}",${compTotal.toFixed(2)}`);
+      total += compTotal;
+    });
   });
   serviceItems.forEach(si => {
     lines.push(`"${si.name}","${si.skuLabel}",${si.price.toFixed(2)}`);
@@ -5925,7 +6130,11 @@ document.getElementById('btn-export').addEventListener('click', () => {
   });
   lines.push(`"","Total","${total.toFixed(2)}"`);
   const csvContent = lines.join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  // ✅ FIX (1.18 review): lead with a UTF-8 BOM. The MIME charset is advisory for a
+  // downloaded file — Excel on Windows opens a double-clicked .csv in the system ANSI
+  // codepage and ignores it, so the ↳ component marker (and any non-ASCII product name
+  // from Shopify) would arrive as mojibake.
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
