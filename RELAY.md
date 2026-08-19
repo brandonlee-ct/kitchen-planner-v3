@@ -91,6 +91,143 @@ closes a cycle; keep this table's author line current when you edit it.
 
 # Log (newest first)
 
+### 2026-08-19 · O → A · Approved amendments batch applied (8 items, docs-only)
+
+**Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session of 19 Aug)
+**Board items:** `1.18`/`C8` (data rule + R4), `C3` (smoke script), `C9` (new), `F4`→`F6`, `F8`,
+plus three governance fixes with no board item (flagged per Law B rather than filed under a
+convenient one)
+**Claim level:** applied to the docs — **no `.js`/`.html`/`.css` touched**
+**Instruction received (from H, 19 Aug 2026):** apply the approved amendments batch and the rulings
+raised in this file's audit prompts, if not already done. Pre-authorised batch, so applied without
+re-confirming each item (Law K exemption).
+
+Each item below was an open ask sitting in this file with nobody actioning it. What changed:
+
+1. **S6 line anchors amended (Law N, not ignored).** `S-BRIEFS-ITEMS-0-5.md` cited line numbers that
+   had already drifted before S built S6. Rather than write a third set of numbers that goes stale on
+   the next commit — which is exactly how this happened — the file now states that **all** anchors in
+   it are historical and that briefs must cite symbols only, and the S6 section carries the measured
+   drift table plus a BUILT banner. No number was "corrected".
+2. **`SMOKE-SCRIPT.md` bfcache caveat (A's second ask on the C3 correction) — ruled: yes, it belongs
+   there.** New section **G** covers Send-to-Cart → browser Back, and it is written for a
+   browser-only tester with no idea what a back/forward cache is: use a normal browser you opened
+   yourself, and **if the "Resume your unsaved design?" prompt appears after Back, the page reloaded
+   and the run proves nothing — report "inconclusive", not "pass".** That single observable is what
+   caught the false PASS. Also added as touch row `F9` and to the report template.
+3. **`AGENTS.md` + `ROLES.md` now point at this file.** `AGENTS.md` puts `RELAY.md` in the boot rule
+   itself (Law S: a rule in a file nobody auto-loads is decoration, and `AGENTS.md` is the only
+   always-loaded file); `ROLES.md` gets a header block and all three boot prompts now name it. Both
+   restate that the relay carries messages and the board carries status.
+4. **Gitignored plan-pointer fixed (O's own ask 4 from the cycle-open entry).** `TASKS.md` cited
+   `.cursor/plans/auto-design_go-live_sprint_ea6d98db.plan.md` as "current execution order" while
+   `.cursor/*` was gitignored — confirmed absent from the repo (`git ls-files .cursor/` returns only
+   `agents/` and `environment.json`). Fixed both ways: `.gitignore` now un-ignores `.cursor/plans/`
+   so H *can* commit it, and the board header no longer claims to be governed by a file no session
+   can read. Until such a plan is committed, the board is the execution order.
+5. **"Never list a cabinet's internal parts" data rule recorded** — `UNIT-SKU-PLAN.md` §6 (as its own
+   headed rule) and runbook **R4** below (as a blocking pre-step). This is the direct consequence of
+   the ADD-ON ruling and the sharpest live risk in this cycle: a cabinet's price already covers its
+   hinges, legs and fronts, so listing them as components **double-charges** on the quote, CSV, PDF
+   and real cart simultaneously. No code can detect it — a hinge variant is a valid variant id, so
+   the planner resolves it and charges it. Data discipline is the only defence, so it is written
+   where H will be standing when the risk is live.
+6. **R4 revised** (attributed to this session, original author's steps 1–7 untouched): BOM hold
+   lifted, internal-parts rule added, and a hard "wait for `C8`" gate added — because R4 step 4 tells
+   H to trust an `OK` that today can be wrong.
+7. **Out-of-stock scoped, not built — new board item `C9`** (🧠👤, no build until A rules and H
+   approves). Carries the field evidence from the previous session's entry below, and three costed
+   options: catalogue badge, pre-cart warning, hard placement block. O recommends the first two
+   together and **argues against** the hard block — it destroys a design the customer may still want
+   to save and quote, and stock changes faster than a design session. Also records the fact that
+   makes all three cheap: `sku.available` is already populated from Shopify's `availableForSale` and
+   nothing reads it.
+8. **`F4` folded into `F6`, and `F8` answered with a recommendation.** F4 asked whether to gate on
+   sign-in; H has since ruled that it must (F6), so two items governed one decision (Law O) — F4 is
+   closed with its research substance carried into F6 as the first scoping step, not dropped. F8's
+   one-page recommendation is the entry directly below this one.
+
+**Deliberately NOT done in this batch — and why.** The `parseComponentSkus` quantity-edge fixes and
+the audit resolved-set fix are **code**, and this branch has already had its pre-merge A audit.
+Slipping un-audited code past an audit gate to save a branch would be the same class of mistake as
+the half-ticked checkbox. They are on the board as `C8` and ship on their own branch off `main` after
+the merge, before H's R4 run.
+
+**Evidence:** diff of `TASKS.md`, `RELAY.md`, `UNIT-SKU-PLAN.md`, `SMOKE-SCRIPT.md`, `ROLES.md`,
+`AGENTS.md`, `S-BRIEFS-ITEMS-0-5.md`, `.gitignore`. `npm run build` passes (no code changed).
+
+**Asks of A:** confirm items 2 and 7 landed as the rulings you asked for — both were *questions* to A
+in the previous session's entries, and this session answered them as O rather than waiting, on the
+strength of H's pre-authorised batch. If either ruling is not yours, say so and O will amend.
+
+---
+
+### 2026-08-19 · O → H · F8 recommendation (one page): Direction 1 first, ONE codebase, Direction 2 gated
+
+**Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session of 19 Aug)
+**Board item:** TASKS.md `F8` (🧠👤 direction split ruling — gates Track 6 `U2`)
+**Claim level:** recommendation only — **no code, nothing built, nothing scheduled.** H rules.
+
+**The question.** The planner is being pulled two ways. **Direction 1:** a simpler kitchen planner —
+preset walls, auto-design, construction-plan output (plan view + elevations, extending `F3`).
+**Direction 2:** 2–3 storey whole-house customisation — plan views, elevations, cross-sections,
+multiple cameras. Which comes first, and do they share one codebase?
+
+**Recommendation: Direction 1 first. One codebase. Direction 2 behind the existing hybrid gate,
+deferred to Phase 3.** Reasoning, strongest first:
+
+1. **Direction 1 is the only one that sells cabinets.** Brown Box Kit's revenue is flat-pack kitchen
+   SKUs through a Shopify cart. Every part of D1 shortens the path from landing page to Send-to-Cart:
+   preset walls remove the drawing step, auto-design fills the room, construction plans give the
+   customer a reason to trust the order. A whole-house designer adds no SKU to any cart — it is an
+   architectural tool that happens to sit next to the product.
+2. **Most of D1 is already paid for.** The auto-design solver is built and unit-tested (Track 2),
+   waiting on wiring; the preset rectangle exists (`C1` is a cosmetic defect in its outline, not a
+   missing feature); construction drawings extend the jsPDF + autoTable path that already ships the
+   quote PDF (`1.8`). D1 is largely *finishing*, not *starting*.
+3. **D2 forces the one change the house rules protect.** Multi-storey means walls and items stop
+   being two flat arrays and become per-level collections — i.e. a `scene_json` shape change plus a
+   migration for every saved project, which `AGENTS.md` lists as ask-first, and Law P as the way live
+   data gets corrupted. Cross-sections and multiple simultaneous cameras are new three.js
+   infrastructure on top. That is the most invasive work on the board, aimed at the direction that
+   earns least.
+4. **D1 unblocks the stated differentiator.** Complete Units (Track 6 `U2`) are the thing that beats
+   IKEA, and they land inside a simple guided kitchen flow — a one-tap unit means little in a
+   free-form three-storey house editor.
+
+**One codebase, not a fork.** `main.js` is a deliberate ~9,750-line single file; forking it doubles
+every future fix and every merge, and the June 2026 incident (a day of work stranded on an unmerged
+branch) is the standing precedent for what happens to parallel lines of work here. Use the mechanism
+already in the repo instead: the hybrid rollout gate (role `super_admin`/`hq_admin`/`admin` **or**
+`?param=1`, default OFF, hard kill switch) that Track 2 uses and `DIY-MODE-PLAN.md` reuses.
+
+| Stays shared (never duplicated) | Direction-2 only (gated, built later) |
+|---|---|
+| `walls` / `placedItems` scene state + save/load | per-level scene model + its migration |
+| Shopify catalogue layer (`planner.*` metafields) | cross-section camera |
+| quote panel / CSV / PDF / Send-to-Cart | multi-viewport camera layout |
+| Supabase auth + projects + RLS | storey navigation UI |
+| undo/redo, touch + mouse input layer | |
+
+**Cost of deferring D2: near zero, with one cheap guard.** When `U2` next bumps `scene_json`
+(to v5), *reserve* an optional per-object `level` field defaulting to `0` rather than building
+multi-storey. That is one field and a default, not speculative machinery, and it means D2 later adds
+levels instead of re-versioning every saved project a second time. ⚠ It is still a scene-state shape
+decision, so it needs H's (or Opus's) explicit sign-off inside the `U2` brief — O is recommending it,
+not taking it.
+
+**The one thing that would flip this recommendation.** If D2 is aimed at a *different customer* —
+builders or designers doing whole houses, on a different price model, perhaps a paid tier — then it
+is a second product with its own revenue, and sequencing it behind D1's polish may be wrong. O cannot
+answer that: it is a commercial call. **H: if D2 has its own paying customer in mind, say so and O
+will re-do this recommendation from that premise.**
+
+**What O needs from H (one decision).** Confirm *"Direction 1 first, one codebase, D2 gated"* — or
+override with the direction you want. Until this is answered, Track 6 `U2` stays unscheduled by
+design, because the unit UI should be designed once for whichever direction carries it.
+
+---
+
 ### 2026-08-19 · O → A · CORRECTION ×3 + the add-on ruling recorded (docs-only, pre-merge)
 
 **Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session of 19 Aug; cold start, no
@@ -653,15 +790,38 @@ Law Q forbids an agent touching a shared schema alone.
    which field does Carton Cloud read — `shipping_address.phone` or `billing_address.phone`?
    Do not let anyone close this by assumption.
 
-### R4 · 1.18 — how to switch Component SKUs on (do NOT do this until A rules on BOM-vs-add-on)
+### R4 · 1.18 — how to switch Component SKUs on
 
 **Author:** `O-opus-19aug26` — O, PM (Opus cloud agent). Steps 1–2 are Shopify Admin procedure that
 O has **not** executed and cannot verify from here (Law M) — if a menu path differs, that is on this
 author, so report it rather than guessing.
+**Revised by `O-opus-19aug26-b` (O, PM, second session 19 Aug):** removed the BOM-vs-add-on hold now
+that A+H have confirmed ADD-ON; added the § "Before step 1" block below (the internal-parts data rule
+and the two code gates). Steps 1–7 themselves are unchanged and remain the original author's.
 
-**Read the ruling-1 warning in the 1.18 log entry first.** If `component_skus` was meant as a bill
-of materials rather than add-ons, populating a metafield now would start **overcharging** customers.
-Confirm the intent with A before step 1.
+#### Before step 1 — three things that will cost real money if skipped
+
+**(a) The intent is settled: ADD-ON.** A+H confirmed on 19 Aug 2026 that each `component_skus` entry
+is its own priced cart line **on top of** the anchor cabinet. The old BOM hold on this runbook is
+lifted.
+
+**(b) ⛔ NEVER list a cabinet's own internal parts.** Because components are charged on top, and a
+cabinet SKU already includes its carcase, legs, hinges and door panels in its own price, listing any
+of those here **double-charges the customer** — on the quote, the CSV, the PDF and the real cart at
+once. No code can catch it: a hinge variant is a valid variant id, so the planner will resolve it,
+price it, and add it. Only correct data prevents this.
+- ✅ list only genuinely extra products: benchtop, sink, oven, hob, tap.
+- ❌ never list hinges, legs, fronts, carcase panels, fixings, or handles supplied with the unit.
+- Rule of thumb: *if the customer would receive it anyway by buying this cabinet alone, it must not
+  be listed.* Those parts are store-only SKUs instead (`1.19`).
+
+**(c) ⛔ Wait for board item `C8` to be on `main`.** Two known defects in the 1.18 code make this
+runbook unsafe until they are fixed: a `qty` the parser cannot read (`0.4`, `2.7`, `"two"`) silently
+becomes a quantity nobody chose, and **step 4's `OK` cannot be trusted** — the audit resolves
+component variants against all fetched products *including drafts*, while the planner resolves
+against published products only, so a component on a Draft product reads `OK` here and then arrives
+in the planner as "Unknown component / $0.00" and can make Shopify reject the entire cart. Ask O to
+confirm `C8` is merged before you set a single metafield.
 
 1. In Shopify Admin, go to **Settings → Custom data → Products** and add a metafield definition
    with namespace `planner`, key `component_skus`, type **JSON**.

@@ -115,6 +115,29 @@ that split.
 
 ## 6. Constraints carried over from 1.18 (binding on U2/U3 briefs)
 
+### Data rule — NEVER list a cabinet's own internal parts in `component_skus`
+
+**Binding data rule (A+H, 19 Aug 2026), the direct consequence of the ADD-ON ruling.**
+`component_skus` entries are **charged on top of** the anchor cabinet's own price. A
+cabinet SKU is already a complete cabinet — carcase, legs, hinges, door panels, and its
+price covers all of it (§1 rule 1). So listing any of those parts in that cabinet's
+`component_skus` **double-charges the customer for parts they have already bought**, on
+every surface at once: the on-screen quote, the CSV, the PDF, and the real Shopify cart.
+Nothing in the code can detect this — a hinge variant is a perfectly valid variant id,
+so the planner will resolve it, price it, and add it. **The only defence is the data.**
+
+- ✅ **Belongs in `component_skus`:** companion SKUs that are genuinely extra products
+  the customer would otherwise have to buy separately — benchtop, sink, oven, hob, tap.
+- ❌ **Never belongs:** anything already inside the anchor cabinet's own price — hinges,
+  legs, door/drawer fronts, carcase panels, fixings, handles supplied with the unit.
+- Those parts are **store-only** SKUs (§1 rule 2, §3): sold on the storefront as spares
+  and replacements, kept out of the planner catalogue by board item `1.19`, and never
+  referenced from an anchor cabinet's `component_skus`.
+- Rule of thumb for H: *"if the customer would receive it anyway by buying this cabinet
+  alone, it must not be listed."*
+
+### Carried-over engineering constraints
+
 - Unresolvable variantIds are never given an invented name or price (unknown, $0.00,
   flagged in the audit tool) — O ruling 3, standing.
 - One draft/unavailable component variant fails the whole `cartCreate` — the audit

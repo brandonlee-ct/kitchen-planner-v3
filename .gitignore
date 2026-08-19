@@ -24,5 +24,11 @@ Thumbs.db
 !.cursor/agents/**
 !.cursor/rules
 !.cursor/rules/**
+# Plans are un-ignored (19 Aug 2026): TASKS.md cited .cursor/plans/*.plan.md as the
+# current execution order, but the path was ignored, so no agent session could read it —
+# a governing pointer nobody can load is decoration (LESSONS-LEARNED Law S). Commit a
+# plan here if it is meant to govern; until then TASKS.md itself is the execution order.
+!.cursor/plans
+!.cursor/plans/**
 .vercel
 .env*
