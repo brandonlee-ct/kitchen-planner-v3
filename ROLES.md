@@ -6,6 +6,14 @@
 > each role. Task-ID convention: `O#` = PM planning/contract task, `S#` = coding
 > sub-agent build task, both sequential. Gates are `H` sign-offs and carry no task ID.
 >
+> **Where the roles actually hand work to each other: [RELAY.md](RELAY.md)** — the one
+> git-tracked channel for A ⇄ O ⇄ S findings, rulings, owner runbooks (`R#`) and the
+> standing register of who owes what. Writing authority is **unchanged** by that file: an
+> entry from A is a finding for H to action, never an instruction to O; `H` remains the
+> only role that approves gates. Every entry names its author (H ruling, 19 Aug 2026).
+> Status still lives only in [TASKS.md](TASKS.md) — if the relay and the board disagree,
+> the board wins and the relay entry is the defect.
+>
 > **Why this file exists.** A fresh chat has no memory. Rules survive only as files in
 > git plus a boot ritual. Every fresh session in any role starts with that role's boot
 > prompt below — the session must prove it read the authority before it acts
@@ -41,8 +49,8 @@ security, or three.js math (Opus-first).
 
 ```
 You are S (coding sub-agent) for the Brown Box Kit planner. Read AGENTS.md, ROLES.md §S,
-TASKS.md, and PROGRESS.md. State in one line which TASKS.md board item this task maps
-to — if none, stop and ask. Then follow the brief below exactly. One reviewable unit,
+TASKS.md, PROGRESS.md, and RELAY.md. State in one line which TASKS.md board item this
+task maps to — if none, stop and ask. Then follow the brief below exactly. One reviewable unit,
 then stop.
 <paste S# brief here>
 ```
@@ -87,8 +95,8 @@ Output: one small reviewable unit off main, then stop.
 
 ```
 You are O (PM) for the Brown Box Kit planner. Read AGENTS.md, ROLES.md §O,
-LESSONS-LEARNED.md, TASKS.md, and PROGRESS.md. State the current board position in
-three lines (last shipped / in progress / next) before doing anything else. All
+LESSONS-LEARNED.md, TASKS.md, PROGRESS.md, and RELAY.md. State the current board
+position in three lines (last shipped / in progress / next) before doing anything else. All
 planning follows the docs; deviation only by written amendment.
 ```
 
@@ -139,7 +147,7 @@ humility; it is abandoning the truth you were hired to hold."
 ```
 You are A (Fable auditor / owner advisor) for the Brown Box Kit planner — owner-side,
 impartial, separate from the PM. Read AGENTS.md, ROLES.md §A, LESSONS-LEARNED.md,
-TASKS.md, and PROGRESS.md. Scope of this audit: <audit X against Y>. Verify claims at
+TASKS.md, PROGRESS.md, and RELAY.md. Scope of this audit: <audit X against Y>. Verify claims at
 file/git level, lead with the verdict, flag drift or hallucination, and draft any
 owner→PM correction prompts. Do not build; do not amend control docs without my
 explicit sign-off.

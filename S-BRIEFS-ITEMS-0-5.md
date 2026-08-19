@@ -2,7 +2,15 @@
 
 > **Author:** O (PM Opus). **Source plan:** `.cursor/plans/planner_improvements_items_0-5_8598fb14.plan.md` (approved by H).
 > **Governing docs:** `AGENTS.md`, `ROLES.md` §S, `LESSONS-LEARNED.md` (Law G template), `TASKS.md`.
-> **How to use this file:** each brief below is one bounded unit for S (Composer). Build **one at a time, in the numbered order**, reviewer-check each, then A audits before the next. Do **not** batch (Law C). All line anchors were verified against `main.js`/`auth.js` at authoring time — if the file has drifted, re-locate by the function name, not the line number, and flag the drift (Law B).
+> **How to use this file:** each brief below is one bounded unit for S (Composer). Build **one at a time, in the numbered order**, reviewer-check each, then A audits before the next. Do **not** batch (Law C).
+>
+> ⚠ **Line anchors in this file are STALE and are not authority (amendment, 19 Aug 2026 — Law N).**
+> Every `(~1234–5678)` below was a snapshot taken when that brief was authored. `main.js` has since
+> grown by roughly 1,300 lines across S1–S6, so **every** number in this file is now wrong by some
+> margin. **Locate by function name, never by line number**, and do not "fix" the numbers — a fresh
+> snapshot is stale again after the next commit, which is how the drift happened in the first place.
+> New briefs must cite symbols only. The specific S6 drift that was measured before that build is
+> recorded in `RELAY.md` (cycle-open entry, 19 Aug) and in the S6 section below.
 >
 > **Board mapping is stated per brief.** The `TASKS.md` amendment O proposes is at the end of this file — H/A applies it; O does not edit `TASKS.md` from plan mode.
 
@@ -245,17 +253,38 @@ These are the `AGENTS.md` house rules. Each brief's "Out of scope / do NOT touch
 
 **Architecture note (Opus decision, per the approved plan):** The frontend-only `component_skus` metafield is the chosen path (vs Shopify Bundles app / Cart Transform, which need an installed app + admin setup — deferred as the upgrade path). A placed item still maps to one primary variant; components are **additional** cart lines and quote/PDF/CSV breakdown rows. No variant-picker UI (everything uses variant 0 today) — out of scope.
 
+**STATUS — BUILT 19 Aug 2026, commit `ade39f8`.** Kept here as the executed contract, not as work to do.
+Board item `1.18` (⏳ verified-local, awaiting H live verification per runbook R4 in `RELAY.md`).
+Follow-up fixes against this build are board item `C8`.
+
+⚠ **Line-anchor amendment (19 Aug 2026, Law N).** The line numbers in this section were already wrong
+when S built it, and S was instructed to re-locate by function name. Recorded drift, measured
+immediately before the build:
+
+| Symbol | This brief said | Was actually at | Now |
+|---|---|---|---|
+| `PRODUCTS_QUERY` | 4579–4607 | 4613–4641 | locate by name |
+| `shopifyNodeToProduct` | 4611–4639 | 4686–4720 | locate by name |
+| `btn-send-cart` handler | 5478–5535 | 5685–5746 | locate by name |
+| `buildQuoteRows` | 5540–5566 | 5751–5793 | locate by name |
+| `buildQuotePDF` | 5579–5665 | 5806–5892 | locate by name |
+| CSV `btn-export` handler | 5667–5694 | 5895–5925 | locate by name |
+| `updateQuote` | 4792–4808 | (had moved) | locate by name |
+
+The "Now" column is deliberately not a third set of numbers: the 1.18 build itself moved all of them
+again. **Treat every number below as historical.**
+
 **Files / functions / anchors to touch:**
-- `main.js` `PRODUCTS_QUERY` (**4579–4607**) — add one metafield line, mirroring the existing ones:
+- `main.js` `PRODUCTS_QUERY` (~~**4579–4607**~~ — locate by name) — add one metafield line, mirroring the existing ones:
   ```graphql
   component_skus: metafield(namespace: "planner", key: "component_skus") { value }
   ```
   This is an **authorised** additive query change (unlike S1, which was read-only). Do not touch the other query fields.
-- `main.js` `shopifyNodeToProduct` (**4611–4639**) — parse `node.component_skus?.value` (JSON string) into `product.componentSkus = [{ variantId, qty }]` (default `[]`; try/catch the JSON parse, tolerate malformed → `[]` + a console warning). Keep every existing product key; this is additive.
-- `main.js` Send-to-Cart `btn-send-cart` handler (**5478–5535**) — when aggregating `lineMap`, after adding the item's primary `sku.variantId`, also add each `componentSkus` entry (`variantId` × `qty × itemCount`) into the same `lineMap`. Preserve the existing skip rules (imported GLBs, openings, missing variantId) and the `project_code`/`display_po` stamping untouched.
-- `main.js` `buildQuoteRows` (**5540–5566**) — add a component breakdown per placed item (e.g. child rows or an indented "includes:" sub-row). Keep the primary row shape so `buildQuotePDF` (5579–5665) still renders; if adding a `components` field to a row, make `buildQuotePDF` print them as extra table rows without changing column structure.
-- `main.js` CSV `btn-export` handler (**5667–5694**) — emit a component sub-line per component under each item (clearly labelled), before the Total.
-- `main.js` `updateQuote` (**4792–4808**) — optionally show the component breakdown in the on-screen quote panel (nice-to-have; PDF/CSV/cart are the acceptance bar).
+- `main.js` `shopifyNodeToProduct` (~~**4611–4639**~~ — locate by name) — parse `node.component_skus?.value` (JSON string) into `product.componentSkus = [{ variantId, qty }]` (default `[]`; try/catch the JSON parse, tolerate malformed → `[]` + a console warning). Keep every existing product key; this is additive.
+- `main.js` Send-to-Cart `btn-send-cart` handler (~~**5478–5535**~~ — locate by name) — when aggregating `lineMap`, after adding the item's primary `sku.variantId`, also add each `componentSkus` entry (`variantId` × `qty × itemCount`) into the same `lineMap`. Preserve the existing skip rules (imported GLBs, openings, missing variantId) and the `project_code`/`display_po` stamping untouched.
+- `main.js` `buildQuoteRows` (~~**5540–5566**~~ — locate by name) — add a component breakdown per placed item (e.g. child rows or an indented "includes:" sub-row). Keep the primary row shape so `buildQuotePDF` (~~5579–5665~~ — locate by name) still renders; if adding a `components` field to a row, make `buildQuotePDF` print them as extra table rows without changing column structure.
+- `main.js` CSV `btn-export` handler (~~**5667–5694**~~ — locate by name) — emit a component sub-line per component under each item (clearly labelled), before the Total.
+- `main.js` `updateQuote` (~~**4792–4808**~~ — locate by name) — optionally show the component breakdown in the on-screen quote panel (nice-to-have; PDF/CSV/cart are the acceptance bar).
 - **S1 audit tool** — add a `component_skus` column/flag (present/absent + parsed count) to the report.
 
 **What it must NOT change:**

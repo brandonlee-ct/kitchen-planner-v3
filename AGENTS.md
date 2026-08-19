@@ -12,9 +12,14 @@ is to **implement tasks cleanly without re-architecting**.
   assurance (separate chat; audits O's outputs, reports to H — never commands O).
   Full charters + fresh-chat boot prompts: **`ROLES.md`**.
 - **Boot rule (every fresh session, any role):** before acting, read `TASKS.md`
-  (single source of truth) and state in one line which board item your task maps to.
-  If it maps to none, or contradicts a doc — **stop and ask**. Deviation only by
-  written amendment, never silently.
+ (single source of truth) **and `RELAY.md`** (the git-tracked A ⇄ O ⇄ S channel — open
+ findings, rulings, owner runbooks, and who owes what), then state in one line which
+ board item your task maps to. If it maps to none, or contradicts a doc — **stop and
+ ask**. Deviation only by written amendment, never silently.
+- **`RELAY.md` carries messages and evidence; `TASKS.md` carries status.** If the two
+ disagree, `TASKS.md` wins and the relay entry is the defect. Every relay entry must
+ name its author (H ruling, 19 Aug 2026) — an unattributed entry is a defect, not a
+ finding.
 - **Laws:** `LESSONS-LEARNED.md` is binding for every contributor, human and AI.
 
 ## Project context

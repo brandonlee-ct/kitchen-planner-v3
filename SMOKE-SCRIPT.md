@@ -10,6 +10,10 @@
 - The iPad/touch section requires a real iPad or iPhone.
 - If you need an on-screen console on a device, use **eruda** (already loaded on the page per AGENTS.md).
 - Report **pass/fail + a screenshot** for each step, using the template at the bottom.
+- ⚠ **Use a normal, everyday browser you opened yourself.** Do not run these checks in an automation
+  or "test" browser (Playwright, Puppeteer, Selenium, a headless window, or anything launched from a
+  script). Those browsers disable features real customers have, and section **G** below cannot fail in
+  them — it will report a false PASS. See the caveat in section G.
 
 ---
 
@@ -55,6 +59,38 @@ Repeat on a real device: https://planner.brownboxkit.co.nz
 | F6 | Door/window select + drag |
 | F7 | Undo / redo |
 | F8 | Zoom speed normal with a cabinet selected |
+| F9 | Send to Cart → browser Back → button usable again (section G caveat applies) |
+
+## G. Desktop — Send to Cart, then browser Back (bug C3)
+> **Why this section exists:** the Send-to-Cart button used to stay greyed out on "Adding to cart…"
+> forever after you pressed Back from the Shopify checkout, so the customer could not order. Fixed
+> 19 Aug 2026; this is the check that it stays fixed. It exercises a real cart, but takes no payment —
+> stop at the checkout page, never enter card details.
+
+1. Open https://planner.brownboxkit.co.nz in a **normal browser tab you opened yourself**.
+2. Draw a small room and place any **base cabinet**.
+3. Click 🛒 **Send to Cart** and wait until the Shopify checkout page has loaded.
+4. Press the browser **Back** button once (do **not** refresh, and do not use Ctrl+R).
+- **Pass if:** the Send-to-Cart button is green and reads `🛒 Send to Cart`.
+- **Fail if:** it is grey and still reads `Adding to cart…`.
+5. Click 🛒 **Send to Cart** again — it must actually reach the checkout, proving the button really
+   works and was not just relabelled.
+6. Repeat steps 2–5 on **iPad and iPhone Safari.** This is the important one — those browsers restore
+   the page differently from desktop Chrome, which is exactly why the fix does not rely on the
+   browser telling us a restore happened.
+
+> ⚠ **Caveat that produced a false PASS on 19 Aug 2026 — read before reporting.** Pressing Back only
+> exercises this bug if the browser restores the page from its **back/forward cache** instead of
+> reloading it. A default automation browser (Playwright/Puppeteer/Selenium/headless Chrome) has that
+> cache **switched off**, so Back silently does a fresh page load — and on a fresh load the button
+> starts out green anyway. The test then passes identically with **and without** the fix, which is not
+> a test at all. During C3 testing an agent-driven Chrome did exactly this and reported PASS on a run
+> that could not fail; it had to be withdrawn (see the CORRECTION entry in `RELAY.md`).
+>
+> **How to tell which one you got:** if the **"Resume your unsaved design?"** prompt appears after
+> pressing Back, the page reloaded from scratch — that run proves nothing about this bug. **Report it
+> as "inconclusive — page reloaded", not as a pass.** On a genuine restore the design is simply still
+> there, with no prompt.
 
 ---
 
@@ -66,7 +102,9 @@ B 300mm slab:         pass / fail — saw: ___
 C Power point elev.:  pass / fail — saw: ___
 D Door/window drag:   pass / fail — saw: ___
 E Zoom speed:         pass / fail — saw: ___
-F iPad F1–F8:         pass / fail per row — saw: ___
+F iPad F1–F9:         pass / fail per row — saw: ___
+G Send-to-Cart Back:  pass / fail / inconclusive-page-reloaded — saw: ___
+                      (did the "Resume your unsaved design?" prompt appear? yes / no)
 Screenshots attached: yes / no
 ```
 
@@ -79,4 +117,5 @@ S5 service product (no 3D box, quote/CSV/PDF/cart, save+reload round-trip).
 
 ## Known gaps carried out of Sprint 1
 - Genuine **v1–v3 legacy save** migration not live-tested (no pre-v4 save exists) — covered by A code-audit.
-- This document's checks (Restart, slab, GPO, door/window, zoom, all touch) are the outstanding **item 10** remainder.
+- Sections **A–F** (Restart, slab, GPO, door/window, zoom, all touch) are the outstanding **item 10** remainder.
+- Section **G** is not part of item 10 — it is the live verification of bug **C3**, added 19 Aug 2026, and it has never been run on a real device by a human.
