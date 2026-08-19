@@ -5745,6 +5745,23 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
   }
 });
 
+// ── Send to Cart: reset button after bfcache / back-navigation restore ──
+// ✅ FIX (C3): the success path above never re-enables the button because the page
+// is navigating to Shopify checkout. On browser Back the DOM is restored exactly as
+// it left — stuck disabled on "Adding to cart…" — killing the revenue path until a
+// hard reload. Reset unconditionally on every pageshow rather than gating on
+// event.persisted: Safari/iOS and some Android browsers restore a page without
+// setting persisted, and a back-nav to a cached page can fire pageshow with
+// persisted === false. Resetting an already-idle button is harmless and idempotent,
+// so do NOT "optimise" this back into an event.persisted check.
+window.addEventListener('pageshow', () => {
+  const btn = document.getElementById('btn-send-cart');
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = '🛒 Send to Cart';
+  }
+});
+
 // ── Quote PDF: aggregate placed items into priced rows ──
 // Skips imported GLBs and opening meshes (door/window/gpo). Groups identical
 // SKUs by Shopify variantId when present, else by product name + sku label.
