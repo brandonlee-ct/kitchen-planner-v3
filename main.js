@@ -4739,6 +4739,28 @@ function parseComponentSkus(rawValue, label) {
   return out;
 }
 
+// ── Store-only products (TASKS.md 1.19) ───────────────────────────────────────
+// Spare parts (hinges, panels, legs) are sold on the storefront but must NEVER appear
+// in the planner catalogue — a cabinet SKU already includes them in its price, so
+// offering one as a placeable item is nonsense (UNIT-SKU-PLAN.md §1 rule 2).
+// H can change the agreed value with one word here, and more than one value can be
+// accepted at once while data is migrated. Reading is normalised (trim + lowercase)
+// because a stray capital or trailing space typed in Shopify Admin would otherwise
+// silently put a hinge back in the catalogue.
+const STORE_ONLY_CATEGORIES = new Set(['store-only']);
+
+// One helper, every caller — so the catalogue panel and the audit tool can never
+// disagree about what "store-only" means.
+function isStoreOnlyCategory(value) {
+  return STORE_ONLY_CATEGORIES.has(String(value || '').trim().toLowerCase());
+}
+
+// product.category is already `planner.category || productType || 'Other'`
+// (see shopifyNodeToProduct), which is the same effective value the audit reports.
+function isStoreOnlyProduct(product) {
+  return isStoreOnlyCategory(product?.category);
+}
+
 function shopifyNodeToProduct(node) {
   const parsedW = parseDimMm(node.width_mm?.value);
   const parsedH = parseDimMm(node.height_mm?.value);
@@ -4877,6 +4899,7 @@ function runCatalogueAudit(nodes) {
   let missingGlb = 0, unparseableDims = 0, missingCategory = 0, draftCount = 0;
   let withComponents = 0, unparseableComponents = 0, unresolvedComponentProducts = 0;
   let draftComponentProducts = 0, skippedComponentProducts = 0;
+  let storeOnlyCount = 0;
 
   nodes.forEach(node => {
     const isDraft = /\(Draft\)/i.test(node.title || '');
@@ -4896,6 +4919,11 @@ function runCatalogueAudit(nodes) {
     const rawCategory = node.category?.value || null;
     if (!rawCategory) missingCategory++;
     const categoryApplied = rawCategory || node.productType || 'Other';
+    // 1.19: report store-only status off the SAME effective category the runtime uses,
+    // through the shared helper, so this column can never disagree with what the
+    // catalogue panel actually hides.
+    const storeOnly = isStoreOnlyCategory(categoryApplied);
+    if (storeOnly) storeOnlyCount++;
 
     const comp = auditComponentSkus(node.component_skus?.value, node.handle);
     // ✅ FIX (C8): count off the structured fields, not off substrings of the status
@@ -4926,7 +4954,9 @@ function runCatalogueAudit(nodes) {
       category_raw: rawCategory || '', category_applied: categoryApplied,
       fallbacksApplied: fallbacksApplied.length ? fallbacksApplied.join('; ') : '—',
       // 1.18: appended AFTER every pre-existing column so none of them shifts position.
-      component_skus_status: comp.status, component_skus_count: comp.count
+      component_skus_status: comp.status, component_skus_count: comp.count,
+      // 1.19: likewise appended last. YES = hidden from the catalogue panel.
+      store_only: storeOnly ? 'YES' : '—'
     });
   });
 
@@ -4935,6 +4965,10 @@ function runCatalogueAudit(nodes) {
   console.log('Missing planner.glb_url: ' + missingGlb);
   console.log('Products with unparseable dimension(s): ' + unparseableDims);
   console.log('Missing planner.category: ' + missingCategory);
+  // 1.19: store-only products are hidden from the catalogue panel but stay in `products`,
+  // so they still resolve by name and price when referenced in planner.component_skus.
+  console.log('Store-only products (hidden from the catalogue panel): ' + storeOnlyCount +
+    ' — planner.category in {' + Array.from(STORE_ONLY_CATEGORIES).join(', ') + '}');
   console.log('Products with planner.component_skus: ' + withComponents +
     (unparseableComponents ? ' (' + unparseableComponents + ' unparseable)' : ''));
   // ✅ FIX (C8): draft-parent and skipped components are reported on their own lines.
@@ -4965,7 +4999,26 @@ function renderProductPanel() {
   const productList = document.getElementById('product-list');
   productList.innerHTML = '';
 
-  if (products.length === 0) {
+  // 1.19: hide store-only SKUs (spare parts) from the catalogue. This is the ONLY
+  // place the exclusion happens, and deliberately so — `products` keeps every item, so
+  // a store-only part referenced from another product's planner.component_skus still
+  // resolves with its real name and price (getComponentVariantIndex reads `products`),
+  // and loadScene can still restore a saved item that references one. Do NOT move this
+  // into `products` population or add a guard to placeProduct: loadScene restores items
+  // via placeProduct, so a guard there would silently drop items out of a customer's
+  // saved project. Filter the display, not the data.
+  const placeable = products.filter(p => !isStoreOnlyProduct(p));
+  const hiddenCount = products.length - placeable.length;
+  if (hiddenCount > 0) {
+    // Logged, not silent: on an iPad this is readable through eruda, so the data can be
+    // verified on the device where the catalogue is hardest to inspect.
+    console.log('[catalogue] ' + hiddenCount + ' store-only product(s) hidden from the panel' +
+      ' (planner.category in {' + Array.from(STORE_ONLY_CATEGORIES).join(', ') + '})');
+  }
+
+  // Empty state keys off the FILTERED list, so a catalogue that is entirely store-only
+  // shows the message instead of a blank panel.
+  if (placeable.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'product-empty';
     empty.textContent = 'No products available.';
@@ -4974,7 +5027,7 @@ function renderProductPanel() {
   }
 
   const groups = new Map();
-  products.forEach(p => {
+  placeable.forEach(p => {
     const key = p.productType || 'Other';
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(p);
