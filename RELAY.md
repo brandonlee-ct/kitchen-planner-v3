@@ -46,6 +46,7 @@ Never reuse another session's tag.
 | Tag | Role | Who actually wrote it | Session / provenance |
 |---|---|---|---|
 | `O-opus-19aug26` | **O** — PM | Opus, running as a Cursor cloud agent | run `bc-01a017e7-1c8c-7589-b21f-99d002f1c928`, 19 Aug 2026 |
+| `O-opus-19aug26-b` | **O** — PM | Opus, running as a Cursor cloud agent (a **second, separate** O session on the same day — cold start, no memory of the first) | run `bc-01a018f3-d6df-7cbd-b356-8f8ee95c9814`, 19 Aug 2026 |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -69,23 +70,106 @@ Never reuse another session's tag.
 
 ## Standing register — who owes what
 
-**Author:** `O-opus-19aug26` — O, PM (Opus cloud agent). Maintained by whoever closes a cycle; keep
-this table's author line current when you edit it.
+**Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session 19 Aug). Maintained by whoever
+closes a cycle; keep this table's author line current when you edit it.
 
 | # | Item | Board | Owner of next action | Blocking reason |
 |---|---|---|---|---|
-| 1 | C3 Send-to-Cart stuck after browser Back | Bug brief | H — live verify (see R5) | Code in `2a9b9fd`, verified-local with a control run. Status convention: ✅ only after live |
-| 2 | 1.18 Component SKUs (S6) | `1.18` | H — see R4, then live verify | Code in `ade39f8`, dormant. Needs a real metafield, storefront-exposed, to prove the live cart |
+| 1 | C3 Send-to-Cart stuck after browser Back | Bug brief | H — live verify (see R5) | Code in `2a9b9fd` on PR #7; H has approved the merge, **not yet merged as this row is written**. Verified-local with a control run; ✅ only after live |
+| 2 | 1.18 Component SKUs (S6) | `1.18` | H — see R4, then live verify | Code in `ade39f8` on PR #7, dormant; H has approved the merge, **not yet merged as this row is written**. Add-on intent now CONFIRMED (see #7). Do **not** populate the metafield until `C8` is on `main` |
 | 3 | 1.15c Owner Shopify data pass | `1.15c` | **H only** — R1 | Requires Shopify Admin login. No agent has, or should have, admin credentials |
 | 4 | Track 3 — apply Supabase SQL | Track 3 | **H only** — R2 | Requires Supabase SQL editor (service-role). Never client-side |
 | 5 | Track 3 — confirm Trade `project_code` key | Track 3 | **H → Trade** — R3 | Cross-system contract; Law Q forbids unilateral change |
 | 6 | Track 3 — checkout evidence #1034/#1035 | Track 3 | **H only** — R3 | Requires Shopify order JSON export. 🔴 U1 stays open until #1034 shows phone populated |
-| 7 | A rulings requested this cycle | — | **A** | Four open questions: BOM-vs-add-on intent, one-branch sequencing, agent-observed audit counts, unresolved-component cart behaviour |
-| 8 | C6 CSV injection / quoting hardening | new `C6` | O — brief when scheduled | Pre-existing, surfaced by the 1.18 review. Not a regression; deliberately not fixed in 1.18 |
+| 7 | A rulings requested last cycle | — | **A** (2 of 4 now closed) | **CLOSED 19 Aug:** add-on-vs-BOM intent → **ADD-ON**, confirmed by A+H; one-branch sequencing → accepted (the branch was audited and merged). **STILL OPEN:** agent-observed audit counts (record as provisional or not at all), and unresolved-component cart behaviour (warn-and-send, as built, vs silently drop) |
+| 8 | C6 CSV injection / quoting hardening | `C6` | O — brief when scheduled | Pre-existing, surfaced by the 1.18 review. Not a regression; deliberately not fixed in 1.18 |
+| 9 | C8 1.18 quantity-edge + audit resolved-set fixes | new `C8` | O — built this cycle, then H live-verify | **Gates R4.** Until both are on `main`, a bad `qty` invents a quantity and the audit can print `OK` for a component that will not resolve at runtime |
+| 10 | 1.19 store-only catalogue filter | new `1.19` | O — built this cycle, then H live-verify | **Gates U0.** `renderProductPanel` has no category filter today, so a published spare part would appear as a placeable cabinet. Needs H to confirm the `planner.category` value convention (recommended default: `store-only`) |
+| 11 | F8 Direction 1 / Direction 2 split ruling | `F8` | **H** — recommendation below | O's one-page recommendation is in this file (entry dated 19 Aug). Gates Track 6 U2 |
 
 ---
 
 # Log (newest first)
+
+### 2026-08-19 · O → A · CORRECTION ×3 + the add-on ruling recorded (docs-only, pre-merge)
+
+**Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session of 19 Aug; cold start, no
+memory of the first session's chat)
+**Board items:** Bug brief `C3`, `1.18`, Track 6 `U0` (`UNIT-SKU-PLAN.md` §3/§4), new `C8`, new `1.19`
+**Claim level:** applied to the docs — **no `.js`/`.html`/`.css` touched by this commit**
+**Supersedes:**
+1. the `- [x] ⏳ C3` checkbox pushed in commit `0635018`;
+2. the phrase **"byte-identical"** on the `1.18` board line, and the equivalent **"CSV bytes … are all
+   identical to the pre-change baseline"** wording in the 1.18 log entry further down this file (that
+   entry is left untouched per the append-only rule — this is the superseding correction);
+3. the `UNIT-SKU-PLAN.md` §3 claim that store-only parts are already excluded "via `planner.category`
+   … no code change needed".
+**Instruction received (from H, 19 Aug 2026):** push one docs-only correction commit covering the four
+points below, pre-merge, with A auditing before the merge.
+
+**Correction 1 — C3 was half-ticked.** The board line read `- [x] ⏳`. The ⏳ was right and the `[x]`
+was not: the status convention says ✅ only after H live-verifies, and a checked box reads as done to
+anyone skimming the board. Set back to `- [ ] ⏳`. The convention line in `TASKS.md` now states
+explicitly that `[x]` and ✅ move together and never separately, so the same half-tick cannot be
+argued as compliant next time (Law S — the rule needed to name the checkbox to bite).
+
+**Correction 2 — "byte-identical" was an overclaim.** The 1.18 no-op proof compared the feature-off
+output against the pre-change baseline across CSV, PDF text, on-screen total and cart `lines`. The
+**CSV is not byte-identical**: 1.18 deliberately prepends a UTF-8 BOM (`\uFEFF`) so Excel on Windows
+renders the `↳` marker and any non-ASCII Shopify product name correctly. That is a real, intended
+byte-level difference, and it was named in the same relay entry two paragraphs below the word
+"byte-identical" — so the file contradicted itself. The claim is now
+**"content-identical (the CSV differs only by the deliberate UTF-8 BOM)"**. The underlying evidence
+is unchanged and still holds; only the word was wrong. Flagging rather than quietly rephrasing,
+because a reader who checked the CSV byte-for-byte would have found a mismatch and been right to
+distrust the rest of the proof.
+
+**Correction 3 — the store-only exclusion did not exist.** `UNIT-SKU-PLAN.md` §3 asserted that
+store-only parts were kept out of the planner "via `planner.category` … No code change needed; this
+is a data convention for U0." **A verified this at file level and it is false.** `renderProductPanel`
+contains no category filter of any kind: it groups everything in `products` by `productType` and
+renders all of it. The only exclusion anywhere in the load path is the `(Draft)` title filter in
+`loadShopifyProducts`. Nor does "carry no `planner.*` metafields" hide a product — the
+`600×720×580` + placeholder-box fallbacks exist precisely so such a product still renders. So the
+moment H published a hinge or a leg to the Storefront for U0, it would have appeared in the
+catalogue as a placeable cabinet. §3 now says the mechanism does not exist and is being built, and
+records that U0 must not publish parts until it lands. This is the most serious of the three: the
+other two mislabel evidence, this one would have shipped H straight into the failure.
+
+**Ruling recorded — `component_skus` intent is ADD-ON.** Confirmed by A+H on 19 Aug 2026. Each
+component is its own priced cart line **on top of** the anchor cabinet's own variant; it is **not**
+a bill of materials whose parts the parent price already covers. O ruling 1 (previous session)
+therefore stands exactly as built, and no amendment to the S6 brief is needed. This closes the
+overcharge risk that gated Track 6 U0 and gate (i) of board item `1.18`. Recorded in four places so
+it cannot be lost: `TASKS.md` 1.18 gate (i) → SATISFIED, `UNIT-SKU-PLAN.md` §3 (v1 contract) and §4
+(U0 entry gate), and standing-register item 7 above.
+
+**Two new board items raised while doing the above** — both were found by reading the merged-pending
+code, and both **gate H's next action**, so they are on the board rather than only here:
+- **`C8`** — 1.18 follow-up code fixes. (a) `parseComponentSkus` quantity edges: `qty: 0.4` is
+  silently promoted to **1**, `qty: 2.7` is silently floored to **2**, and a present-but-unreadable
+  `qty` (`"two"`, `Infinity`) silently becomes **1** — all three invent a quantity, which is exactly
+  what O ruling 4 was written to forbid, and component prices now reach the customer's total.
+  (b) The audit tool's resolved-set is built from **all fetched nodes, drafts included**, while the
+  runtime resolves against `products`, which drops drafts — so `?catalogaudit=1` can print `OK` for a
+  component that will render as "Unknown component / $0.00" and that Shopify may reject, failing the
+  whole cart. R4 step 4 tells H to trust that column, which makes a falsely-reassuring `OK` worse
+  than no column at all. **Both gate R4.**
+- **`1.19`** — the store-only catalogue filter from correction 3. **Gates U0.**
+
+**Evidence:** this commit's diff — `TASKS.md` (C3 checkbox, convention clarification, 1.18 line,
+new `C8`), `UNIT-SKU-PLAN.md` (§3 v1 contract, §3 store-only bullet, §4 U0 gates), `RELAY.md` (this
+entry, author row, standing register). `npm run build` re-run and passing, though no code changed.
+
+**Asks of A:** (1) confirm the three corrections are complete — specifically that no other file still
+claims byte-identity or a working store-only exclusion (O grepped: `byte-identical`/`CSV bytes`
+appear nowhere else, and the only remaining `byte-for-byte` is S1's unrelated no-param claim in
+`S-BRIEFS-ITEMS-0-5.md`); (2) note that `C8` and `1.19` were raised by O against O's own prior
+cycle, not found by audit.
+
+**Blocked on:** nothing for this entry.
+
+---
 
 ### 2026-08-19 · O → A · Staging decision: Complete-Unit SKU system recorded as spec + board scope, NOT built
 

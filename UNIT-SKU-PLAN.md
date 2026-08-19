@@ -44,15 +44,30 @@ code changes — none of the three competitors let the merchant do that.
 
 - **v1 (shipped in 1.18, commit `ade39f8`, dormant):** `planner.component_skus` =
   flat JSON array `[{"variantId": "gid://…", "qty": 2}]`. Components are **add-on
-  lines priced on top of the parent** (O ruling 1 — awaiting A/H confirmation of
-  add-on vs BOM intent; see RELAY.md 1.18 entry).
+  lines priced on top of the parent** — **CONFIRMED by A+H, 19 Aug 2026**: the intent
+  is ADD-ON, not a bill of materials. O ruling 1 stands as built and needs no
+  amendment; see RELAY.md § ruling entry (19 Aug). The BOM risk that gated U0 is
+  therefore closed.
 - **v2 (phase U2, not built):** same metafield, entries gain an optional
   `"slot"` name (`benchtop`, `sink`, `oven`, `hob`, …) and the parser stays
   backwards-compatible with flat v1 lists. Slots enable per-item swap/remove in the
   planner; slotless entries behave exactly as v1.
-- **Store-only parts** (rule 2 above) are excluded from the planner catalogue via
-  `planner.category` — parts either carry no `planner.*` metafields or a category the
-  planner does not place. No code change needed; this is a data convention for U0.
+- **Store-only parts** (rule 2 above) must be excluded from the planner catalogue.
+  ⚠ **CORRECTION (A verified 19 Aug 2026): the exclusion mechanism did not exist.**
+  An earlier version of this bullet claimed parts were "excluded from the planner
+  catalogue via `planner.category` … no code change needed". That was wrong.
+  `renderProductPanel` has **no category filter of any kind** — it groups every
+  product in `products` by `productType` and renders all of them, so the only thing
+  keeping any product out of the panel today is Shopify's `(Draft)` title filter in
+  `loadShopifyProducts`. A part published to the Storefront with any (or no)
+  `planner.category` would appear as a placeable item. Carrying no `planner.*`
+  metafields does not hide it either — the fallbacks (`600×720×580`, placeholder box)
+  exist precisely to render such a product anyway.
+  **The mechanism is being built now** — board item `1.19` (store-only catalogue
+  filter): the panel filters on an agreed `planner.category` value while the product
+  stays in `products`, so a store-only part still resolves with its real name and
+  price when referenced in `component_skus`. Until `1.19` is on `main` and
+  H-live-verified, U0 must not publish parts to the Storefront.
 
 ## 4. Phases and entry gates
 
@@ -60,8 +75,16 @@ code changes — none of the three competitors let the merchant do that.
 Upload companion SKUs (benchtops, sinks, ovens, hobs) to Shopify with
 `planner.category`; keep parts store-only; fill `component_skus` on the anchor
 cabinets per runbook R4 in `RELAY.md`.
-**Gate to start:** A+H confirm add-on vs BOM intent (RELAY.md 1.18 ruling 1).
-**Done when:** at least one real complete unit resolves clean in `?catalogaudit=1`.
+**Gate to start — add-on vs BOM: SATISFIED 19 Aug 2026.** A+H confirmed the intent is
+**ADD-ON** (RELAY.md 1.18 ruling 1 stands as built), so the overcharge risk that held
+this phase is closed.
+**Two gates remain, both code on `main`:** (i) board item `1.19` store-only catalogue
+filter, live-verified — without it a published part appears as a placeable cabinet
+(see §3); (ii) board item `C8`, the 1.18 quantity-edge and audit resolved-set fixes —
+without them a bad `qty` silently invents a quantity and the audit can report `OK` for
+a component that will not resolve at runtime.
+**Done when:** at least one real complete unit resolves clean in `?catalogaudit=1`,
+**and** the parts published alongside it are confirmed absent from the catalogue panel.
 
 ### U1 — Land what is already built (in flight)
 A audits the C3 + 1.18 branch, merge to `main`, H live-verifies runbooks R4/R5.
