@@ -47,6 +47,8 @@ Never reuse another session's tag.
 |---|---|---|---|
 | `O-opus-19aug26` | **O** — PM | Opus, running as a Cursor cloud agent | run `bc-01a017e7-1c8c-7589-b21f-99d002f1c928`, 19 Aug 2026 |
 | `O-opus-19aug26-b` | **O** — PM | Opus, running as a Cursor cloud agent (a **second, separate** O session on the same day — cold start, no memory of the first) | run `bc-01a018f3-d6df-7cbd-b356-8f8ee95c9814`, 19 Aug 2026 |
+| `A-fable-20aug26` | **A** — Fable auditor | Fable, launched from Cursor iOS | **Session lost.** Launched against the WRONG repository (the private OEM-agreement repo) — could read this repo but never write to it, so its two prepared commits were never pushed and its entries never landed here. Row added retroactively by `A-fable-21aug26` from H's account, for traceability of the rulings relayed below; the session's own row and narrative were lost with it |
+| `A-fable-21aug26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side) | The standing desktop A session that pushed `48f09e1` (19 Aug audit). On 21 Aug it relays the stranded `A-fable-20aug26` session's rulings on H's instruction |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -71,7 +73,8 @@ Never reuse another session's tag.
 ## Standing register — who owes what
 
 **Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session 19 Aug). Maintained by whoever
-closes a cycle; keep this table's author line current when you edit it.
+closes a cycle; keep this table's author line current when you edit it. **Item 7 closures applied by
+`A-fable-21aug26` (A) on H's instruction, 21 Aug 2026 — no other row touched.**
 
 | # | Item | Board | Owner of next action | Blocking reason |
 |---|---|---|---|---|
@@ -81,7 +84,7 @@ closes a cycle; keep this table's author line current when you edit it.
 | 4 | Track 3 — apply Supabase SQL | Track 3 | **H only** — R2 | Requires Supabase SQL editor (service-role). Never client-side |
 | 5 | Track 3 — confirm Trade `project_code` key | Track 3 | **H → Trade** — R3 | Cross-system contract; Law Q forbids unilateral change |
 | 6 | Track 3 — checkout evidence #1034/#1035 | Track 3 | **H only** — R3 | Requires Shopify order JSON export. 🔴 U1 stays open until #1034 shows phone populated |
-| 7 | A rulings requested last cycle | — | **A** (2 of 4 now closed) | **CLOSED 19 Aug:** add-on-vs-BOM intent → **ADD-ON**, confirmed by A+H; one-branch sequencing → accepted (the branch was audited and merged). **STILL OPEN:** agent-observed audit counts (record as provisional or not at all), and unresolved-component cart behaviour (warn-and-send, as built, vs silently drop) |
+| 7 | A rulings requested last cycle | — | **CLOSED** (all 4) | **CLOSED 19 Aug:** add-on-vs-BOM intent → **ADD-ON**, confirmed by A+H; one-branch sequencing → accepted (the branch was audited and merged). **CLOSED 20 Aug (A ruling, relayed 21 Aug — see log entry):** agent-observed catalogue counts stay **relay-only** and appear on the board in **no form, not even provisional**, until H reports a clean dated `?catalogaudit=1` reading; unresolved components are **NEVER silently dropped** — warn-and-send stands as built, protected by the R4 zero-unresolved gate |
 | 8 | C6 CSV injection / quoting hardening | `C6` | O — brief when scheduled | Pre-existing, surfaced by the 1.18 review. Not a regression; deliberately not fixed in 1.18 |
 | 9 | C8 1.18 quantity-edge + audit resolved-set fixes | new `C8` | O — built this cycle, then H live-verify | **Gates R4.** Until both are on `main`, a bad `qty` invents a quantity and the audit can print `OK` for a component that will not resolve at runtime |
 | 10 | 1.19 store-only catalogue filter | new `1.19` | O — built this cycle, then H live-verify | **Gates U0.** `renderProductPanel` has no category filter today, so a published spare part would appear as a placeable cabinet. Needs H to confirm the `planner.category` value convention (recommended default: `store-only`) |
@@ -90,6 +93,81 @@ closes a cycle; keep this table's author line current when you edit it.
 ---
 
 # Log (newest first)
+
+### 2026-08-21 · A → H/O · Relay of A's 19–20 Aug audit rulings (narrative lost with the wrong-repo session)
+
+**Author:** `A-fable-21aug26` — A, Fable auditor (Cursor desktop chat, owner-side; the same desktop
+A session that pushed `48f09e1` on 19 Aug)
+**Board items:** `C10` (raised on PR #8's board — see note below), `C8` / `1.19` (PR #8), `1.18`
+R4 gate, `1.15c` hold, standing register item 7; plus one governance change with no board item
+(the ROLES.md launch guard — flagged per Law B rather than filed under a convenient item)
+**Claim level:** docs-only relay — nothing built; nothing verified beyond what each item states
+**Relaying work by:** the stranded 19–20 Aug A session (`A-fable-20aug26`), via H's instruction
+
+**Provenance — why this is a relay and not a first-hand audit.** A's 19 and 20 Aug audits were
+performed by an A session launched from Cursor iOS against the WRONG repository (the private
+OEM-agreement repo). It could read this repo but not write to it, so its two prepared commits
+(patches `0001`/`0002`) could never be pushed. Those patch files were **not available** to this
+session, so per H's instruction this is the fallback: ONE entry recording the operative rulings
+verbatim. **A's full audit narrative was lost with that session — only the rulings below survive.**
+This entry does not reconstruct or invent its reasoning, and per H's instruction the rulings were
+not re-derived or re-audited here. H reports nothing was damaged in either repo; this session
+independently confirmed this repo's `main` is intact at `d7fd48a` with a clean tree.
+
+**A's operative rulings (recorded verbatim from H's 21 Aug instruction — decisions, not
+suggestions; act on them):**
+
+1. **C10 (opening add/delete missing from undo/redo and autosave) — RULING GRANTED so O can brief
+   it:** add two NEW history types `add-opening` / `remove-opening` modelled on the existing
+   `edit-opening` entry; no existing history type changes shape; undo/redo must restore the SAME
+   opening object so interleaved `edit-opening` entries stay valid; no `scene_json` version bump
+   (openings already persist — this is undo plus autosave only); `sceneDirty` must also be set by
+   these actions, which today it is not; touch and mouse paths both.
+   A ALSO FOUND A PATH MISSING FROM O's C10 LIST: `elev-center-opening` mutates `op.distFromLeft`
+   with no `pushHistory`. Add it to the brief as a plain `edit-opening` record. For balance,
+   `endOpeningDrag` and the dimension-editor commit do push correctly — the gap is one button, not
+   a pattern.
+2. **Three deferred reviewer nits — deferrals ACCEPTED, two with a scheduled home:** fold the
+   shared `(Draft)` regex helper and the `withComponents` count fix into the next task that touches
+   those sites, not standalone jobs; the duplicated parser warning is cosmetic. Note for H's
+   safety: the R4 gate is "the three warning lines read zero", which comes from structured counts,
+   not from the `withComponents` string test.
+3. **Standing register item 7 — both leftovers CLOSED:** agent-observed catalogue counts stay
+   relay-only and appear on the board in no form, not even provisional, until H reports a clean
+   dated `?catalogaudit=1` reading; unresolved components are NEVER silently dropped —
+   warn-and-send stands as built, protected by the R4 zero-unresolved gate. (Register updated in
+   this commit, item 7 only.)
+4. **O's four declared departures — all ACCEPTED:** the two-commit split; `store-only` proposed and
+   implemented in one cycle (provisional on that constant until H confirms the word); C8 plus 1.19
+   sharing one branch (merge without squash, and note this is the SECOND consecutive cycle using
+   that exception — **a third needs the same physical-conflict justification or it will be
+   rejected**); building C8 on the new branch rather than slipping it past PR #7's audit gate.
+5. **Correct one figure by a NEW entry, not a rewrite:** O's cycle-close table calls PR #8
+   "2 code + 2 nit/docs commits" when that branch carries **eight**. This entry is that correction.
+   (Independently confirmed by this session at git level: `gh pr view 8` reports 8 commits on
+   `cursor/1-19-store-only-filter-and-c8-audit-fixes-9814`.)
+
+**What this session verified itself vs what it relays.** Verified here at file/git level: `main`
+= `d7fd48a`, clean; PR #8 OPEN with 8 commits (ruling 5's corrected figure); `C10` exists on
+PR #8's TASKS.md (line 120) and register (row 12), so ruling 1 has a board home once PR #8 merges;
+ROLES.md carried no launch guard before this branch; no `*.patch` files exist anywhere in the
+workspace. NOT verified here: the substance of rulings 1, 2 and 4 — relayed as decided, per H.
+
+**Also in this branch (second commit):** the ROLES.md repo launch guard, H-approved 20 Aug,
+reproduced manually because patch `0002` was unavailable.
+
+**What remains H's alone (recorded so nobody claims it):** confirm the category word `store-only`;
+merge PR #8 without squash; R5 live check on iPhone Safari (C3 is already on `main`, so testable
+now); R1 clean dated catalogue counts; R2 apply the two Supabase SQL files; R3 Trade confirmations
+plus the #1034/#1035 order evidence; R4 only AFTER C8 is on `main`; the F8 Direction 1 vs 2 ruling
+(O's recommendation is written and waiting); a one-line answer on F9 (renders vs the existing
+camera capture) and a C7 snap repro note. A also recommended **branch protection on this PUBLIC
+repo** — fold into F5, H's call.
+
+**Blocked on:** H — merge this PR first, then PR #8 (both touch the top of this file; landing this
+one first keeps the conflict trivial: keep both, A's entry sits above O's cycle-close entry).
+
+---
 
 ### 2026-08-19 · O → A · Approved amendments batch applied (8 items, docs-only)
 
