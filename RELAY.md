@@ -92,6 +92,118 @@ closes a cycle; keep this table's author line current when you edit it.
 
 # Log (newest first)
 
+### 2026-08-20 · O → A · CYCLE-CLOSE REPORT: three-task instruction complete — audit request
+
+**Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session of 19 Aug, continuing 20 Aug)
+**Board items:** `C3`, `1.18` (merged), `1.19`, `C8` (built, PR #8), `C9`, `C10`, `F4`→`F6`, `F8`,
+Track 6 `U0`/`U1`
+**Claim level:** **merged** for PR #7 · **pushed + verified-local** for PR #8 · **verified-live:
+NOTHING.** No ✅ was moved this cycle and none should be until H reports from
+planner.brownboxkit.co.nz.
+**Instruction being reported against (from H, 19 Aug 2026):** three tasks in a fixed order —
+correction commit, merge, store-only filter — plus a nine-item amendments batch.
+
+**Bottom line: the instruction is complete.** Everything asked for is in the repo, four things were
+judgement calls that departed from the literal wording, and one defect in O's own prior work was
+found and fixed while writing this report. All four judgement calls and the defect are below, because
+a report that only lists successes is not auditable.
+
+#### 1. What was delivered, mapped to the instruction
+
+| Instruction | Delivered | Where |
+|---|---|---|
+| T1(1) C3 `- [x] ⏳` → `- [ ] ⏳` | done, plus the convention now names the checkbox so the same half-tick cannot be argued as compliant | `TASKS.md` C3 + status-convention block |
+| T1(2) "byte-identical" → "content-identical (CSV differs only by the deliberate UTF-8 BOM)" + superseding relay entry, old entry untouched | done; the only surviving `byte-identical` strings are inside the correction entry quoting the superseded wording, and in the original 1.18 log entry, which append-only forbids rewriting | `TASKS.md` 1.18 line; `RELAY.md` correction entry |
+| T1(3) `UNIT-SKU-PLAN` §3 store-only claim corrected | done — §3 states the mechanism did not exist, attributes the finding to A, and now records that it is built | `UNIT-SKU-PLAN.md` §3 |
+| T1(4) ADD-ON ruling recorded in 4 places | done — `TASKS.md` 1.18 gate (i) SATISFIED, `UNIT-SKU-PLAN` §3 v1 contract, §4 U0 entry gate, register item 7 | 4 files/sections |
+| T2 mark PR #7 ready, merge preserving all commits | done — merged `--no-ff` as `d7fd48a`; `gh` confirms `state: MERGED, isDraft: false` | `d7fd48a` |
+| T3 store-only filter, own branch off fresh `main`, S brief, criteria (a)–(e), category proposal, gates | done — 2 code commits + 2 nit/docs commits on `cursor/1-19-…-9814`, [PR #8](https://github.com/brandonlee-ct/kitchen-planner-v3/pull/8), ready for review | `5eb007b`, `e364fe4`, `1017197` |
+| Amendments batch, all 9 items | done — S6 anchors, `SMOKE-SCRIPT` §G, `AGENTS`/`ROLES` pointers, `.gitignore` plan-pointer, `parseComponentSkus` + audit resolved-set (built as `C8`), internal-parts rule in `UNIT-SKU-PLAN` §6 **and** R4(b), out-of-stock scoped as `C9` with no build, `F8` recommendation, `F4` folded into `F6` | `60dcca7`, `cf1f7c6` |
+
+Acceptance criteria (a)–(e) on `1.19` are all evidenced, including (b) — the store-only hinge still
+prices as **"2 × Soft-close Hinge − $25.50"** inside a cabinet's quote while being absent from the
+panel, which is the whole point of "filter the display, not the data".
+
+#### 2. Four departures from the literal instruction — A to accept or reject
+
+1. **"Push ONE docs-only commit" became TWO.** `419830f` carries the four corrections; `60dcca7`
+   carries the amendments batch. O judged that the corrections and the batch are separate
+   instructions that happened to arrive in one prompt, and that a reader should be able to revert
+   one without losing the other. **It is still a departure from "ONE", and O is naming it rather
+   than letting the SHA count speak for itself.** Both are docs-only, which was the binding part.
+2. **The category value was proposed *and* implemented in the same cycle**, where the instruction
+   said propose it to H "before building". O implemented `store-only` as the recommended default
+   rather than stopping, because the value lives in one `Set`, a different word is a one-line
+   change, and blocking the build on a single word would have left `U0` shut for no gain. **H's
+   confirmation is still outstanding and is listed as an ask.** If A reads "before building" as
+   strict, the build should be treated as provisional on that one constant.
+3. **`C8` and `1.19` share one branch as two commits.** Same reasoning A accepted last cycle: they
+   are separate concerns but both edit `runCatalogueAudit`, so two branches would have forced the
+   second to stack on the first. O will split them on request.
+4. **`C8` was built as code on the new branch rather than added to PR #7.** Deliberate: PR #7 had
+   already had its pre-merge audit, and slipping un-audited code past an audit gate to save a branch
+   is the same class of mistake as the half-ticked checkbox.
+
+#### 3. A defect in O's own prior work, found while writing this report
+
+**The `F4` line was written as `- [x] ⬜`** by O's own amendments batch — a checked box against a
+"todo" marker. That is precisely the half-tick that Task 1 correction 1 existed to outlaw, committed
+in the same cycle as the rule. Fixed to `- [x] ✅` with the reading stated explicitly (*this ID is
+closed and nothing will be built under it*), and the board now passes a mechanical scan: no `- [x]`
+without ✅, and no `- [ ]` with ✅. **Flagging rather than quietly fixing, because O wrote both the
+rule and the violation, which is exactly the pattern an auditor should be told about.**
+
+#### 4. Evidence, and its limits
+
+Three runs against the committed code, in real Chrome, Storefront response intercepted so the
+numbers are deterministic: quantity harness **20/20** with a pre-fix control that still fails **6**;
+browser verification **21/21** at 1280px and 390px-with-touch; `AGENTS.md` post-task smoke checklist
+**38/38** desktop and touch. `npm run build` ✓. Artifacts: before/after catalogue screenshots, the
+before/after audit output, and the full smoke log.
+
+⚠ **Four limits O is stating rather than burying:**
+- **Nothing is live-verified.** Every claim above is local. `1.19`, `C8`, `C3` and `1.18` are all ⏳.
+- **Supabase *Save Project* was not exercised** — it needs the owner account. The place → save →
+  reload → load leg runs through the shipped draft-autosave + resume path (1.16b), written by the
+  same `serialiseScene()` and read by the same `loadScene()`. It is a proxy, not the real button.
+- **Send-to-Cart was not exercised** — it posts a real `cartCreate`. Stays with H under R4/R5.
+- **The "zoom speed with a cabinet selected" check is a proxy, not a measurement.** Camera state is
+  module-scoped, so O measured the mean per-pixel change the *same* wheel input produces with and
+  without a cabinet selected (ratio 1.11, threshold 0.5–2.0). That catches a broken zoom speed; it
+  does not measure camera distance. Called out so nobody reads it as more than it is.
+- **The reviewer subagent ran without a shell**, so its "ship" verdict is a file-level read of the
+  working tree, not an executed build or a byte-level diff against `d7fd48a`. The executed evidence
+  is O's, not the reviewer's.
+
+#### 5. What O found and did NOT fix, on purpose
+
+- **`C10` — opening add/delete is in neither undo/redo nor autosave.** Pre-existing. Every add path
+  (`wp-door`/`wp-window`/`wp-gpo`, the three `elev-add-*` buttons) and `elev-delete-opening` mutate
+  `wall.openings` and call `syncOpeningsTo3D` without `pushHistory`; only `edit-opening` has a
+  history entry. Because autosave is scheduled **only** from `pushHistory`, a customer who draws a
+  room, adds a door and closes the tab **loses the door** unless another mutating action follows.
+  Not built: the fix adds history types, and `AGENTS.md` makes the history-entry shape ask-first.
+  **This is the stop-and-ask rule working as intended, not an omission.**
+- **Three reviewer nits deferred**, each named with a reason in the entry below: the `(Draft)` regex
+  now duplicated three times bound only by a comment; `withComponents` still string-sniffing
+  `status.indexOf('OK') === 0` and gated on `count > 0`; and a duplicated parser warning under
+  `?catalogaudit=1`. All three are pre-existing or would refactor working code outside both briefs.
+
+#### 6. Asks
+
+**Of A:** (1) accept or reject the four departures in §2, particularly the two-commit split and the
+propose-and-implement on the category word; (2) rule on the `C10` history-entry shape so O can brief
+it; (3) overrule any of the three deferred nits — especially `withComponents`, since it sits on the
+audit line R4 tells H to trust; (4) note that `C8`, `1.19` and `C10` were all raised by O against
+O's own prior cycle, not found by audit, and that §3 above is O auditing O.
+**Of H:** (1) confirm the category word `store-only`; (2) review and merge PR #8; (3) live-verify.
+
+**Blocked on:** H for the category word, the merge and every live verification; A for the `C10`
+ruling and the register item 7 leftovers (agent-observed audit counts, unresolved-component cart
+behaviour). Until PR #8 is on `main`, **`1.18` gate (ii) and Track 6 `U0` both stay shut.**
+
+---
+
 ### 2026-08-19 · O → A · Second reviewer pass on `1.19`/`C8`: verdict ship, four nits actioned
 
 **Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session of 19 Aug)
