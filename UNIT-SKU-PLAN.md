@@ -63,11 +63,14 @@ code changes — none of the three competitors let the merchant do that.
   `planner.category` would appear as a placeable item. Carrying no `planner.*`
   metafields does not hide it either — the fallbacks (`600×720×580`, placeholder box)
   exist precisely to render such a product anyway.
-  **The mechanism is being built now** — board item `1.19` (store-only catalogue
-  filter): the panel filters on an agreed `planner.category` value while the product
-  stays in `products`, so a store-only part still resolves with its real name and
-  price when referenced in `component_skus`. Until `1.19` is on `main` and
-  H-live-verified, U0 must not publish parts to the Storefront.
+  **The mechanism is now built** — board item `1.19` (store-only catalogue filter),
+  commit `5eb007b`, ⏳ pushed and awaiting H live verification: the panel filters on
+  `planner.category` while the product stays in `products`, so a store-only part still
+  resolves with its real name and price when referenced in `component_skus`.
+  **The agreed value is `store-only`** (O's recommended default; a single
+  `STORE_ONLY_CATEGORIES` set in `main.js`, so H can change the word or accept several
+  at once in a one-line edit, and the read is case/whitespace-normalised). Until `1.19`
+  is on `main` **and** H-live-verified, U0 must not publish parts to the Storefront.
 
 ## 4. Phases and entry gates
 
@@ -83,6 +86,9 @@ filter, live-verified — without it a published part appears as a placeable cab
 (see §3); (ii) board item `C8`, the 1.18 quantity-edge and audit resolved-set fixes —
 without them a bad `qty` silently invents a quantity and the audit can report `OK` for
 a component that will not resolve at runtime.
+**Status of those two gates (19 Aug 2026): both are BUILT (`cf1f7c6` + `5eb007b`) and ⏳
+on a branch — neither is on `main` yet, so both gates are still shut.** The agreed
+store-only category value is `store-only`.
 **Done when:** at least one real complete unit resolves clean in `?catalogaudit=1`,
 **and** the parts published alongside it are confirmed absent from the catalogue panel.
 
