@@ -83,7 +83,7 @@ closes a cycle; keep this table's author line current when you edit it. **Item 7
 | 3 | 1.15c Owner Shopify data pass | `1.15c` | **H only** — R1 | Requires Shopify Admin login. No agent has, or should have, admin credentials |
 | 4 | Track 3 — apply Supabase SQL | Track 3 | **H only** — R2 | Requires Supabase SQL editor (service-role). Never client-side |
 | 5 | Track 3 — confirm Trade `project_code` key | Track 3 | **H → Trade** — R3 | Cross-system contract; Law Q forbids unilateral change |
-| 6 | Track 3 — checkout evidence #1034/#1035 | Track 3 | **H only** — R3 | Requires Shopify order JSON export. 🔴 U1 stays open until #1034 shows phone populated |
+| 6 | Track 3 — checkout evidence #1034/#1035 | Track 3 | **CLOSED 21 Aug** (A) | H supplied Shopify Admin screenshots for both orders; A checked against CHECKOUT-CAPTURE.md "Done when" — both PASS. 🔴 U1 cleared. Residual: test-mode orders only, Trade-webhook delivery not yet confirmed (see log entry) |
 | 7 | A rulings requested last cycle | — | **CLOSED** (all 4) | **CLOSED 19 Aug:** add-on-vs-BOM intent → **ADD-ON**, confirmed by A+H; one-branch sequencing → accepted (the branch was audited and merged). **CLOSED 20 Aug (A ruling, relayed 21 Aug — see log entry):** agent-observed catalogue counts stay **relay-only** and appear on the board in **no form, not even provisional**, until H reports a clean dated `?catalogaudit=1` reading; unresolved components are **NEVER silently dropped** — warn-and-send stands as built, protected by the R4 zero-unresolved gate |
 | 8 | C6 CSV injection / quoting hardening | `C6` | O — brief when scheduled | Pre-existing, surfaced by the 1.18 review. Not a regression; deliberately not fixed in 1.18 |
 | 9 | C8 1.18 quantity-edge + audit resolved-set fixes | new `C8` | O — built this cycle, then H live-verify | **Gates R4.** Until both are on `main`, a bad `qty` invents a quantity and the audit can print `OK` for a component that will not resolve at runtime |
@@ -93,6 +93,62 @@ closes a cycle; keep this table's author line current when you edit it. **Item 7
 ---
 
 # Log (newest first)
+
+### 2026-08-21 · A → H/O · Checkout evidence verified (U1 cleared); OOS ruling issued for C9; 3PL phone-field partially confirmed
+
+**Author:** `A-fable-21aug26` — A, Fable auditor (Cursor desktop chat, owner-side)
+**Board items:** Track 3 checkout-capture line, Track 3 3PL-SMS line, `C9` (new ruling), the `C3`
+related-decision line (Shopify OOS setting)
+**Claim level:** **verified** (checkout capture, both orders) / **ruling** (C9 + Shopify setting) —
+not code, nothing built by this entry
+**Evidence supplied by:** H — four screenshots: Shopify Admin order `#1034`, order `#1035`, the
+orders list, and the live checkout page's Delivery block
+
+**Checkout capture — VERIFIED, both orders PASS.** Checked against `CHECKOUT-CAPTURE.md` §
+"Done when" line by line. `#1034` (cabinet, real shipping step): name `Mr Test` (not the OAuth
+account name), phone `+64 21 353 330`, email populated, address normalized
+(`Auckland CBD / AUK / Auckland 1010`), both `project_code` (`BBK-1C5093`) and `display_po`
+(`785619`) present in Additional details. `#1035` (INSTALL QUOTE REQUEST, non-shipping): correctly
+shows `Shipping not required`, phone instead captured on `billing_address`, same two attributes
+present. Checkout page: the Phone field carries no "(optional)" suffix (contrast against
+"First name (optional)" directly above it) and Region is a normalized **dropdown**, not free text
+— this is materially better evidence than my 19 Aug ruling had, because it proves a free-text
+"AUK" typo is now structurally impossible rather than merely unlikely. **🔴 U1 CLEARED.**
+
+**Not proven by this evidence, flagged so it isn't assumed closed:** both orders are Shopify
+**test-mode**. Field capture at checkout is now proven; whether a test-mode order reaches Trade's
+real `orders/paid` intake webhook is not. Before R3 is called fully closed, either confirm the
+webhook fires on test-mode orders or repeat once on a real low-value order.
+**Non-blocking observation:** `#1034` shows `Standard` shipping at `$0.00` on a 16kg item — flagged
+for H to confirm intent, not a ruling.
+
+**3PL SMS phone field — HALF closed by this evidence, half still open.** `#1035` proves
+`billing_address.phone` is what actually populates on a service-only (non-shipping) order — that
+half moves from assumption to observed fact. Still open, and NOT to be closed by inference from
+this evidence: which field Trade's intake code (`shopifyIntake.ts`) actually *reads*. Shopify
+capturing a field is not the same claim as Trade's code consuming it.
+
+**C9 out-of-stock — RULING (this was the standing-register item blocking O from briefing code).**
+Shopify setting: **keep inventory tracking ON, "continue selling when out of stock" OFF** — H's
+manual test (placing a manually-oversold test product) confirms this is the current live
+behaviour, and I am ruling to keep it, not change it. Taking payment for stock that cannot be
+supplied in a reasonable time is Consumer Guarantees Act exposure; overselling is not a default I
+will authorise. Backorders with a disclosed lead time are a separate, narrower, per-product
+decision — H can bring that back for its own ruling if wanted.
+
+Planner-side, C9 options **1 (catalogue badge) and 2 (pre-cart warning) are GRANTED** — O may brief
+them now. **Option 3 (hard placement block) is REJECTED**, matching O's own 19 Aug recommendation.
+Acceptance criteria are written directly on the `C9` board line so O designs against them rather
+than from scratch. I am also raising C9 above the cosmetic items on the backlog: Shopify rejects
+the **whole cart** on one refused line, so an otherwise-complete order can die at checkout on a
+single sold-out 150mm base — that is a live risk to the shipped revenue path, not polish.
+Sequencing is unchanged from O's note: brief after `1.19` lands, since both share
+`renderProductPanel`/`btn-send-cart`.
+
+**Blocked on:** O — write the C9 brief once ready; H — confirm the shipping-rate observation and,
+when convenient, the Trade-webhook question above.
+
+---
 
 ### 2026-08-21 · A → H/O · Relay of A's 19–20 Aug audit rulings (narrative lost with the wrong-repo session)
 
