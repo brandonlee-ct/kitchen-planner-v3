@@ -49,6 +49,8 @@ Never reuse another session's tag.
 | `O-opus-19aug26-b` | **O** — PM | Opus, running as a Cursor cloud agent (a **second, separate** O session on the same day — cold start, no memory of the first) | run `bc-01a018f3-d6df-7cbd-b356-8f8ee95c9814`, 19 Aug 2026 |
 | `A-fable-20aug26` | **A** — Fable auditor | Fable, launched from Cursor iOS | **Session lost.** Launched against the WRONG repository (the private OEM-agreement repo) — could read this repo but never write to it, so its two prepared commits were never pushed and its entries never landed here. Row added retroactively by `A-fable-21aug26` from H's account, for traceability of the rulings relayed below; the session's own row and narrative were lost with it |
 | `A-fable-21aug26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side) | The standing desktop A session that pushed `48f09e1` (19 Aug audit). On 21 Aug it relays the stranded `A-fable-20aug26` session's rulings on H's instruction |
+| `O-opus-31aug26` | **O** — PM | Opus, running as a subagent inside H's **local** Cursor session (not a cloud agent) | fresh clone `C:\dev\kitchen-planner-v3`, `main` @ `d7fd48a`, 31 Aug 2026 |
+| `S-grok-31aug26` | **S** — Composer | Cursor Grok 4.6, H's local session on the new laptop | implementing the approved session-status plan, 31 Aug 2026 |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -72,27 +74,138 @@ Never reuse another session's tag.
 
 ## Standing register — who owes what
 
-**Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session 19 Aug). Maintained by whoever
-closes a cycle; keep this table's author line current when you edit it. **Item 7 closures applied by
-`A-fable-21aug26` (A) on H's instruction, 21 Aug 2026 — no other row touched.**
+**Author:** `S-grok-31aug26` — S, Composer (Cursor Grok 4.6, H's local session 31 Aug). Register rows 1–11 retained from the PR #9 header; rows 9–10 and 12 updated from PR #8; rows 13–19 from the 31 Aug draft (renumbered because PR #8 already used row 12 for C10).
 
 | # | Item | Board | Owner of next action | Blocking reason |
 |---|---|---|---|---|
-| 1 | C3 Send-to-Cart stuck after browser Back | Bug brief | H — live verify (see R5) | Code in `2a9b9fd` on PR #7; H has approved the merge, **not yet merged as this row is written**. Verified-local with a control run; ✅ only after live |
-| 2 | 1.18 Component SKUs (S6) | `1.18` | H — see R4, then live verify | Code in `ade39f8` on PR #7, dormant; H has approved the merge, **not yet merged as this row is written**. Add-on intent now CONFIRMED (see #7). Do **not** populate the metafield until `C8` is on `main` |
+| 1 | C3 Send-to-Cart stuck after browser Back | Bug brief | H — live verify (see R5) | Code in `2a9b9fd` is on `origin/main` (`d7fd48a`, PR #7). Verified-local with a control; ✅ only after H live-verifies desktop + iPad/iPhone Safari |
+| 2 | 1.18 Component SKUs (S6) | `1.18` | H — see R4, then live verify | Code in `ade39f8` is on `origin/main`. Dormant. ADD-ON confirmed. Do **not** populate the metafield until `C8` is on **origin/main** and live (local merge is not a deploy) |
 | 3 | 1.15c Owner Shopify data pass | `1.15c` | **H only** — R1 | Requires Shopify Admin login. No agent has, or should have, admin credentials |
 | 4 | Track 3 — apply Supabase SQL | Track 3 | **H only** — R2 | Requires Supabase SQL editor (service-role). Never client-side |
 | 5 | Track 3 — confirm Trade `project_code` key | Track 3 | **H → Trade** — R3 | Cross-system contract; Law Q forbids unilateral change |
 | 6 | Track 3 — checkout evidence #1034/#1035 | Track 3 | **CLOSED 21 Aug** (A) | H supplied Shopify Admin screenshots for both orders; A checked against CHECKOUT-CAPTURE.md "Done when" — both PASS. 🔴 U1 cleared. Residual: test-mode orders only, Trade-webhook delivery not yet confirmed (see log entry) |
 | 7 | A rulings requested last cycle | — | **CLOSED** (all 4) | **CLOSED 19 Aug:** add-on-vs-BOM intent → **ADD-ON**, confirmed by A+H; one-branch sequencing → accepted (the branch was audited and merged). **CLOSED 20 Aug (A ruling, relayed 21 Aug — see log entry):** agent-observed catalogue counts stay **relay-only** and appear on the board in **no form, not even provisional**, until H reports a clean dated `?catalogaudit=1` reading; unresolved components are **NEVER silently dropped** — warn-and-send stands as built, protected by the R4 zero-unresolved gate |
 | 8 | C6 CSV injection / quoting hardening | `C6` | O — brief when scheduled | Pre-existing, surfaced by the 1.18 review. Not a regression; deliberately not fixed in 1.18 |
-| 9 | C8 1.18 quantity-edge + audit resolved-set fixes | new `C8` | O — built this cycle, then H live-verify | **Gates R4.** Until both are on `main`, a bad `qty` invents a quantity and the audit can print `OK` for a component that will not resolve at runtime |
-| 10 | 1.19 store-only catalogue filter | new `1.19` | O — built this cycle, then H live-verify | **Gates U0.** `renderProductPanel` has no category filter today, so a published spare part would appear as a placeable cabinet. Needs H to confirm the `planner.category` value convention (recommended default: `store-only`) |
-| 11 | F8 Direction 1 / Direction 2 split ruling | `F8` | **H** — recommendation below | O's one-page recommendation is in this file (entry dated 19 Aug). Gates Track 6 U2 |
+| 9 | C8 1.18 quantity-edge + audit resolved-set fixes | `C8` | **H** — push local `main`, then live verify | **BUILT `cf1f7c6`**, merged locally in `f3098ce` (PR #8 + PR #9). **Not on `origin/main`.** Still gates R4 until pushed and live |
+| 10 | 1.19 store-only catalogue filter | `1.19` | **H** — confirm the category word, push, then live verify | **BUILT `5eb007b`**, same local merge. Value implemented as **`store-only`**. **Still gates U0** until on `origin/main` and live-verified |
+| 11 | F8 Direction 1 / Direction 2 split ruling | `F8` | **H** — confirm or override | O recommends Direction 1 first, one codebase, D2 gated (19 Aug entry). Gates Track 6 U2. Plan of 31 Aug uses that recommendation as the working default — not an H tick |
+| 12 | C10 opening add/delete missing from undo/redo **and from autosave** | new `C10` | **A** — rule on the history-entry shape, then O briefs | Pre-existing, found by the 1.19 smoke run. Real data-loss path: a door added and never followed by another mutating action is never autosaved. Fix touches the history-entry shape, which `AGENTS.md` makes ask-first |
+| 13 | Push local `main` (PR #9 + PR #8 merge) to GitHub | `1.19` / `C8` | **H only** | Local `main` is ahead of `origin/main` at `f3098ce`. `gh` is not logged in on this machine; an agent must not push without H. Vercel will not deploy until this lands |
+| 14 | Branch protection on `main` | `F5` (part) | **H only** — runbook R7 when written | Repo admin settings. Public repo, `"protected": false`, and `main` is what Vercel deploys |
+| 15 | Automated first-pass PR review — Bugbot | `F5` (part) | **H only** to install + accept usage-based billing — runbook R6 when written | Spend + vendor decision. One optional bounded S unit (`.cursor/BUGBOT.md`) follows, and only has value once H has enabled it |
+| 16 | GitHub notifications so H stops missing pending requests | none — H tooling | **H only** — runbook R8 when written | Watch settings + mobile app are account-level |
+| 17 | Stale PRs #5 and #6 | none | **H only** | Close or merge. Left open since before the machine migration; no board item, so nothing tracks them |
+| 18 | `README.md` fresh-clone note: `npm ci --include=optional` | none | **H** to authorise, then a one-line doc amendment | Maps to no board item. A fresh clone can fail `npm run build` on jspdf's optional `canvg` with no obvious cause |
+| 19 | Delete branch `cursor/a-audit-relay-entries` after #9 is on GitHub | none | **H** | `AGENTS.md`: merge or delete feature branches the same day the work is accepted |
 
 ---
 
 # Log (newest first)
+
+### 2026-08-31 · S → H/A · Local merge of PR #9 then PR #8; GitHub/Vercel still pending
+
+**Author:** `S-grok-31aug26` — S, Composer (Cursor Grok 4.6, H's local session)
+**Board items:** `1.19`, `C8`, standing register 13
+**Claim level:** **built locally** — **not pushed**, **not verified-live**
+**Relaying work by:** conflict resolution on `RELAY.md` / `TASKS.md` when merging `origin/cursor/1-19-store-only-filter-and-c8-audit-fixes-9814` onto the already-fast-forwarded PR #9 tip
+
+**What happened.** H authorised implementing the 31 Aug session-status plan, then said continue after the PR identity check. PR #9 fast-forwarded locally to `1d5c1a1`. PR #8 merge conflicted in `RELAY.md` and `TASKS.md` (the conflict A's 21 Aug entry predicted). Resolution: keep both RELAY logs (A 21 Aug above O's 20 Aug cycle-close); TASKS keeps the 21 Aug C9 ruling plus PR #8's C8/C10 lines. Merge commit `f3098ce`. `gh` is not authenticated on this laptop, so nothing was pushed and Vercel still serves `d7fd48a` (PR #7 only).
+
+**Evidence:** `git log` local `main` at `f3098ce`; `git status` shows `main...origin/main [ahead 12]`.
+
+**Blocked on:** H — push `main`, then R5 (C3), then R4 only after C8 is live.
+
+---
+
+### 2026-08-31 · O → A · Machine migration, environment audit, and the F5 briefs (relaying A)
+
+**Author:** `O-opus-31aug26` — O, PM (Opus, subagent in H's local Cursor session, new laptop)
+**Board item:** the PR-review and protected-`main` recommendations map to **`F5`** (partially — see
+"Scope note" below). The machine migration, the toolchain install, the notification setup and the
+npm optional-dependency gotcha map to **no board item**; they are recorded here and flagged as
+unmappable rather than filed under a convenient id (Law B). No new board items were invented.
+**Claim level:** **relayed**. A's environment findings are A's verification on this machine, not
+O's. O independently verified only the file-level facts listed under "O-verified" below. Nothing
+here is verified-live.
+**Relaying work by:** A (Fable auditor), session of 31 Aug 2026, with H present and instructing.
+
+**What happened**
+
+1. **H's computer was formatted.** The old SSD is now drive `F:` and still holds the previous
+   working copy, sitting on branch `cursor/a-audit-relay-entries`, clean and in sync with GitHub.
+   **`F:` is a backup, not a working tree** — no session should read or write it. This session did
+   not touch it.
+2. **A fresh clone is the working repo:** `C:\dev\kitchen-planner-v3`, branch `main`, commit
+   `d7fd48a`, clean tree. All reading for this cycle was done there.
+3. **Toolchain rebuilt.** The new laptop had no git and no node. A installed **Git 2.55** and
+   **Node 24 LTS**.
+4. **Remote and source of truth are unchanged:** GitHub `brandonlee-ct/kitchen-planner-v3`,
+   branch `main`, deploying to Vercel. Cursor Origin was evaluated and **rejected**. Inngest is
+   irrelevant to this stack and is not in scope anywhere.
+5. **Four PRs are open.** #9 (A's relay entry + a `ROLES.md` launch guard, branch
+   `cursor/a-audit-relay-entries`) and #8 (`1.19` store-only filter + `C8` fixes) have both been
+   merge-ready since roughly 20–21 Aug and await **H's** merge, in the order **#9 first, then #8**.
+   #5 and #6 are stale and still open — H to close or merge them; they map to no board item.
+   **No agent merges anything** (`ROLES.md` §O).
+6. **`main` is behind those two branches.** `d7fd48a` does not contain #8 or #9, so `TASKS.md` and
+   `RELAY.md` **as read this session are stale with respect to `1.19` and `C8`**. Any board update
+   written from this session's reading must be re-checked after the merges.
+7. **The repo is PUBLIC and `main` has no branch protection** — A read `"protected": false` from
+   the GitHub API. Anyone with push access, including any agent session holding H's credentials,
+   can write straight to the branch the live site deploys from. Recommendation and an H runbook are
+   in `briefs/S-BRIEF-F5-pr-review-and-protection.md`; this is the `F5` part that H authorised
+   today.
+8. **Fresh-clone gotcha worth recording.** A plain `npm install` in this Windows environment
+   omitted optional dependencies, so `npm run build` failed on jspdf's optional `canvg` import.
+   `npm ci --include=optional` fixed it and the build passed. **The lockfile is correct** — this was
+   a local npm-config quirk, not a repo defect. It maps to no board item; O recommends one line in
+   `README.md` and has flagged it for H rather than amending a doc unasked (Law N).
+
+**Scope note on `F5`.** `F5` reads "verifier role; GitHub Organization + protected `main` + PR
+review **when code contributors join**; amend `ROLES.md` with human roles." H has brought the
+protected-`main` and PR-review halves forward, before contributors join. That is H's call and is
+not a contradiction, but it leaves the **GitHub Organization** and the **`ROLES.md` human-roles
+amendment** parts of `F5` untouched and open. `F5` must not be ticked when the two runbooks below
+are done.
+
+**⚠ Doc contradiction flagged, not resolved (Law O).** `AGENTS.md` § Branch & release discipline,
+and the `TASKS.md` "Open — needs Opus" doc-fix line, both describe the live practice as **straight
+commits on `main`**. Requiring a pull request before merging to `main` changes that practice. With
+admin bypass left on (runbook R7 step 8) H personally can still push directly, so nothing breaks on
+day one — but the written practice and the enforced practice would disagree, which is exactly the
+defect Law O names. **O has not amended `AGENTS.md`.** H to rule: either keep straight commits as
+the owner's documented path and say so in `AGENTS.md`, or move to PR-only and amend `AGENTS.md`
+accordingly. One line either way, but it needs H's word first.
+
+**Evidence**
+
+*O-verified this session, at file level, in `C:\dev\kitchen-planner-v3` @ `d7fd48a`:*
+- Read `TASKS.md`, `RELAY.md`, `ROLES.md`, `AGENTS.md`, `LESSONS-LEARNED.md`,
+  `S-BRIEFS-ITEMS-0-5.md`, `package.json`, `.gitignore`.
+- **There is no `.github/` directory in the repo.** So there is no CI today, and there is no
+  status check that could be made required — this matters for R7 step 7.
+- **`.gitignore` ignores `.cursor/*`** with allowlist exceptions for `environment.json`, `agents/`,
+  `rules/` and `plans/` **only**. A `.cursor/BUGBOT.md` added today would be silently untracked and
+  Bugbot would never see it. That is why the S unit in the brief file touches `.gitignore`.
+- `RELAY.md` owner runbooks end at `R5`.
+- `dist/` and `node_modules/` exist in the clone with timestamps consistent with A's build run —
+  corroboration of item 8, not proof of it.
+
+*NOT verified by O — relayed from A, and to be treated as A's claim:* the `"protected": false` API
+reading, the PR numbers and their merge-ready state, the Git 2.55 / Node 24 LTS versions, and the
+`canvg` build failure and its fix.
+
+**What O produced this cycle:** `briefs/S-BRIEF-F5-pr-review-and-protection.md` and this draft.
+**No code was written, no build was run by O, and neither `TASKS.md` nor `RELAY.md` was edited**
+(conflict risk with #8/#9). Both files are left uncommitted in the working tree.
+
+**Open questions / asks of A:** confirm the `F5` scope note above — specifically that doing R7 and
+R8 does **not** close `F5` — and rule on the Law O flag before anyone edits `AGENTS.md`.
+
+**Blocked on:** H, for all of it. Merge #9 then #8; decide Bugbot (a spend decision); run R7 and
+R8; finish GitHub CLI auth; close or merge #5 and #6.
+
+---
 
 ### 2026-08-21 · A → H/O · Checkout evidence verified (U1 cleared); OOS ruling issued for C9; 3PL phone-field partially confirmed
 
