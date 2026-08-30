@@ -4713,23 +4713,56 @@ function parseComponentSkus(rawValue, label) {
       console.warn('planner.component_skus entry has no variantId on ' + (label || 'product') + ' — skipped:', entry);
       return;
     }
-    // Quantity rules (O ruling): an explicit zero or negative qty is a data error, not an
-    // invitation to invent a quantity — component prices land in the quote total, so
-    // silently shipping 1 would overcharge the customer. Skip those entries. Only a
-    // genuinely missing / non-numeric qty falls back to 1, where the intent really is one.
+    // ✅ FIX (C8): one statable quantity rule — an ABSENT qty means one; a PRESENT qty
+    // must be a whole number of 1 or more, and anything else is skipped with a warning.
+    // Component prices reach the customer's total, so a quantity nobody typed is a
+    // wrong charge (O ruling 4: inventing a quantity is fabrication). The previous
+    // version tested `<= 0` before flooring, which let 0.4 through as 1 (overcharge),
+    // floored 2.7 to 2, and turned "two"/Infinity/true into 1 — all silently.
+    // Number.isInteger after the coercion rejects NaN, Infinity, fractions and booleans
+    // in a single test; do NOT replace it with Math.floor, which is how this broke.
     const rawQty = entry.qty;
-    const qtyMissing = rawQty === null || rawQty === undefined || rawQty === '';
-    const qtyNum = qtyMissing ? NaN : Number(rawQty);
-    if (isFinite(qtyNum) && qtyNum <= 0) {
-      console.warn('planner.component_skus qty must be greater than 0 (got ' + rawQty + ') on ' +
-        (label || 'product') + ' — entry skipped:', variantId);
+    if (rawQty === null || rawQty === undefined || rawQty === '') {
+      out.push({ variantId: String(variantId), qty: 1 });
       return;
     }
-    const qtyFloored = Math.floor(qtyNum);
-    const qty = isFinite(qtyFloored) && qtyFloored >= 1 ? qtyFloored : 1;
-    out.push({ variantId: String(variantId), qty });
+    const qtyNum = typeof rawQty === 'number' ? rawQty
+                 : typeof rawQty === 'string' ? Number(rawQty.trim())
+                 : NaN;
+    if (!Number.isInteger(qtyNum) || qtyNum < 1) {
+      // JSON.stringify turns NaN and Infinity into the string "null", which would have
+      // reported two of the exact cases this rule exists to catch as something else.
+      const shown = (typeof rawQty === 'number' && !Number.isFinite(rawQty))
+        ? String(rawQty) : JSON.stringify(rawQty);
+      console.warn('planner.component_skus qty must be a whole number of 1 or more (got ' +
+        shown + ') on ' + (label || 'product') + ' — entry skipped:', variantId);
+      return;
+    }
+    out.push({ variantId: String(variantId), qty: qtyNum });
   });
   return out;
+}
+
+// ── Store-only products (TASKS.md 1.19) ───────────────────────────────────────
+// Spare parts (hinges, panels, legs) are sold on the storefront but must NEVER appear
+// in the planner catalogue — a cabinet SKU already includes them in its price, so
+// offering one as a placeable item is nonsense (UNIT-SKU-PLAN.md §1 rule 2).
+// H can change the agreed value with one word here, and more than one value can be
+// accepted at once while data is migrated. Reading is normalised (trim + lowercase)
+// because a stray capital or trailing space typed in Shopify Admin would otherwise
+// silently put a hinge back in the catalogue.
+const STORE_ONLY_CATEGORIES = new Set(['store-only']);
+
+// One helper, every caller — so the catalogue panel and the audit tool can never
+// disagree about what "store-only" means.
+function isStoreOnlyCategory(value) {
+  return STORE_ONLY_CATEGORIES.has(String(value || '').trim().toLowerCase());
+}
+
+// product.category is already `planner.category || productType || 'Other'`
+// (see shopifyNodeToProduct), which is the same effective value the audit reports.
+function isStoreOnlyProduct(product) {
+  return isStoreOnlyCategory(product?.category);
 }
 
 function shopifyNodeToProduct(node) {
@@ -4806,41 +4839,75 @@ function runCatalogueAudit(nodes) {
     };
   }
 
-  // 1.18: every variantId in the fetched set, drafts included — a wider set than the
-  // runtime `products` array, which drops (Draft) titles. Used to flag component entries
-  // that no fetched variant matches: those still go to the cart (they may be real but
-  // unfetched), and cartCreate rejects the WHOLE cart if Shopify refuses one, so H needs
-  // the warning here rather than at checkout.
-  const allFetchedVariantIds = new Set();
+  // ✅ FIX (C8): index every fetched variant WITH the draft state of the product that
+  // owns it. 1.18 used a flat Set of all fetched variantIds, drafts included — but the
+  // runtime resolves components through getComponentVariantIndex(), built from
+  // `products`, which loadShopifyProducts has already stripped of (Draft) titles. The
+  // two sets differed by exactly the drafts, so a component on a Draft product reported
+  // a clean 'OK' here and then arrived in the planner as 'Unknown component' at $0.00 —
+  // and still went to cartCreate, where Shopify refusing one line fails the WHOLE cart.
+  // Most of this catalogue is Draft, so that was the likely case, not the edge case.
+  // The draft test below must stay identical to loadShopifyProducts' filter: if the two
+  // ever diverge, this bug returns silently.
+  const fetchedVariants = new Map();
   nodes.forEach(node => {
+    const nodeIsDraft = /\(Draft\)/i.test(node.title || '');
     (node.variants?.edges || []).forEach(e => {
-      if (e.node?.id) allFetchedVariantIds.add(e.node.id);
+      if (e.node?.id && !fetchedVariants.has(e.node.id)) {
+        fetchedVariants.set(e.node.id, { draft: nodeIsDraft });
+      }
     });
   });
 
-  // 1.18: report planner.component_skus status (OK / OK (n unresolved) / absent /
-  // unparseable) + parsed count. Purely additive — every existing column and count line
-  // below is untouched, and both new keys sit after the last pre-existing column.
+  // 1.18 + C8: report planner.component_skus status (absent / unparseable / OK /
+  // 'OK (…)' when something needs H's attention) + parsed count. Counts are returned
+  // structured rather than re-derived by sniffing the status string, so the summary line
+  // below cannot silently break when the wording changes. Purely additive — every
+  // pre-existing column and count line is untouched, and the new keys sit after the last
+  // pre-existing column.
   function auditComponentSkus(raw, label) {
-    if (raw === null || raw === undefined || raw === '') return { status: 'absent', count: 0 };
+    const empty = { status: 'absent', count: 0, unresolved: 0, draftParent: 0, skipped: 0 };
+    if (raw === null || raw === undefined || raw === '') return empty;
     let parsed;
     try {
       parsed = JSON.parse(raw);
     } catch (e) {
-      return { status: 'unparseable', count: 0 };
+      return { ...empty, status: 'unparseable' };
     }
-    if (!Array.isArray(parsed)) return { status: 'unparseable', count: 0 };
+    if (!Array.isArray(parsed)) return { ...empty, status: 'unparseable' };
+
     const comps = parseComponentSkus(raw, label);
-    const unresolved = comps.filter(c => !allFetchedVariantIds.has(c.variantId)).length;
+    // Entries the parser refused: no variantId, or a qty that is not a whole number ≥ 1.
+    // Without this they would simply vanish from the report and H would never know a
+    // component had been dropped.
+    const skipped = Math.max(0, parsed.length - comps.length);
+    let unresolved = 0, draftParent = 0;
+    comps.forEach(c => {
+      const hit = fetchedVariants.get(c.variantId);
+      if (!hit) unresolved++;
+      else if (hit.draft) draftParent++;
+    });
+
+    const problems = [];
+    if (unresolved)  problems.push(unresolved + ' unresolved');
+    if (draftParent) problems.push(draftParent + ' on a (Draft) product — will NOT resolve in the planner');
+    if (skipped)     problems.push(skipped + ' skipped (bad data)');
     return {
-      status: unresolved ? 'OK (' + unresolved + ' unresolved)' : 'OK',
+      status: problems.length ? 'OK (' + problems.join('; ') + ')' : 'OK',
       count: comps.length,
+      unresolved, draftParent, skipped,
     };
   }
 
   const rows = [];
   let missingGlb = 0, unparseableDims = 0, missingCategory = 0, draftCount = 0;
   let withComponents = 0, unparseableComponents = 0, unresolvedComponentProducts = 0;
+  let draftComponentProducts = 0, skippedComponentProducts = 0;
+  // Counted separately: this report runs on the RAW nodes, so a store-only product that is
+  // also (Draft) was already excluded by the draft filter. Lumping the two together would
+  // print a number larger than the panel actually hides, and H reads this line against the
+  // Shopify data.
+  let storeOnlyCount = 0, storeOnlyDraftCount = 0;
 
   nodes.forEach(node => {
     const isDraft = /\(Draft\)/i.test(node.title || '');
@@ -4860,12 +4927,20 @@ function runCatalogueAudit(nodes) {
     const rawCategory = node.category?.value || null;
     if (!rawCategory) missingCategory++;
     const categoryApplied = rawCategory || node.productType || 'Other';
+    // 1.19: report store-only status off the SAME effective category the runtime uses,
+    // through the shared helper, so this column can never disagree with what the
+    // catalogue panel actually hides.
+    const storeOnly = isStoreOnlyCategory(categoryApplied);
+    if (storeOnly) { if (isDraft) storeOnlyDraftCount++; else storeOnlyCount++; }
 
     const comp = auditComponentSkus(node.component_skus?.value, node.handle);
-    // startsWith, not ===: the status also carries the 'OK (n unresolved)' variant.
+    // ✅ FIX (C8): count off the structured fields, not off substrings of the status
+    // string — the old 'unresolved' string match broke as soon as the wording changed.
     if (comp.status.indexOf('OK') === 0 && comp.count > 0) withComponents++;
     if (comp.status === 'unparseable') unparseableComponents++;
-    if (comp.status.indexOf('unresolved') !== -1) unresolvedComponentProducts++;
+    if (comp.unresolved)  unresolvedComponentProducts++;
+    if (comp.draftParent) draftComponentProducts++;
+    if (comp.skipped)     skippedComponentProducts++;
 
     const fallbacksApplied = [];
     if (!glbPresent) fallbacksApplied.push('glb → placeholder box');
@@ -4887,7 +4962,9 @@ function runCatalogueAudit(nodes) {
       category_raw: rawCategory || '', category_applied: categoryApplied,
       fallbacksApplied: fallbacksApplied.length ? fallbacksApplied.join('; ') : '—',
       // 1.18: appended AFTER every pre-existing column so none of them shifts position.
-      component_skus_status: comp.status, component_skus_count: comp.count
+      component_skus_status: comp.status, component_skus_count: comp.count,
+      // 1.19: likewise appended last. YES = hidden from the catalogue panel.
+      store_only: storeOnly ? 'YES' : '—'
     });
   });
 
@@ -4897,9 +4974,30 @@ function runCatalogueAudit(nodes) {
   console.log('Products with unparseable dimension(s): ' + unparseableDims);
   console.log('Missing planner.category: ' + missingCategory);
   console.log('Products with planner.component_skus: ' + withComponents +
-    (unparseableComponents ? ' (' + unparseableComponents + ' unparseable)' : '') +
-    (unresolvedComponentProducts ? ' — ⚠ ' + unresolvedComponentProducts +
-      ' with unresolved component variant(s): Send to Cart fails if Shopify rejects one' : ''));
+    (unparseableComponents ? ' (' + unparseableComponents + ' unparseable)' : ''));
+  // 1.19: appended AFTER every pre-existing count line so none of them shifts position —
+  // R4 walks H down this list. Store-only products are hidden from the catalogue panel but
+  // stay in `products`, so they still resolve by name and price in planner.component_skus.
+  console.log('Store-only products (hidden from the catalogue panel): ' + storeOnlyCount +
+    (storeOnlyDraftCount ? ' (plus ' + storeOnlyDraftCount + ' already excluded as (Draft))' : '') +
+    ' — planner.category in {' + Array.from(STORE_ONLY_CATEGORIES).join(', ') + '}');
+  // ✅ FIX (C8): draft-parent and skipped components are reported on their own lines.
+  // A draft-parent component is the dangerous one — it reads fine here but resolves to
+  // nothing in the planner and can make Shopify reject the entire cart.
+  if (unresolvedComponentProducts) {
+    console.warn('⚠ ' + unresolvedComponentProducts + ' product(s) reference a component variant ' +
+      'that is NOT in the fetched catalogue — Send to Cart fails if Shopify rejects one');
+  }
+  if (draftComponentProducts) {
+    console.warn('⚠ ' + draftComponentProducts + ' product(s) reference a component on a (Draft) ' +
+      'product — the planner will price it at $0.00 as "Unknown component", and Shopify may reject ' +
+      'the whole cart. Publish that product before using it as a component.');
+  }
+  if (skippedComponentProducts) {
+    console.warn('⚠ ' + skippedComponentProducts + ' product(s) have component entries the parser ' +
+      'SKIPPED (missing variantId, or a qty that is not a whole number of 1 or more) — those ' +
+      'components will not reach the quote or the cart at all');
+  }
   console.table(rows);
   console.groupEnd();
 
@@ -4911,7 +5009,26 @@ function renderProductPanel() {
   const productList = document.getElementById('product-list');
   productList.innerHTML = '';
 
-  if (products.length === 0) {
+  // 1.19: hide store-only SKUs (spare parts) from the catalogue. This is the ONLY
+  // place the exclusion happens, and deliberately so — `products` keeps every item, so
+  // a store-only part referenced from another product's planner.component_skus still
+  // resolves with its real name and price (getComponentVariantIndex reads `products`),
+  // and loadScene can still restore a saved item that references one. Do NOT move this
+  // into `products` population or add a guard to placeProduct: loadScene restores items
+  // via placeProduct, so a guard there would silently drop items out of a customer's
+  // saved project. Filter the display, not the data.
+  const placeable = products.filter(p => !isStoreOnlyProduct(p));
+  const hiddenCount = products.length - placeable.length;
+  if (hiddenCount > 0) {
+    // Logged, not silent: on an iPad this is readable through eruda, so the data can be
+    // verified on the device where the catalogue is hardest to inspect.
+    console.log('[catalogue] ' + hiddenCount + ' store-only product(s) hidden from the panel' +
+      ' (planner.category in {' + Array.from(STORE_ONLY_CATEGORIES).join(', ') + '})');
+  }
+
+  // Empty state keys off the FILTERED list, so a catalogue that is entirely store-only
+  // shows the message instead of a blank panel.
+  if (placeable.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'product-empty';
     empty.textContent = 'No products available.';
@@ -4920,7 +5037,7 @@ function renderProductPanel() {
   }
 
   const groups = new Map();
-  products.forEach(p => {
+  placeable.forEach(p => {
     const key = p.productType || 'Other';
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(p);
