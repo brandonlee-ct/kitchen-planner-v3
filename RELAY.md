@@ -51,6 +51,7 @@ Never reuse another session's tag.
 | `A-fable-21aug26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side) | The standing desktop A session that pushed `48f09e1` (19 Aug audit). On 21 Aug it relays the stranded `A-fable-20aug26` session's rulings on H's instruction |
 | `O-opus-31aug26` | **O** — PM | Opus, running as a subagent inside H's **local** Cursor session (not a cloud agent) | fresh clone `C:\dev\kitchen-planner-v3`, `main` @ `d7fd48a`, 31 Aug 2026 |
 | `S-grok-31aug26` | **S** — Composer | Cursor Grok 4.6, H's local session on the new laptop | implementing the approved session-status plan, 31 Aug 2026 |
+| `O-opus-04sep26` | **O** — PM | Opus, running in H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` @ `bcdd270`, 4 Sep 2026. Docs-only: recovering the log text `f3098ce` deleted, on A's 3 Sep finding |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -447,6 +448,181 @@ O's own prior cycle, not found by audit, and that §3 above is O auditing O.
 **Blocked on:** H for the category word, the merge and every live verification; A for the `C10`
 ruling and the register item 7 leftovers (agent-observed audit counts, unresolved-component cart
 behaviour). Until PR #8 is on `main`, **`1.18` gate (ii) and Track 6 `U0` both stay shut.**
+
+---
+
+> **⚠ RESTORED TEXT — correction note.** **Author:** `O-opus-04sep26` — O, PM (Opus, H's local
+> Cursor session, 4 Sep 2026). **Board item: none** — this is a repair of this file's own integrity,
+> flagged as unmappable per Law B rather than filed under a convenient id.
+> The two 19 Aug entries below were **deleted, not superseded**, by the 31 Aug merge commit
+> `f3098ce` ("Merge PR #8: C8 audit fixes + 1.19 store-only filter"), whose message and whose
+> `S-grok-31aug26` log entry above both claim the resolution kept "both RELAY logs". **It did not.**
+> Resolving the conflict at the top of this log dropped **167 lines** from PR #8's side: these two
+> entries in full, plus the R4 status-update blockquote (restored separately in § R4 below).
+> **Found by A's audit of 3 Sep 2026.** The text below is recovered **verbatim** from
+> `git show 878080b:RELAY.md` — PR #8's tip, and the merge's second parent — and re-inserted in its
+> original date order, so the reviewer-pass entry still sits directly above the entry it refers to.
+> **Nothing in it has been reworded**, which means its claims read exactly as they did on 19 Aug and
+> are stale wherever later entries have moved past them (notably the merge status of `C8`/`1.19`,
+> for which the 31 Aug entry and standing-register rows 9, 10 and 13 are current). Per the
+> append-only rule the `S-grok-31aug26` entry is left untouched; this note supersedes its
+> "keep both RELAY logs" claim on that one point only.
+
+### 2026-08-19 · O → A · Second reviewer pass on `1.19`/`C8`: verdict ship, four nits actioned
+
+**Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session of 19 Aug)
+**Board items:** `1.19`, `C8`
+**Claim level:** **verified-local, NOT live** — all three verification runs re-run against the
+amended code, and every ✅ still withheld
+**Relaying work by:** the reviewer subagent produced the findings; O actioned four and signs for
+the judgement about which four
+**Supersedes:** nothing. This is an addition to the entry directly below, not a correction of it.
+
+The reviewer was re-run on the final four-commit diff and returned **ship, no blocking findings**,
+with nine non-blocking notes. Four were worth taking because each one changes what H actually reads,
+and all four are in commit `1017197`:
+
+1. **The skip warning misreported two of the exact cases the rule exists to catch.**
+   `JSON.stringify(NaN)` and `JSON.stringify(Infinity)` both return the string `"null"`, so a
+   `qty` of `Infinity` printed as `(got null)`. Non-finite numbers now print truthfully. Warning
+   text only — the skip behaviour was already correct.
+2. **The store-only count could exceed the number actually hidden.** The audit runs on the raw
+   nodes, *before* the `(Draft)` filter, so a store-only product that is also `(Draft)` was being
+   counted as hidden by `1.19` when the draft filter had already excluded it. The two are now
+   counted separately and the line reads `N (plus M already excluded as (Draft))`. This one matters
+   because criterion (d) exists so H can check the Shopify data against that number.
+3. **The new count line had been inserted above the 1.18 line, shifting it from fifth to sixth.**
+   No value changed, but R4 walks H down that list in order, so the store-only line is now appended
+   after **every** pre-existing line — the same rule the brief already set for the columns.
+4. **Two docs inaccuracies fixed.** `TASKS.md` called `1.19` "insertion-only" when
+   `renderProductPanel` also changed two existing expressions (the grouping loop and the empty-state
+   test); it now says so, and says the change is a no-op when nothing is marked store-only. And the
+   `C8` brief's how-to-test did not start with the branch checkout, while the entry below claimed
+   both briefs did — Law L, so the brief was fixed rather than the claim softened.
+
+**Deliberately NOT actioned, with reasons.** (a) The `(Draft)` regex now appears three times bound
+only by a comment, where `1.19` proves the better pattern with `isStoreOnlyCategory` — a real
+observation, but an `isDraftTitle()` helper touching `loadShopifyProducts` is a refactor of working
+code outside both briefs. (b) `withComponents` still derives its count from
+`status.indexOf('OK') === 0` and is gated on `count > 0`, so a product whose entries were **all**
+rejected is absent from that line; the dedicated skipped-entries warning covers the case, and today
+every product reads `absent`, so changing it would alter a pre-existing count line the C8 DoD says
+must not change. (c) A duplicate parser warning under `?catalogaudit=1` (the value is parsed once by
+the audit and once by `shopifyNodeToProduct`) — pre-existing from 1.18, audit-mode only, cosmetic.
+All three are logged here rather than fixed quietly, so A can overrule any of them.
+
+**Evidence — all three runs re-run against the amended code:** quantity harness **20/20** (pre-fix
+control still fails 6), browser verification **21/21**, `AGENTS.md` post-task smoke checklist
+**38/38** desktop + touch, `npm run build` ✓. The regenerated before/after audit output confirms the
+four original count lines keep their original positions and values.
+
+⚠ **One limitation the reviewer stated and O is repeating rather than burying:** the reviewer ran
+without a shell, so its pass is a file-level read of the working tree, not an executed build or a
+byte-level diff against `d7fd48a`. The executed evidence above is O's, not the reviewer's.
+
+**Asks of A:** overrule any of the three deferred nits if you disagree — particularly (b), since it
+sits on the audit line R4 tells H to trust.
+
+---
+
+### 2026-08-19 · O → H + A · PR #7 merged; `1.19` store-only filter + `C8` fixes built (code)
+
+**Author:** `O-opus-19aug26-b` — O, PM (Opus cloud agent, second session of 19 Aug)
+**Board items:** `1.19` (new build), `C8` (new build), `1.18` gate (ii), `C3`/`1.18` (merged),
+Track 6 `U0`, plus new `C10` raised below
+**Claim level:** **merged** for PR #7 · **verified-local, NOT live** for `1.19` and `C8` — the ✅
+on both stays off until H verifies on planner.brownboxkit.co.nz
+**Relaying work by:** O built this directly (no S session this cycle); the reviewer subagent's
+verdict is relayed below and O signs for it
+**Instruction received (from H, 19 Aug 2026):** three tasks in order — the docs-only correction
+commit, then the merge, then the store-only filter off fresh `main` on its own branch.
+
+**Task 2 — merged.** PR #7 is on `main` as `d7fd48a`, merged with `--no-ff` as instructed, so every
+commit (`2a9b9fd` C3, `ade39f8` 1.18, and each docs commit) stays independently revertable. The two
+Task-1 correction commits went in first as `419830f` (the four corrections) and `60dcca7` (the
+amendments batch), deliberately split so a reader can revert the corrections without losing the
+batch, or the reverse.
+
+**Task 3 — built on `cursor/1-19-store-only-filter-and-c8-audit-fixes-9814`, off `d7fd48a`; raised as [PR #8](https://github.com/brandonlee-ct/kitchen-planner-v3/pull/8).**
+`C8` and `1.19` are two commits on one branch. They are separate concerns but both edit
+`runCatalogueAudit`, and O judged one branch with two clean commits better than two branches whose
+second must stack on the first — the same sequencing A accepted last cycle. If A wants them split,
+say so and O will split them.
+
+- **`cf1f7c6` — `C8`.** One statable quantity rule: an **absent** `qty` means one; a **present**
+  `qty` must be a whole number of 1 or more, and anything else is **skipped with a named warning**.
+  `Number.isInteger` after coercion rejects `NaN`, `Infinity`, fractions and booleans in one test —
+  the old code tested `<= 0` *before* flooring, which is exactly how `0.4` became a charge of 1.
+  The audit now indexes each fetched variant **with its parent product's draft state**, so a
+  component living on a `(Draft)` product is reported as "will NOT resolve in the planner" rather
+  than `OK`; parser-skipped entries are counted too, so a dropped component cannot vanish silently
+  from the report H is told to trust.
+- **`5eb007b` — `1.19`.** `renderProductPanel` filters store-only products out **before** grouping;
+  `products` itself is untouched. `STORE_ONLY_CATEGORIES` is one `Set`, default `['store-only']`,
+  read through a single normalising helper shared with the audit tool, so the panel and the audit
+  can never disagree about what store-only means. The audit gains a `store_only` column (appended
+  after every existing key, so no column shifts) and a count line.
+- **`e364fe4`** — reviewer nit: dropped an unused `title` field from the audit's variant map.
+
+**Category value convention — proposed to H, implemented as the default (Law H).** O recommends
+**`store-only`**, and that is what is built. It names *the rule* ("never show this in the planner")
+rather than the product type, so it also covers anything else non-placeable H may add later — gift
+cards, sample chips, delivery fees, warranties — without a second convention. `part`/`parts` was
+rejected because Track 6 `U2` may legitimately make a handle or hinge a *slot companion*, and a
+category meaning "is a part" would then have to mean two opposite things. 👤 **H: confirm
+`store-only` or name another word — it is a one-line change**, and more than one value can be
+accepted at once during a data migration.
+
+**The trap O deliberately did NOT fall into, because it would have destroyed customer data.** The
+obvious belt-and-braces is a store-only guard inside `placeProduct`. `loadScene` restores **every**
+saved item by calling `placeProduct(product, true)`, so that guard would silently drop items out of
+any project saved before the filter existed — losing part of a real design and breaking the standing
+"cabinets sit on the slab after save → reload" check. A's criterion (b) is what protects against
+this: **filter the display, not the data.** It is written into the brief as an explicit ⛔.
+
+**Evidence — three independent runs against the committed code, all in real Chrome:**
+1. **Quantity harness, with a pre-fix control.** The 20-case table from the `C8` brief run against
+   pre-fix `main.js` fails **6**; against the fix it passes **20/20**, and every rejection warns
+   while every acceptance stays silent. The control matters: it proves the harness can fail.
+2. **Browser verification, 21/21**, against an intercepted Storefront response so the numbers are
+   deterministic. Store-only hinge absent from the panel on desktop **and** at 390px touch; the
+   `Hardware` group header disappears with its only member; the same hinge **still** prices as
+   "2 × Soft-close Hinge − $25.50" inside a cabinet's quote (criterion b); a `qty: 0.4` component is
+   skipped so the total rises by the parent price only; the audit reports the store-only count, the
+   `(Draft)`-parent component and the skipped entry; and a **no-op catalogue** with nothing
+   store-only and no `component_skus` renders, prices and audits exactly as before.
+3. **The full `AGENTS.md` post-task smoke checklist, 38/38, desktop and touch.** Cabinets on the
+   300mm slab at y = 0.660 m through place → autosave → reload → restore; undo/redo including a
+   multi-step round trip; CSV (BOM intact) and PDF export; Restart Planner; elevation power point
+   **and** door add, select, and drag along the wall with its mm dimension following; long-press
+   select of both a cabinet and a wall at 390px with touch; zero page errors in either run.
+   ⚠ **Two checklist items are honestly NOT covered here:** Supabase *Save Project* needs the owner
+   account, so the save/reload leg runs through the shipped draft-autosave + resume path (1.16b),
+   written by the same `serialiseScene()` and read by the same `loadScene()`; and Send-to-Cart is not
+   exercised because it posts a real `cartCreate`. Both stay with H under R4/R5.
+
+**Reviewer subagent:** verdict **ship**, with nits. The unused-field nit is fixed in `e364fe4`. Two
+were deliberately left: a `NaN` that can appear in an unrelated pre-existing console line, and a
+`withComponents` count in the audit summary — both are outside this brief and would be scope creep
+into working code (`AGENTS.md`: add to it, don't refactor it).
+
+**New finding raised against pre-existing code — board item `C10`.** The smoke run turned up a real
+gap that predates this task: **adding or deleting a door, window or power point never calls
+`pushHistory`.** Every add path (`wp-door`/`wp-window`/`wp-gpo` on the wall popup and the three
+`elev-add-*` buttons) and `elev-delete-opening` mutate `wall.openings` and call `syncOpeningsTo3D`
+directly; only `edit-opening` has a history entry. So undo skips straight past an added door — and
+because the draft autosave is scheduled **only** from `pushHistory`, a customer who draws a room,
+adds a door and closes the tab **loses the door** unless some other mutating action happens
+afterwards. O has **not** fixed it: the fix adds new history types, and `AGENTS.md` makes the
+history-entry shape ask-first. 🧠 **A to rule on the entry shape**, then O briefs it.
+
+**Asks of A:** (1) accept or reject one branch carrying `C8` + `1.19` as two commits; (2) confirm
+`C10` is a fair reading of the code and rule on the history-entry shape; (3) note that the
+"how to test" note in both briefs now starts with getting the build on screen (Law L), as required.
+**Asks of H:** (1) confirm the category word `store-only`; (2) merge review, then live-verify both
+items — until they are on `main`, `1.18` gate (ii) and Track 6 `U0` both stay shut.
+
+**Blocked on:** H for the category word and the live verification; A for the `C10` ruling.
 
 ---
 
@@ -1182,6 +1358,25 @@ against published products only, so a component on a Draft product reads `OK` he
 in the planner as "Unknown component / $0.00" and can make Shopify reject the entire cart. Ask O to
 confirm `C8` is merged before you set a single metafield.
 
+> **Status update (`O-opus-19aug26-b`, 19 Aug 2026): `C8` is BUILT (`cf1f7c6`) but NOT yet on
+> `main`** — it is ⏳ on `cursor/1-19-store-only-filter-and-c8-audit-fixes-9814`. **The hold above
+> stands unchanged until the merge.** Once it lands, step 4 gets sharper and you should expect the
+> extra wording: a bad `qty` is **skipped and warned by name** instead of guessed, a component on a
+> Draft product reads `OK (1 on a (Draft) product — will NOT resolve in the planner)` instead of a
+> bare `OK`, and skipped entries are counted so a dropped component cannot disappear from the report.
+> Board item `1.19` (`5eb007b`, same branch) adds a `store_only` column to the same table, which is
+> how you confirm the spare parts you publish for U0 are being kept out of the catalogue.
+
+> **Restored, and its status brought current (`O-opus-04sep26` — O, PM, 4 Sep 2026).** The
+> blockquote directly above is recovered **verbatim**: it was **deleted, not superseded**, by merge
+> commit `f3098ce` (see the correction note in the log above). It is stale in one direction only —
+> `C8` (`cf1f7c6`) and `1.19` (`5eb007b`) **are** now merged, but only onto **local `main`** via
+> `f3098ce`; the local `origin/main` ref still reads `d7fd48a` (not re-fetched this session), so
+> **nothing is deployed**. **The hold in (c) therefore still stands in full** — a local merge is not
+> a deploy, and until H pushes and Vercel builds, the live `?catalogaudit=1` that step 4 tells you
+> to trust is still the pre-`C8` version that can print a bare `OK` for a component that will not
+> resolve. Do not set a metafield until H has pushed and the deploy is live.
+
 1. In Shopify Admin, go to **Settings → Custom data → Products** and add a metafield definition
    with namespace `planner`, key `component_skus`, type **JSON**.
 2. On the same definition, tick the option that exposes it to the **Storefront API**.
@@ -1193,7 +1388,7 @@ confirm `C8` is merged before you set a single metafield.
 4. Open `https://planner.brownboxkit.co.nz/?catalogaudit=1` and check the new
    `component_skus_status` column for that product.
    *Success looks like:* `OK` and a count of `1`. If it reads `absent`, step 2 was missed. If it
-   reads `OK (1 unresolved)`, the variant GID is wrong or that product is Draft — **fix it before
+   reads `OK (1 unresolved)` the variant GID is wrong or that variant is outside the fetched catalogue, and if it reads `OK (1 on a (Draft) product — will NOT resolve in the planner)` that product is Draft — the two are separate messages once `C8` is live (amended by `O-opus-04sep26`, 4 Sep 2026) — **fix it before
    sending anything to the cart**, because Shopify rejects the whole cart if it refuses one line.
 5. Place that product twice in the planner, open the quote, and confirm the component line appears
    and the total includes it.
