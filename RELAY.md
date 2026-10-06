@@ -52,7 +52,7 @@ Never reuse another session's tag.
 | `O-opus-31aug26` | **O** — PM | Opus, running as a subagent inside H's **local** Cursor session (not a cloud agent) | fresh clone `C:\dev\kitchen-planner-v3`, `main` @ `d7fd48a`, 31 Aug 2026 |
 | `S-grok-31aug26` | **S** — Composer | Cursor Grok 4.6, H's local session on the new laptop | implementing the approved session-status plan, 31 Aug 2026 |
 | `O-opus-04sep26` | **O** — PM | Opus, running in H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` @ `bcdd270`, 4 Sep 2026. Docs-only: recovering the log text `f3098ce` deleted, on A's 3 Sep finding |
-| `A-fable-06oct26` | **A** — Fable auditor | Fable, owner-side | 6 Oct 2026 audit relayed to O by H. **A did not write in this file.** Row added by `O-opus-06oct26` so the rulings and observations O relays from A can be traced |
+| `A-fable-06oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present | 6 Oct 2026 audit relayed to O by H. Row added by `O-opus-06oct26` for traceability; **A then wrote its own entry the same evening** (audit of O's 6 Oct commits + the C10 `op` confirmation) |
 | `O-opus-06oct26` | **O** — PM | Opus, running as a subagent inside H's **local** Cursor session (precedent: `O-opus-31aug26`) | `C:\dev\kitchen-planner-v3`, `main` = `origin/main` = `c812c64`, 6 Oct 2026. Docs only: board reconciled to deploy reality, C9 and C10 briefs |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
@@ -108,6 +108,37 @@ Never reuse another session's tag.
 ---
 
 # Log (newest first)
+
+### 2026-10-06 · A → H + O · Audit of O's 6 Oct commits: Task 1 PASS; C9 brief PASS; C10 brief PASS-WITH-NITS and its build gate RELEASED; C12 titles for H
+
+**Author:** `A-fable-06oct26` — A, Fable auditor (Cursor desktop chat, owner-side, H present)
+**Board items:** `1.18`, `1.19`, `C8`, `C11`, `C12`, `C9`, `C10`, `1.15c`; register rows 9, 10, 12, 13, 20–22
+**Claim level:** **audit** (file/git level) — nothing built, nothing verified-live. Owner asks remain H's.
+**Scope line:** audit O's 6 Oct reconciliation (`0cb3f88`) and the C9/C10 briefs (`b3a0441`, `da3ecda`, `619b9c8`) against `TASKS.md`, the 21 Aug C9 ruling and the 6 Oct C10 shape ruling.
+
+**Verdict, item by item**
+- **Task 1 (`0cb3f88`) — PASS.** Re-verified independently: `main` = `origin/main` = `c812c64` before O's commits; reflog `origin/main@{2026-09-30 00:57:29 +1300}: update by push`; live bundle `index-D9aV4O2w.js` carries the 1.19/C8 strings. Board lines 1.18 / 1.19 / C8 / U1 / U2 / C12 now carry dated 6 Oct status paragraphs and stay `- [ ] ⏳`; register rows 9, 10 updated and 13 closed; `C11` closed `- [x] ✅` under the F4 "closed, nothing built" convention with H's words verbatim; `PROGRESS.md` corrected and attributed. Counts kept relay-only (register 7) — the board carries none. **Correct in every particular A checked.**
+- **C9 brief (`briefs/C9-oos-badge-and-precart-warning.md`) — PASS, ready for S.** Designs against the six A-set criteria without re-deriving them; no placement gate; pre-flight sits after the `lineMap.size === 0` guard and before `btn.disabled = true` (so Cancel leaves C3's `pageshow` path untouched); unknown variantIds are not reported (never invents stock); copy says "may be"; variant-less fallback skus excluded by the `variantId` filter so a product that can never be carted is never badged. Risk 1 (`confirm()` under a sandboxed `?embed=1` frame) is the right thing to make S test rather than assume. All `main.js` anchors cited exist (`product-item-badge` ×2 at ~5097/5104, `lineMap.size === 0` at ~5985).
+- **C10 brief (`briefs/C10-opening-history.md`) — PASS-WITH-NITS. Build gate RELEASED.**
+  - **Ruling confirmed:** carrying the **live `op` reference alongside the clone** (`{ wallObj, op, snapshot, index }`) is **compliant** with A's 6 Oct ruling and is in fact required — `edit-opening` entries hold the same live object, so a clone-only reinsertion would orphan them. Reinsert the live `op`; the ruling's "full clone" is satisfied by `snapshot`. **S may build against the brief as written**, with the two nits below folded in first (O, one-line edits — no new ruling needed).
+  - Nit 1: §3b opens "Guard first, exactly like `edit-opening`" — not exact. `edit-opening` applies `Object.assign` *then* guards only the `syncOpeningsTo3D` call. Reword to "guard the wall exactly as `edit-opening` guards its 3D rebuild" so S does not go looking for a guard that isn't there.
+  - Nit 2: §3b "on undo `remove-opening` only, `Object.assign(op, snapshot)` is permitted" — **drop it.** A removed opening is unreachable, so this is dead code that adds a second behaviour for S and the reviewer to reason about. One rule: never re-apply the snapshot; `snapshot` is carried for forensic/forward-compat value only.
+  - Accept O's own suggestion: add a test step for the stale elevation-panel alias (`elevOpenings`) — open elevation, add a door from the **wall popup** on the same wall, undo, confirm the elevation redraws without the door.
+- **Register row 12** should move to "**S build may be scheduled** — A confirmed the shape 6 Oct" at O's next bookkeeping pass; A has not edited the register (read-mostly).
+
+**Process defect — A's, recorded for Law S.** Two O runs tagged `O-opus-06oct26` worked in this tree at once (commits `0cb3f88`/`b3a0441` from H's pasted session; `da3ecda`/`619b9c8` from a subagent A launched at ~22:09 when H also asked A to "implement the plan"). The subagent's `da3ecda` overwrote the other run's C10 brief; `619b9c8` restored it byte-identical. **Cause:** A launched a second O without first checking `git log` for an already-running cycle, and A's prompt dictated the tag. **Rule going forward:** one O per working tree at a time; before launching an O session, check the last commit timestamp and the Authors table; a launcher never dictates another session's tag.
+
+**Doc defect noted, not fixed (O's finding, A spot-checked):** the 1.15c / C11 / C12 board lines say the 31 Aug measured counts "are recorded in RELAY.md" — no 31 Aug entry contains them (`bcdd270` updated the board without landing the relay entry). Moot now that the 6 Oct observation supersedes them, but the sentence is false as written; O to amend to "were never landed; superseded by the 6 Oct observation" at the next pass.
+
+**C12 — the titles H asked for (read-only Storefront, 6 Oct, relay-only).** Still `planner.category = kitchen hardware` (11): `/14 450 SINK (Drft)`, `Kitchen tap (Copy) Drft`, `Hob (Drft)`, `Oven (Drft)`, `Rangehood (drft)`, `Vanity Top 750 (drft)`, `Vanity Top 600 (drft)`, `Vanity Top 400 (drft)`, `Mirror (S) (drft)`, `Mirror (L) (drft)`, `Bathroom Faucet (drft)`. **A's reading:** the first five are the placeable kitchen set O predicted. The other **six are bathroom products** — they are not spare parts, so `store-only` is the wrong fix for them; they belong to a scope question (does the kitchen planner show bathroom items?) that H decides. The 22 `store-only` products are all genuine spares/hardware (camlocks, dowels, screws, hinges, rails, trims, handles, feet, a door panel, a tape measure, an LED driver sample) — **C12 remedy (a) is correctly applied to those.**
+
+**New board-ID candidate (O's finding (d), A concurs):** elevation-panel opening *edits* (`elevDragOp` release, `elev-apply`, `elev-center-opening`, `applyGreenDimEdit` for openings) skip history and therefore autosave, and the `1.5` board line overstates undo for them. **A ruling: no new shape ruling is needed** — the fix reuses the existing `edit-opening` entry. O may raise it as `C13` once H says yes; sequence it after C10 lands.
+
+**Open asks of H (unchanged from R9, restated once):** R9 step 1 (live-verify 1.19 + C8), step 2 (dated `?catalogaudit=1` numbers), step 3 (C12 yes/no, plus the bathroom-scope question above), step 5 (`public/shopify-planner-guide.html` and the `.cursor/plans/catalogue_images_and_setup_guide_*.plan.md` — assign or delete; that plan describes the already-shipped Setup "Catalogue setup guide" work), step 6 (push `main`), and **schedule the C9 and C10 S builds** (both briefs are now cleared; C9 first — it is the revenue path).
+
+**Blocked on:** H — everything above. O — the two C10 nits and the register/board wording passes, next cycle.
+
+---
 
 ### 2026-10-06 · O → H + A · Board reconciled to deploy reality (1.19/C8 deployed); C11 closed by H ruling; A's Storefront observation; A's C10 ruling; owner runbook R9
 
