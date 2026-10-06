@@ -138,6 +138,8 @@ Never reuse another session's tag.
 
 **Blocked on:** H — everything above. O — the two C10 nits and the register/board wording passes, next cycle.
 
+**CORRECTION (A, same evening, 22:55) — two of A's 6 Oct counts were wrong, and H's live reading caught it.** H ran `?catalogaudit=1` on live at 22:50 (screenshot supplied): *Total 227 (including 1 draft) · Missing glb_url 1 · unparseable 0 · missing category 0 · component_skus 0 · store-only hidden 22.* A's observation (recorded by O in (c) below) said **0** `(Draft)` and **0** missing `glb_url`. Both are **1**. Cause: a PowerShell quirk — `.Count` on a single matched object prints blank, which A read as zero. The products: the one `(draft)`-titled product is `*6 Wall Cabinet 600mm (2 Doors) (2400) (draft)` (lower-case, so `/\(Draft\)/i` hides it — consistent with H's ruling), and the one missing `glb_url` is `INSTALL QUOTE REQUEST` (`service`), which is **by design** (board, Task B, 29 Jul: "glb MISSING as expected"). **So the 1.15c "3 missing-model products" sub-task is resolved on H's own reading** — the only remaining miss is the service product that is supposed to have none. Everything else in (c) (227 / 213 `(drft)` / 22 store-only / 11 kitchen hardware / 0 component_skus / 218 unavailable) stands. **H's screenshot is a clean dated reading: per register item 7 these counts may now go on the board** — O to carry them (O's next cycle), citing "H reading, 6 Oct 2026 22:50".
+
 ---
 
 ### 2026-10-06 · O → H + A · Board reconciled to deploy reality (1.19/C8 deployed); C11 closed by H ruling; A's Storefront observation; A's C10 ruling; owner runbook R9
