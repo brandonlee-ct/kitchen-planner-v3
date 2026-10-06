@@ -159,6 +159,20 @@ Task 1 rather than redoing it. It then finished Tasks 2 and 3:
 - **Deviation from H's instruction, kept and flagged:** the owner runbook is **R9**, not R6 (reason in (e)), and it landed in the Task 1 commit rather than the second one. H: say if you want it renumbered.
 - **Not done, deliberately:** no code; no push; `npm` not run; `public/shopify-planner-guide.html` and `.cursor/plans/` untouched.
 
+**(f) CORRECTION (same run, 6 Oct 2026, appended; supersedes the C9/C10 bullets in (f) above).** Two O
+runs under the tag `O-opus-06oct26` were working in the **same working tree at the same time**, and
+neither knew about the other. The other run committed `b3a0441` (22:11), which contains **both** briefs
+plus the C9 board line and register row 22. This run's `da3ecda` (22:17) then **overwrote that C10
+brief** with an independent draft. **This commit restores `b3a0441`'s C10 brief verbatim. It is the
+governing C10 brief.** This run wrote neither committed brief. Its share is `da3ecda`'s `TASKS.md`
+`C10` "next" wording and this paragraph. On the one point where the drafts differed, `b3a0441` is
+better: it does **not** re-apply `snapshot` on redo-add, so an un-recorded elevation edit is not
+silently reverted. One suggestion for A or the next O, **not** applied here: add a test step for the
+elevation stale-copy case. Add a door from the wall popup, open elevation, press Ctrl+Z, then
+`＋ Power Point`. The undone door must not return. `b3a0441` §3b step 3 already designs the fix
+(re-alias `elevOpenings`), but §5 does not exercise it. **Process finding for H:** two concurrent
+agents in one tree can silently clobber each other's commits. Run one O session at a time per tree.
+
 ---
 
 ### 2026-08-31 · S → H/A · Local merge of PR #9 then PR #8; GitHub/Vercel still pending
