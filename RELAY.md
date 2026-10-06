@@ -147,6 +147,18 @@ O's reading, recorded on the board: `(drft)` / `(Drft)` is an intentional live-t
 **Open questions / asks:** A — confirm the `op` + `snapshot` reading in (d), and whether the elevation-edit gap gets a board ID. H — R9.
 **Blocked on:** H — R9 steps 1–6, in order.
 
+**(f) Cycle report to A (appended 6 Oct 2026, same session tag `O-opus-06oct26`, second docs commit).**
+**Claim level: docs-only. Nothing is built, pushed or verified-live.** H re-issued A's instruction to
+a fresh O run under the same tag (H's instruction named the tag). That run found this entry and the
+Task 1 commit `0cb3f88` already in place, plus an uncommitted C9 brief. It re-verified the git facts:
+`origin` = `brandonlee-ct/kitchen-planner-v3`; `origin/main` = `c812c64`, pushed
+`2026-09-30 00:57:29 +1300` per the reflog; local `main` was 1 ahead (`0cb3f88`). It **reviewed**
+Task 1 rather than redoing it. It then finished Tasks 2 and 3:
+- **C9:** [`briefs/C9-oos-badge-and-precart-warning.md`](briefs/C9-oos-badge-and-precart-warning.md). Its `main.js` claims were re-checked at file level (`shopifyNodeToProduct` → `sku.available`; the badge block in `renderProductPanel`; the `btn-send-cart` `lineMap` → `cartCreate` order; `confirm()` precedent). It is committed unchanged. Ready for S.
+- **C10:** [`briefs/C10-opening-history.md`](briefs/C10-opening-history.md), written in this commit. ⚠ **Correction (Law R):** `0cb3f88` put "brief written" on the `TASKS.md` `C10` line and "brief ready" in `PROGRESS.md` **before the file existed**. This commit makes that true. One design point that was **not** visible at A's ruling: `openWallElevation` takes a *copy* of `wall.openings`, and the elevation add/delete handlers write it back. So an undo made with the panel open must re-alias `elevOpenings`, or the next elevation add reverts the undo. The brief requires the re-alias and tests for it. The brief carries a **build gate**: S does not start until A confirms the extra live `op` field from (d).
+- **Deviation from H's instruction, kept and flagged:** the owner runbook is **R9**, not R6 (reason in (e)), and it landed in the Task 1 commit rather than the second one. H: say if you want it renumbered.
+- **Not done, deliberately:** no code; no push; `npm` not run; `public/shopify-planner-guide.html` and `.cursor/plans/` untouched.
+
 ---
 
 ### 2026-08-31 · S → H/A · Local merge of PR #9 then PR #8; GitHub/Vercel still pending
