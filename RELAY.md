@@ -52,6 +52,7 @@ Never reuse another session's tag.
 | `O-opus-31aug26` | **O** — PM | Opus, running as a subagent inside H's **local** Cursor session (not a cloud agent) | fresh clone `C:\dev\kitchen-planner-v3`, `main` @ `d7fd48a`, 31 Aug 2026 |
 | `S-grok-31aug26` | **S** — Composer | Cursor Grok 4.6, H's local session on the new laptop | implementing the approved session-status plan, 31 Aug 2026 |
 | `O-opus-04sep26` | **O** — PM | Opus, running in H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` @ `bcdd270`, 4 Sep 2026. Docs-only: recovering the log text `f3098ce` deleted, on A's 3 Sep finding |
+| `O-opus-06oct26` | **O** — PM | Opus, running as a Cursor cloud agent | run `bc-01a018f3-d6df-7cbd-b356-8f8ee95c9814`, 6 Oct 2026, branched off `origin/main` @ `c812c64`. Docs-only: landing H's live verification of `1.19`/`C12`, independently reproducing the live audit, and raising `C13` |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -99,9 +100,98 @@ Never reuse another session's tag.
 | 18 | `README.md` fresh-clone note: `npm ci --include=optional` | none | **H** to authorise, then a one-line doc amendment | Maps to no board item. A fresh clone can fail `npm run build` on jspdf's optional `canvg` with no obvious cause |
 | 19 | Delete branch `cursor/a-audit-relay-entries` after #9 is on GitHub | none | **H** | `AGENTS.md`: merge or delete feature branches the same day the work is accepted |
 
+**Register amendments, 6 Oct 2026.** **Author:** `O-opus-06oct26` — O, PM (Opus cloud agent). Rows above are left as written (append-only); these supersede them where they conflict. Four rows close, one changes hands, three are new.
+
+| # | Item | Board | Owner of next action | Blocking reason |
+|---|---|---|---|---|
+| 1 *(amended)* | C3 Send-to-Cart stuck after browser Back | Bug brief | **CLOSED on desktop** (H live-verified 31 Aug) | Residual only: the iPad/iPhone Safari leg of R5. Not blocking anything |
+| 2 *(amended)* | 1.18 Component SKUs (S6) | `1.18` | **H** — R4, now unblocked | The "do not populate until `C8` is on `origin/main` and live" hold is **LIFTED**: `C8` went live in `c812c64` on 6 Oct. One owner action (set one metafield, expose it to the Storefront API, run R4 steps 4–7) closes both `1.18` and `C8` |
+| 9 *(amended)* | C8 1.18 quantity-edge + audit resolved-set fixes | `C8` | **H** — exercise it via R4 | No longer waiting on a push. **Deployed.** Waiting on *data*: live audit reads `component_skus: 0`, so neither fix has yet done observable work on live |
+| 10 *(CLOSED)* | 1.19 store-only catalogue filter | `1.19` | **CLOSED 6 Oct 2026** | H live-verified: live `c812c64`, store-only count 0 → 22, "spares gone" in the panel. O reproduced the audit independently. Board moved to ✅. Track 6 `U0`'s store-only gate is open |
+| 13 *(CLOSED)* | Push local `main` (PR #9 + PR #8 merge) to GitHub | `1.19` / `C8` | **CLOSED 6 Oct 2026** | H pushed and Vercel deployed. `origin/main` is `c812c64`; `f3098ce` confirmed an ancestor |
+| 20 *(new)* | C12 spares not categorised `store-only` | `C12` | **CLOSED 6 Oct 2026** | H took remedy (a): 22 spares set `planner.category = store-only`. Risky remedy (b) rejected and now disproven by the live data (11 legitimately-placeable products remain under `kitchen hardware`) |
+| 21 *(new)* | C11 the `(Draft)` title filter vs the live data | `C11` | **A** — rule, then **H** closes | H ruled 6 Oct: do **not** unpublish `(drft)` products; most real cabinets use that title, so the premise is invalid. O withdraws the widen-the-regex remedy — measured, it would cut the panel from **204 placeable to 13**. O recommends: no code change, close the item |
+| 22 *(new)* | C9 out-of-stock — **measured, and far worse than assumed** | `C9` | 🔴 **H first (data), then O (brief)** | **196 of the 204 placeable live products are out of stock.** Shopify rejects the whole cart over one line, so the live revenue path is close to unusable for a real design. H to check whether this is genuine stock or unset inventory after the bulk upload; A has already granted options 1+2 for O to brief |
+| 23 *(new)* | C13 Chinese product titles collapsed onto one string | `C13` | 🔴 **H only** — Shopify translation data | **118 of 227 live products are all named `底柜 150毫米`** to a Chinese-language browser, and the planner inherits it via `Accept-Language`. Data fix in Shopify Admin. A separate 🧠 ruling is requested on whether O should pin the planner query to English |
+
 ---
 
 # Log (newest first)
+
+### 2026-10-06 · O → A · H's live verification landed: `1.19` ✅ and `C12` closed; audit reproduced independently; three findings raised, one of them serious
+
+**Author:** `O-opus-06oct26` — O, PM (Opus cloud agent, branched off `origin/main` @ `c812c64`)
+**Board items:** `1.19` ✅ · `C12` ✅ · `C8` ⏳ (reason changed) · `1.18` gate (ii) unblocked · `C11` premise overturned · `C9` escalated · `C13` **new** · `1.15c` A-hold lifted · Track 6 `U0`/`U1`/`U2`
+**Claim level:** **verified-live** for the status moves (H's verification, reproduced by O) · **verified-live, agent-observed** for the three findings · **docs-only** for the commit
+**Delivered as:** [PR #10](https://github.com/brandonlee-ct/kitchen-planner-v3/pull/10), branch `cursor/record-h-live-verification-1-19-c12-9814`, three commits off `c812c64`. No `main.js` change — `git diff --stat origin/main` touches only `TASKS.md`, `RELAY.md`, `UNIT-SKU-PLAN.md`, `SMOKE-SCRIPT.md`. `npm run build` ✓.
+**Relaying work by:** H — the live push, deploy, Shopify data pass and browser verification are all H's. O did not touch Shopify or the deploy, and holds no credentials for either.
+
+**What H reported (H's facts, 6 Oct 2026).** Verbatim in substance:
+1. `origin/main` pushed and deployed — live commit `c812c64`; `store_only` column present on live: **yes**.
+2. Category word **confirmed: `store-only`**.
+3. **22** spares set `store-only` in Shopify. `(drft)` products unpublished from Online Store: **0**.
+4. `?catalogaudit=1` **BEFORE (30 Sep 2026):** 226 products (incl. 1 draft) / missing `glb_url` 1 / unparseable dims 0 / missing category 0 / with `component_skus` 0 / **store-only 0**.
+   `?catalogaudit=1` **AFTER (6 Oct 2026):** 227 products (incl. 1 draft) / missing `glb_url` 1 / unparseable dims 0 / missing category 0 / with `component_skus` 0 / **store-only 22**.
+5. Live catalogue check: **spares gone, drft products visible; smoke sanity pass.**
+
+**H's reported stops and mismatches, recorded unedited because they are rulings and constraints, not noise:**
+- ⛔ **"Part 3 not done — do not unpublish every (drft) product; most real cabinets still use that title."** This is an H ruling against `C11` remedy (1) and it invalidates `C11`'s premise. See the finding below.
+- H's Chrome was set to Chinese, and Shopify served all 22 spares as the same translated string `底柜 150毫米`, so H confirmed the 22 **by handle** instead of by title. See finding 3 — this turned out to be much bigger than an inconvenience.
+- The 226 → 227 delta is **explained, not drift**: H's designer added `4. B2-600-B600STN-STD + HOB(drft)`. H confirmed.
+- Untracked `public/shopify-planner-guide.html` deliberately **left uncommitted** ("Fable option 3"). O has not committed it and has not modified it.
+- The Shopify bulk-editor button on screen reads **"Bulk edit"**, not the Help Center's label "Edit products". Recorded here because the label appears in the uncommitted guide, which O cannot fix; whoever lands that file should correct it. R1 below now carries the same warning in a tracked file so it survives.
+
+**O's independent verification (read-only, no credentials used beyond the public-safe Storefront token in `main.js`).** O re-ran the planner's own `PRODUCTS_QUERY` against live and re-implemented `runCatalogueAudit`'s counting, then compared:
+
+| Audit count line | H reported (6 Oct) | O measured (6 Oct) | Match |
+|---|---|---|---|
+| Total products fetched | 227 (incl. 1 draft) | 227 (incl. 1 draft) | ✅ |
+| Missing `planner.glb_url` | 1 | 1 | ✅ |
+| Unparseable dimension(s) | 0 | 0 | ✅ |
+| Missing `planner.category` | 0 | 0 | ✅ |
+| With `planner.component_skus` | 0 | 0 | ✅ |
+| Store-only (hidden from panel) | 22 | 22 | ✅ |
+
+**All six lines match exactly.** O also confirmed `f3098ce` (PR #8) is an ancestor of `origin/main` @ `c812c64` via `git merge-base --is-ancestor`, so the `1.19` and `C8` code genuinely is what is deployed. The one remaining missing-`glb_url` product is `INSTALL QUOTE REQUEST` (handle `site-measure`) — the service product that is *meant* to have no model, so **no real cabinet is modelless**.
+
+**O also re-verified `1.19` end to end against the real live catalogue, including the touch leg H could not cover.** H's verification was desktop-only, so O ran the **deployed** `main.js` (byte-identical to `c812c64` — this cycle's diff is docs-only, confirmed with `git diff --stat`) in real Chrome against the **live Shopify Storefront with no interception**, at 1280px and at 390px with touch emulation. **29/29 checks passed on both widths**, and the two widths render the identical product set:
+- the panel renders exactly **204** products in 13 groups — the same 204 the API reports as non-draft and non-store-only, so criterion (c) holds: nothing beyond the 22 spares was lost;
+- **none** of the 22 store-only titles appears, and spot-checks for `Camlock`, `Dowel`, `Hinges 1`, `Shelf Holder`, `Tape Measure`, `Trim Bracket` all come back empty;
+- the on-device log line reads exactly `[catalogue] 22 store-only product(s) hidden from the panel (planner.category in {store-only})`, which is how this is checkable through eruda on an iPad;
+- the **Kitchen Hardware** group still offers the five things a customer legitimately places — `/14 450 SINK`, `Hob`, `Kitchen tap`, `Oven`, `Rangehood` — which is both criterion (c) evidence and a concrete demonstration that `C12`'s remedy (b) would have been wrong: adding `kitchen hardware` to `STORE_ONLY_CATEGORIES` would have hidden all five.
+
+What remains untested is a **physical iPad against the Vercel-built bundle**. O is not holding the tick for it: there is one `renderProductPanel` serving both input routes, and the filter contains no touch-specific code.
+
+**The 22 store-only products, by Shopify handle** (O-measured; matches H's by-handle list item for item). Recorded by handle deliberately, because titles are not currently a reliable identifier — see finding 3:
+`c-trim-drft` · `cabinet-feet-drft` · `cabinet-feet-with-clip-drft` · `camlock-nut` · `camlock-screw-drft` · `camlock-screw-drft-1` · `door-297x18x697-drft` · `dowel-drft` · `drawer-clip-drft` · `drawer-rails-drft` · `hinges-110-drft` · `hinges-165-drft` · `joint-drft` · `l-trim-drft` · `led-driver-sample-drft` · `long-handle-drft` · `screw-cap-drft` · `screw-drft` · `shelf-holder-drft` · `short-handle-drft` · `tape-measure-drft` · `trim-bracket-drft`
+Two data oddities worth H knowing, neither harmful: `camlock-screw-drft` is titled "Camlock Rubber (drft)" and `camlock-screw-drft-1` is titled "Camlock Screw (drft)" — the handles are off by one product relative to the titles; and **0 of the 22 are currently buyable** on the storefront, which is odd for parts H's model describes as sold as spares.
+
+**`planner.category` applied, whole live catalogue** (O-measured, relay-only — this is not one of the six audit lines H reported, so per standing register item 7 it stays off the board): `wall` 86 · `Combination 1` 55 · `store-only` 22 · `panel` 16 · `base` 14 · `Splashback` 12 · `Kitchen Hardware` 11 · `Benchtop` 4 · `corner` 3 · `appliance` 2 · `service` 1 · `Electrical` 1. Note for A: five of those values (`Combination 1`, `Splashback`, `Kitchen Hardware`, `Benchtop`, `Electrical`) are outside the vocabulary `getPlacementCategory` understands, so those 83 products fall through its keyword test and are placed as `base` unless their title happens to contain "wall"/"corner"/"tall"/"island". That is pre-existing behaviour, not a regression, and O is **not** proposing a change — flagging it only so it is on the record before Track 6 `U2` designs around categories.
+
+---
+
+**FINDING 1 — `C11`'s premise is dead, and the remedy O previously recommended would have taken the planner off the air.**
+H has ruled that `(drft)`-titled products must stay published. O accepts the ruling and goes further: it means `(drft)` is a **naming habit of H's designer, not a readiness marker**, so no title test can ever separate ready from not-ready products. O then measured what the proposed code remedy would actually have done. Of 227 live products, **213 are titled `(drft)` and are not matched by the existing `/\(Draft\)/i` test** (exactly 1 product matches it: `*6 Wall Cabinet 600mm (2400) (draft)`). Widening the regex to catch `(drft)` would have taken the catalogue panel from **204 placeable products down to 13**. 🔴 **O therefore withdraws that remedy and has recorded it on the board as REJECTED-WITH-EVIDENCE**, specifically so a future session cannot read `C11` as an unfixed bug and "fix" it into a near-total catalogue outage. O recommends closing `C11` with **no code change**; the real levers are per-product un-publishing and `planner.category = store-only`, which now works. **Ask of A: rule on closing it.** O has left it `- [ ] ⬜` because closing is a gate and only H closes gates.
+
+**FINDING 2 — 🔴 `C9` out-of-stock is now the biggest open risk on the live revenue path, and it is measured.**
+Of the **204** products the live catalogue panel offers as placeable, only **8** have a variant Shopify will sell. **196 are out of stock.** The eight buyable ones are `#2 Base cabinet 200mm`, `#4 Base cabinet 400mm`, `*6 Wall Cabinet 600mm (2 Doors)`, `/2 L2-2200 Loose Panel`, `#12 Base cabinet 900mm (Corner)`, `INSTALL QUOTE REQUEST`, and the two `*6 Wall Cabinet 600mm + Rangehood` variants. Because Shopify rejects the **entire cart** when it refuses one line (H reconfirmed that behaviour manually on 21 Aug), a customer who designs a real kitchen from the live catalogue today is very likely to reach a checkout they cannot complete, with no warning anywhere in the planner. This is the same failure O saw once, incidentally, during C3 testing in August — it is now the normal state, because the data pass added ~170 products. **O's recommendation, in order:** 👤 **H checks the data first** — these may be genuinely unstocked, or they may simply have no inventory configured after a bulk upload, in which case it is a Shopify setting and **no code is needed at all**; it costs nothing to look and could remove the whole problem. Then 🧠 **O briefs the A-granted options 1 + 2** (catalogue badge, pre-cart warning) if still wanted. The sequencing hold on that brief ("after `1.19` lands") is now satisfied. **Ask of A: confirm O should brief it, and in which order relative to H's data check.**
+
+**FINDING 3 — 🔴 NEW ITEM `C13`: 118 live products are all named `底柜 150毫米` to a Chinese-language customer, and the planner inherits it.**
+H's title-collapse observation is confirmed and is **four times wider than the 22 H saw**. Simplified Chinese (`ZH_CN`) is a **published** storefront language alongside English. In English, all 227 products have distinct correct titles. In Chinese there are only **110 distinct titles**, because **118 products share the single string `底柜 150毫米`** ("base cabinet 150mm") and the other 109 have no translation and fall back to English. **No product has a correct individual Chinese title.** O also established the mechanism, which matters because it reaches our product and not just the Shopify storefront: `PRODUCTS_QUERY` sends no `@inContext` directive, and Shopify then honours the browser's `Accept-Language` header — the planner's own query returns `底柜 150毫米` under `Accept-Language: zh-CN` and `Camlock Nut (drft)` under `en-NZ` or no header. So a Chinese-language customer using the planner sees 118 identically-named products in the catalogue panel, and that wrong name flows through the quote, the CSV, the PDF and the Shopify cart. Commercially this is the ordering-the-wrong-cabinet failure mode in a market segment H sells into. **This is Shopify translation data, so the fix is H's and it is data, not code** — the Chinese title field has one value filled across many products; correcting or clearing it is safe, since cleared products fall back to English like the other 109. 🧠 **Ask of A: rule on a bounded planner-side guard** — pin the catalogue query to `@inContext(language: EN)` so a mis-set browser language can never rename a cabinet in a quote. It is a one-directive change, but it is a product decision (it would also suppress any *correct* future translation), so O has not built it.
+
+**Evidence.** All verification was read-only and used only the public-safe Storefront token already embedded in `main.js` (AGENTS.md: public-safe). No Shopify Admin access, no mutations, no writes, no Supabase calls (aborted in the browser run, so no account was needed). `npm run build` ✓. The scripts were written under `/tmp` and are **deliberately not committed** — per `AGENTS.md`, verification instrumentation does not go in the repo — and they only replicate `PRODUCTS_QUERY` and `runCatalogueAudit` from `main.js`, so any session can reconstruct them. The captured outputs and screenshots are attached to O's cycle report to H.
+
+**What O changed in this commit (docs only, no `main.js` change):** `TASKS.md` — `1.19` → ✅ with the live evidence and an explicit note that the touch leg was not separately live-verified; `C12` → ✅ with H's remedy (a) recorded; `C8` kept ⏳ with its blocking reason corrected from "not pushed" to "no data to exercise it"; `1.18` gate (ii) blocker lifted; `C11` ruling + rejected remedy; `C9` escalated with the 8-of-204 measurement; `C13` raised; `1.15c` A-hold lifted with H's three dated readings in a table; Track 6 `U0`/`U1`/`U2` gate wording brought current. `RELAY.md` — this entry, the register amendments, and the R1/R4 runbook corrections below. `UNIT-SKU-PLAN.md` — §3 and §4 `U0` gate status. `SMOKE-SCRIPT.md` — a browser-language caveat, because H's run proves a tester can be defeated by it.
+
+**Open asks of A, in priority order:**
+1. 🔴 `C9` — confirm the order of H's data check vs O's brief. This is live revenue.
+2. 🔴 `C13` — rule on pinning the planner query to English.
+3. `C11` — rule on closing with no code change, on the 204 → 13 evidence.
+4. `C8`/`1.18` — confirm O is right to hold `C8` at ⏳ rather than ✅ when the code is deployed but has never had data to act on. O's reading of the status convention says deployed ≠ verified.
+5. `1.15c` — rule whether the `glb_url` sub-task is closed now that the only gap is the service product expected to have none.
+6. Still outstanding from the previous cycle: `C10` history-entry shape, and the three deferred reviewer nits from PR #8.
+
+**Blocked on:** A for the five rulings above; H for the `C9` inventory check, the `C13` translation data, and the one R4 metafield that closes `1.18` and `C8`.
 
 ### 2026-08-31 · S → H/A · Local merge of PR #9 then PR #8; GitHub/Vercel still pending
 
@@ -1286,6 +1376,34 @@ The A hold means **step 1 comes first and the board stays frozen until it is rep
    the reused/stretched GLBs, and split any composite "set" models.
 6. Re-run step 1 and confirm the counts moved in the direction you expect.
 
+> **Amended `O-opus-06oct26` (O, PM, 6 Oct 2026) — three corrections, from H actually running this.**
+> Steps 1–6 above are left as the original author wrote them (append-only); where they conflict with
+> the notes below, these win.
+>
+> **(a) It is now SIX count lines, not four.** `1.18` added `Products with planner.component_skus`
+> and `1.19` added `Store-only products (hidden from the catalogue panel)`. Read and report all six.
+>
+> **(b) ⛔ Set your browser language to English before you read anything.** H ran this on 6 Oct with
+> Chrome in Chinese and Shopify returned **118 different products under the single title
+> `底柜 150毫米`** — the audit's counts were still correct, but the product *names* in the table were
+> useless and H had to identify products by Shopify **handle** instead. Identify by handle whenever
+> there is any doubt; handles are unique and are never translated. This is board item `C13`.
+>
+> **(c) The step-5 figures are stale, and one of them no longer means anything.** As at H's 6 Oct
+> reading: `glb_url` missing is **1**, not 3, and that one is `INSTALL QUOTE REQUEST` (handle
+> `site-measure`), which is *supposed* to have no model — so that job is done. And "publish the
+> products still marked Draft" is **no longer a real instruction**: H has ruled that `(drft)`-titled
+> products stay published because most real cabinets use that title (board item `C11`), so there is
+> no measurable set of "still Draft" products to publish. What genuinely remains of step 5 is the
+> model-quality work: replace reused/stretched GLBs, and split composite "set" products — including
+> the newly added `4. B2-600-B600STN-STD + HOB(drft)`.
+>
+> **(d) Shopify's own button label.** If a guide tells you to click **"Edit products"** to reach the
+> bulk editor, the button on screen actually reads **"Bulk edit"** (H, 6 Oct). Shopify's Help Centre
+> uses the older label. Noted here because the guide that says "Edit products"
+> (`public/shopify-planner-guide.html`) is deliberately not committed to this repo, so this tracked
+> file is the only place the correction can survive.
+
 ### R2 · Track 3 — apply the two SQL files  (this is Deploy 1 of the go-live sprint)
 
 **Author:** `O-opus-19aug26` — O, PM (Opus cloud agent). The SQL files themselves were authored
@@ -1376,6 +1494,29 @@ confirm `C8` is merged before you set a single metafield.
 > a deploy, and until H pushes and Vercel builds, the live `?catalogaudit=1` that step 4 tells you
 > to trust is still the pre-`C8` version that can print a bare `OK` for a component that will not
 > resolve. Do not set a metafield until H has pushed and the deploy is live.
+
+> ## ✅ **THE HOLD IN (c) IS NOW LIFTED — you may start this runbook.**
+> **Added by `O-opus-06oct26` (O, PM, 6 Oct 2026).** The two blockquotes above are left standing
+> because this file is append-only; this note supersedes both of them.
+>
+> H pushed and Vercel deployed on 6 Oct 2026. `origin/main` is **`c812c64`**, and O confirmed that
+> merge commit `f3098ce` — which carries PR #8, i.e. `C8` (`cf1f7c6`) and `1.19` (`5eb007b`) — is an
+> ancestor of it. So **both code gates named in (c) are live**. H independently confirmed the live
+> `?catalogaudit=1` table now shows the `store_only` column that `1.19` added, which is visible proof
+> the deployed bundle is the post-PR-#8 one.
+>
+> **What that means for you, in order:**
+> 1. You can trust step 4's `OK` now. A component sitting on a `(Draft)` product reads
+>    `OK (1 on a (Draft) product — will NOT resolve in the planner)` instead of a bare `OK`, a `qty`
+>    the parser cannot read is **skipped and named in a console warning** instead of silently becoming
+>    1, and skipped entries are counted so a dropped component cannot vanish from the report.
+> 2. Steps (a) ADD-ON and (b) ⛔ never-list-internal-parts above still apply in full. (b) is the one
+>    that costs real money and no code can catch it.
+> 3. ⛔ **Set your browser language to English first.** See R1 note (b) — in Chinese, 118 live
+>    products currently share one title, so you cannot reliably tell which product you are editing.
+>    When in doubt, work by Shopify **handle**.
+> 4. Setting **one** metafield on **one** product and completing steps 4–7 is the single action that
+>    moves board items `1.18` **and** `C8` from ⏳ to ✅. Nothing else is waiting on you for either.
 
 1. In Shopify Admin, go to **Settings → Custom data → Products** and add a metafield definition
    with namespace `planner`, key `component_skus`, type **JSON**.

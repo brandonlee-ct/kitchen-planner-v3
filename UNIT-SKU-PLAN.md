@@ -63,14 +63,22 @@ code changes — none of the three competitors let the merchant do that.
   `planner.category` would appear as a placeable item. Carrying no `planner.*`
   metafields does not hide it either — the fallbacks (`600×720×580`, placeholder box)
   exist precisely to render such a product anyway.
-  **The mechanism is now built** — board item `1.19` (store-only catalogue filter),
-  commit `5eb007b`, ⏳ pushed and awaiting H live verification: the panel filters on
+  **The mechanism is now built, live, and confirmed working on real data** — board item
+  `1.19` (store-only catalogue filter), commit `5eb007b`, **deployed in live commit
+  `c812c64` and H-live-verified 6 Oct 2026**: the panel filters on
   `planner.category` while the product stays in `products`, so a store-only part still
   resolves with its real name and price when referenced in `component_skus`.
   **The agreed value is `store-only`** (O's recommended default; a single
   `STORE_ONLY_CATEGORIES` set in `main.js`, so H can change the word or accept several
-  at once in a one-line edit, and the read is case/whitespace-normalised). Until `1.19`
-  is on `main` **and** H-live-verified, U0 must not publish parts to the Storefront.
+  at once in a one-line edit, and the read is case/whitespace-normalised). The old
+  condition on this bullet — *"until `1.19` is on `main` and H-live-verified, U0 must not
+  publish parts to the Storefront"* — **is SATISFIED as at 6 Oct 2026, so that restriction
+  is lifted.** H has since gone further and done the data half as well: **22 genuine spare
+  parts now carry `planner.category = store-only`**, the live audit count moved 0 → 22, and
+  H's live catalogue check reads "spares gone". Board item `C12`, which warned that the
+  filter would otherwise hide nothing, is closed. ⚠ One caution for whoever does the rest
+  of U0: identify products by Shopify **handle**, not title — 118 live products currently
+  share a single translated title in Chinese (board item `C13`).
 
 ## 4. Phases and entry gates
 
@@ -86,9 +94,19 @@ filter, live-verified — without it a published part appears as a placeable cab
 (see §3); (ii) board item `C8`, the 1.18 quantity-edge and audit resolved-set fixes —
 without them a bad `qty` silently invents a quantity and the audit can report `OK` for
 a component that will not resolve at runtime.
-**Status of those two gates (19 Aug 2026): both are BUILT (`cf1f7c6` + `5eb007b`) and ⏳
-on a branch — neither is on `main` yet, so both gates are still shut.** The agreed
-store-only category value is `store-only`.
+**Status of those two gates — UPDATED 6 Oct 2026: BOTH ARE NOW OPEN.** (They were last
+recorded on 19 Aug as "BUILT (`cf1f7c6` + `5eb007b`) and ⏳ on a branch — neither is on
+`main` yet, so both gates are still shut"; that is superseded.) H pushed and Vercel
+deployed: `origin/main` is **`c812c64`**, which carries both commits via merge `f3098ce`.
+Gate (i) `1.19` is **H-live-verified** and board-✅. Gate (ii) `C8` is **deployed** and its
+hold on populating `component_skus` is lifted — it stays ⏳ on the board only because no
+product carries the metafield yet, so neither of its two fixes has had data to act on.
+The agreed store-only category value is `store-only`.
+**So U0 is clear to start, and one of its three jobs is already done** — "keep parts
+store-only" is complete (22 spares categorised, confirmed absent from the live panel).
+What remains is uploading the companion SKUs with `planner.category`, and filling
+`component_skus` on the anchor cabinets per R4 — the live audit still reads
+`Products with planner.component_skus: 0`.
 **Done when:** at least one real complete unit resolves clean in `?catalogaudit=1`,
 **and** the parts published alongside it are confirmed absent from the catalogue panel.
 
