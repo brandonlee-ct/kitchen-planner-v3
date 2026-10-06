@@ -10,6 +10,12 @@
 - The iPad/touch section requires a real iPad or iPhone.
 - If you need an on-screen console on a device, use **eruda** (already loaded on the page per AGENTS.md).
 - Report **pass/fail + a screenshot** for each step, using the template at the bottom.
+- ⚠ **Set your browser's language to English before you start, and check product names by Shopify
+  handle if anything looks odd.** On 6 Oct 2026 H ran a verification pass with Chrome set to Chinese
+  and the live site returned **118 different products under the same name** (`底柜 150毫米`) — the
+  planner was behaving correctly; the Shopify translation data is wrong. If your browser asks the
+  site for a non-English language you will be unable to tell one cabinet from another, and you will
+  report a failure that is not there. See board item `C13`.
 - ⚠ **Use a normal, everyday browser you opened yourself.** Do not run these checks in an automation
   or "test" browser (Playwright, Puppeteer, Selenium, a headless window, or anything launched from a
   script). Those browsers disable features real customers have, and section **G** below cannot fail in
