@@ -2,9 +2,33 @@
 
 > PM-level status at a glance. The living board is [TASKS.md](TASKS.md) (single source of
 > truth for what's done / next); [ROADMAP.md](ROADMAP.md) is the plain-English plan. This
-> file summarises — update TASKS.md, not this, when a task moves.
+> file summarises — update **TASKS.md** when a task moves, then refresh this snapshot.
 
-_Last updated: 13 Jul 2026 (LEGEND added by A on owner instruction)._
+_Last updated: 6 Oct 2026 by `O-opus-06oct26` (O, PM — Opus subagent in H's local Cursor session). Synced from TASKS.md + git: local `main` = `origin/main` = `c812c64` before this docs commit. This snapshot supersedes an unattributed, uncommitted 29 Sep draft whose deploy table was written the day before the push and was wrong (it gave live = `d7fd48a`, "15 commits ahead")._
+
+## Deploy reality (read this first)
+
+| Where | Commit | What it means |
+|---|---|---|
+| **Live** (Vercel / `origin/main`) | `c812c64` | Pushed **30 Sep 2026** (reflog `origin/main@{2026-09-30 00:57:29 +1300}: update by push`). Includes **C3** bfcache fix, **1.18** (dormant), **1.19** store-only filter, **C8** 1.18 fixes. Live bundle `assets/index-D9aV4O2w.js` contains `store-only`, `store_only`, `will NOT resolve` and `pageshow` (A verified 6 Oct; O re-fetched read-only 6 Oct). |
+| **Local `main`** | `c812c64` + the 6 Oct docs commits | **0 commits ahead at the time of writing.** The 6 Oct O docs commits are local until H pushes (docs only — no code change). |
+
+**1.19 and C8 are deployed but NOT yet live-verified by H** — they stay ⏳. H live-verified **C3 on desktop** 31 Aug 2026; iPad/iPhone Safari leg of runbook R5 still optional.
+
+---
+
+## Programme map (4 tracks + spec-first)
+
+| Track | Status (summary) |
+|---|---|
+| **1 — Phase 1 Shopify MVP** | ✅ **Launched** 14 Jun 2026. Sprint 1 code closed (S1–S5). Open: **1.7** login bridge 🧠, **1.15c** owner catalogue data (partial), **1.17b** cosmetic, **1.18** (dormant, awaiting R4) / **1.19** deployed, awaiting H live verify. |
+| **2 — Auto-Design** | ⏳ Solver modules ✅; UI wizard + toolbar wiring ⏳ behind hybrid gate (`?autodesign=1` / admin roles). |
+| **3 — Planner ↔ Trade** | ⏳ Checkout capture ✅ verified (#1034/#1035). SQL for `project_code` + planner-admin RLS **authored, not applied** — H runbooks R2/R3. |
+| **4 — Phase 2 (Pro)** | ⏳ Bluetooth laser ✅; rest queued in ROADMAP Part 3. |
+| **5 — DIY mode** | Spec ✅ (DIY-1); build (DIY-2) unblocked, not scheduled. |
+| **6 — Complete-Unit SKUs** | ⬜ Spec ✅ (U-spec). **U2+ not scheduled** — gates: **U0** data, **1.18** live-verified (R4), **C12** confirmation. **F8** ruled: Direction 1 (kitchen) first. |
+
+---
 
 ## LEGEND
 
@@ -12,10 +36,10 @@ _Last updated: 13 Jul 2026 (LEGEND added by A on owner instruction)._
 
 **Owner**
 
-- `S` = coding sub-agent (Composer 2.5 Standard; formerly Sonnet)
+- `S` = coding sub-agent (Composer)
 - `O` = PM
 - `H` = Human
-- `A` = Fable auditor / owner advisor (owner-side, separate chat; audits PM outputs against authority at file/git level, flags drift, advises the owner, drafts owner→PM prompts; read-mostly — amends control docs only on explicit owner sign-off; never builds, never approves phase gates)
+- `A` = Fable auditor / owner advisor
 
 **Task IDs (PM convention, not control authority)**
 
@@ -25,69 +49,82 @@ _Last updated: 13 Jul 2026 (LEGEND added by A on owner instruction)._
 
 **Status**
 
-- `[ ]` not started
-- `[~]` in progress
-- `[x]` done
-- `[!]` blocked
-- `[?]` needs human decision
+- `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked · `[?]` needs human decision
+- Board also uses: ✅ done · ⏳ in progress · ⬜ todo · 👤 needs you · 🧠 Opus
 
-### Role briefs
-
-- **`S` — coding sub-agent (builder).** Implements exactly ONE bounded task brief at a time
-  off current `main`, obeying `AGENTS.md` house rules (no refactors, touch+mouse parity,
-  undo/redo intact, dispose pattern, metres/mm). Never invents scope, never merges its own
-  work, never touches schema/RLS/shared contracts without a stop-and-ask. Output: one small
-  reviewable unit + a "how to test" note.
-- **`O` — PM (planner/contractor).** Owns sequencing and task contracts: writes `O#`/`S#`
-  briefs, keeps `TASKS.md` (the single source of truth) current at the end of every task,
-  reconciles doc contradictions by amendment (never cherry-picks), and reports honestly —
-  "built" is not "verified". Escalates architecture/auth/security/schema to Opus and
-  decisions to `H`.
-- **`H` — Human (owner).** The only role that approves phase gates. Does what only the
-  account owner can: applies SQL in Supabase, Shopify admin settings, live-site smoke tests
-  on real devices, business/legal calls. A task is not "done" until `H`-verifiable on
-  planner.brownboxkit.co.nz.
-- **`A` — Fable auditor / owner advisor.** Owner-side, separate chat. Audits PM outputs
-  against authority at file/git level, flags drift or hallucination, advises the owner, and
-  drafts owner→PM prompts. Read-mostly: amends control docs only on explicit owner
-  sign-off. Never builds, never approves phase gates.
+---
 
 ## Status: LIVE
-Phase 1 launched **14 Jun 2026** at `planner.brownboxkit.co.nz`, linked from Shopify nav
-("Design Your Kitchen"). Live smoke test passed: sign-in, draw room, place cabinet,
-save/reload, Send to Cart, quote PDF.
 
-## Shipped
-- **Milestone A — Harden prototype:** bug-fix sweep (touch wall selection iOS/Android,
-  save/load toasts, 2D labels after load); Supabase **RLS enabled** on `projects` +
-  `profiles`, roles + admins live, thumbnails bucket.
-- **Milestone B — Shopify MVP:** Free Draw + Quick Draw (camera lock, 90 deg snap, angle
-  guides, parametric rescale, auto-floor, 300mm slab); mobile toolbar; Send to Cart
-  (`cartCreate` -> checkout); Quote PDF + CSV; thumbnails -> Supabase Storage; power
-  points in elevation; elevation/3D dimension editor; embed mode (`?embed=1`); read-only
-  share links (`?share=<slug>`).
-- **Milestone C:** snap rules / height tiers; analytics stub (`trackEvent`); privacy +
-  T&Cs; pre-launch architecture review (blockers B1-B4 fixed).
-- **Phase 2 (Pro):** Bluetooth laser measurement (Task Y) — confirmed on Bosch GLM
-  50-27 CG, Leica/Disto UART fallback, Chrome + Edge desktop.
+Phase 1 at [planner.brownboxkit.co.nz](https://planner.brownboxkit.co.nz), Shopify nav “Design Your Kitchen”. Core journey works: sign-in, draw, place cabinets, save/reload, Send to Cart, quote PDF/CSV, share links, embed mode.
 
-## In progress
-- **Auto-design "magic button"** — wiring the already-built solver
-  ([auto-design.js](auto-design.js) + [auto-design-rules.js](auto-design-rules.js),
-  unit-tested) into the planner via a wizard + adapter + toolbar button. Follows
-  [AUTO-DESIGN-PLAN.md](AUTO-DESIGN-PLAN.md) Phases 2-3. Ships behind the
-  `window.AUTO_DESIGN_ENABLED` kill switch.
+---
 
-## Open / next
-- **1.7 Shopify -> Supabase single-login bridge** — last Phase 1 item, deferred
-  (not blocking launch); flagged needs-Opus (architecture).
-- **Auto-design Phase 4 polish** (deferred follow-up): glide-draw handoff, warnings
-  drawer, Clear/Regenerate buttons, NZBC disclaimer copy.
-- **P2 `bbk-suite` monorepo** — separate business track (Trade/Academy/KPI/Inventory)
-  sharing the planner's Supabase project; foundation brief in
-  [P2-MONOREPO-BRIEF.md](P2-MONOREPO-BRIEF.md).
+## Shipped (high level)
+
+- **Milestone A — Harden:** touch wall selection, save/load toasts, RLS on `projects` + `profiles`, thumbnails bucket, share columns.
+- **Milestone B — MVP:** Free/Quick Draw, mobile toolbar, Send to Cart, PDF/CSV, thumbnails, GPOs, dim editor, 300mm slab + scene_json v2, embed, share links.
+- **Sprint 1 (Items 0–5):** catalogue audit tool (1.15a–d), dimension parsing, draft stash + autosave (1.16), service quote-only lines (1.17, scene_json v4).
+- **Milestone C:** snap/height tiers (1.10), analytics stub (1.12), privacy/T&Cs (1.13), pre-launch review (1.14).
+- **Track 3:** checkout stamps `project_code` + `display_po` — verified with orders #1034/#1035 (21 Aug).
+- **Bug C3:** Send-to-Cart stuck after browser Back — **live on desktop** (31 Aug).
+- **Phase 2:** Bluetooth laser measure (Task Y).
+- **DIY-1:** plan signed off. **F8 ruling (31 Aug):** kitchen planner first; whole-house = placeholder only.
+
+---
+
+## In progress (code or wiring)
+
+- **1.18 Component SKUs** — on `origin/main` but **dormant** (no metafield data). Follow-up **C8** is deployed (`c812c64`) and awaiting H live verification; that verification releases R4.
+- **1.19 Store-only catalogue filter** — deployed (`c812c64`); **awaiting H live verification**.
+- **Track 2 — Auto-Design** — wire solver into planner (wizard + gate).
+- **Track 3** — owner applies Supabase SQL; Trade confirms `project_code` key.
+
+---
+
+## Blockers & live defects (customer-facing)
+
+- **C12** — pending H confirmation. Some spares are now tagged `store-only` (H, unlogged, since 31 Aug), so 1.19 is no longer a no-op on live data. 👤 H: confirm the products still under `kitchen hardware` are ones customers may legitimately place (hob/oven/sink/tap/rangehood). If so, C12 closes with no code change. Do **not** blanket-hide `kitchen hardware`.
+- **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2, O brief next.
+
+_C11 was closed 6 Oct 2026 by H ruling: `(drft)` products are intentionally visible for live testing, and they are customer-visible during the test period by owner decision. It is not a defect._
+
+Details and counts: [RELAY.md](RELAY.md) (not on TASKS board until H reports dated `?catalogaudit=1`).
+
+---
+
+## What's next (execution order)
+
+**Owner (H) — unblocks deploy and data**
+
+Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
+
+1. **Live verify 1.19 + C8** — per [briefs/1.19-store-only-catalogue-filter.md](briefs/1.19-store-only-catalogue-filter.md) and [briefs/C8-1.18-qty-and-audit-fixes.md](briefs/C8-1.18-qty-and-audit-fixes.md) "how to test"; optional R5 iPad/iPhone Safari leg for C3.
+2. **R1** — Re-run `?catalogaudit=1` on live; report dated numbers. That closes the 1.15c bookkeeping.
+3. **C12** — confirm the remaining `kitchen hardware` products are customer-placeable (A supplies titles).
+4. **R4** — only after step 1 passes for C8: populate `planner.component_skus` + Storefront exposure, then live-verify 1.18.
+5. **Staff guide** `public/shopify-planner-guide.html` (untracked) — assign to a board item and commit, or delete.
+6. **Push local `main`** after O's 6 Oct docs commits.
+7. **R2 / R3** — Apply Track 3 Supabase SQL; confirm Trade intake uses `project_code`.
+
+**PM / build (O → S) — when scheduled**
+
+- **C9** — OOS badge + pre-cart warning (A granted options 1+2). 1.19 has landed, so the sequencing condition is met; O brief next.
+- **C10** — Openings add/delete → undo/redo + autosave. A ruled on the history shape on 6 Oct (additive `add-opening` / `remove-opening`); O brief next.
+- **Track 2** — Auto-design UI wiring.
+- **DIY-2** — Square room + wizard steps 1–2 (brief ready).
+- Backlog: 1.17b, C6 CSV escaping, cosmetics C1/C2/C4/C7, F6 login gate, F7 analytics.
+
+**Deferred / Opus**
+
+- **1.7** Shopify Customer Account ↔ Supabase JWT bridge.
+
+Full checklist, bugs, and register: [TASKS.md](TASKS.md) · handoffs: [RELAY.md](RELAY.md) § standing register.
+
+---
 
 ## Known constraints
-- iOS Safari has no Web Bluetooth (laser measure falls back with a Bluefy hint).
-- Auto-design solver only matches catalogue products with `category: "base"` and standard
-  widths (900/800/600/500/400/300mm); unmatched cabinets surface as "skipped" warnings.
+
+- iOS Safari: no Web Bluetooth (laser measure — Bluefy hint).
+- Auto-design solver: base cabinets, standard widths only; others → “skipped” warnings.
+- Item-10 smoke: some touch/iPad cases still open per [SMOKE-SCRIPT.md](SMOKE-SCRIPT.md).
