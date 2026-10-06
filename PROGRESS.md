@@ -85,7 +85,7 @@ Phase 1 at [planner.brownboxkit.co.nz](https://planner.brownboxkit.co.nz), Shopi
 ## Blockers & live defects (customer-facing)
 
 - **C12** — pending H confirmation. Some spares are now tagged `store-only` (H, unlogged, since 31 Aug), so 1.19 is no longer a no-op on live data. 👤 H: confirm the products still under `kitchen hardware` are ones customers may legitimately place (hob/oven/sink/tap/rangehood). If so, C12 closes with no code change. Do **not** blanket-hide `kitchen hardware`.
-- **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2, O brief next.
+- **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2; brief ready 6 Oct, awaiting S build.
 
 _C11 was closed 6 Oct 2026 by H ruling: `(drft)` products are intentionally visible for live testing, and they are customer-visible during the test period by owner decision. It is not a defect._
 
@@ -109,8 +109,8 @@ Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
 
 **PM / build (O → S) — when scheduled**
 
-- **C9** — OOS badge + pre-cart warning (A granted options 1+2). 1.19 has landed, so the sequencing condition is met; O brief next.
-- **C10** — Openings add/delete → undo/redo + autosave. A ruled on the history shape on 6 Oct (additive `add-opening` / `remove-opening`); O brief next.
+- **C9** — OOS badge + pre-cart warning (A granted options 1+2). Brief ready: [briefs/C9-oos-badge-and-precart-warning.md](briefs/C9-oos-badge-and-precart-warning.md) (6 Oct); awaiting S build.
+- **C10** — Openings add/delete → undo/redo + autosave. A ruled the history shape 6 Oct (additive `add-opening` / `remove-opening`). Brief ready: [briefs/C10-opening-history.md](briefs/C10-opening-history.md) (6 Oct); awaiting A's confirmation of one field, then S build.
 - **Track 2** — Auto-design UI wiring.
 - **DIY-2** — Square room + wizard steps 1–2 (brief ready).
 - Backlog: 1.17b, C6 CSV escaping, cosmetics C1/C2/C4/C7, F6 login gate, F7 analytics.
