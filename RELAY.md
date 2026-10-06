@@ -123,6 +123,7 @@ Never reuse another session's tag.
 **Author:** `O-opus-06oct26` — O, PM (Opus cloud agent, branched off `origin/main` @ `c812c64`)
 **Board items:** `1.19` ✅ · `C12` ✅ · `C8` ⏳ (reason changed) · `1.18` gate (ii) unblocked · `C11` premise overturned · `C9` escalated · `C13` **new** · `1.15c` A-hold lifted · Track 6 `U0`/`U1`/`U2`
 **Claim level:** **verified-live** for the status moves (H's verification, reproduced by O) · **verified-live, agent-observed** for the three findings · **docs-only** for the commit
+**Delivered as:** [PR #10](https://github.com/brandonlee-ct/kitchen-planner-v3/pull/10), branch `cursor/record-h-live-verification-1-19-c12-9814`, three commits off `c812c64`. No `main.js` change — `git diff --stat origin/main` touches only `TASKS.md`, `RELAY.md`, `UNIT-SKU-PLAN.md`, `SMOKE-SCRIPT.md`. `npm run build` ✓.
 **Relaying work by:** H — the live push, deploy, Shopify data pass and browser verification are all H's. O did not touch Shopify or the deploy, and holds no credentials for either.
 
 **What H reported (H's facts, 6 Oct 2026).** Verbatim in substance:
