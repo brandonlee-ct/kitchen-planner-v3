@@ -5,6 +5,11 @@
 > RELAY.md 6 Oct entry (d)). `AGENTS.md` makes history-entry shape ask-first, so **this brief is the
 > answer to that ask, and S must not deviate from the shape below without a new ruling.**
 > **Solution design and this brief:** O. Written against `main` @ `c812c64`, read at file level.
+> **Revised by `O-opus-07oct26`** (O, PM, 7 Oct 2026): A confirmed the `op` + `snapshot` shape on
+> 6 Oct (`A-fable-06oct26`, PASS-WITH-NITS, build gate released). O folded in A's nits: the §3b
+> guard sentence is reworded; the "`Object.assign(op, snapshot)` permitted on undo `remove-opening`"
+> allowance is deleted (the snapshot is never re-applied); and §5 gains the stale `elevOpenings` test
+> step. The §2 note was updated to match. No other change.
 
 ## Delegation template (Law G — ROLES.md §O, verbatim fields)
 
@@ -87,12 +92,12 @@ undo: Object.assign(entry.data.op, entry.data.before); if (walls.includes(entry.
   } }
 ```
 
-**Why both `op` and `snapshot` (O's application, flagged to A for confirmation in RELAY 6 Oct (d)):**
+**Why both `op` and `snapshot` (O's application — CONFIRMED by A, 6 Oct 2026, as compliant and required):**
 earlier `edit-opening` entries for the same opening hold the **same object** in `data.op`. If
 undoing a delete reinserted a *clone*, those older entries would edit an orphan object. Undo would
 then appear to do nothing while the scene quietly diverged. So the handlers **reinsert the live `op`**.
-`snapshot` is carried exactly as A ruled. Its use is limited to the one place where it is safe (below).
-⚠ If A rules the clone must be the only object reference, **stop**; this brief changes first.
+`snapshot` is carried exactly as A ruled, for forensic / forward-compatibility value only. **It is
+never re-applied** to `op` and never inserted into the scene.
 
 ## 3. Design
 
@@ -111,7 +116,10 @@ order of statements in those handlers beyond inserting the push. Do not add `ski
 
 ### 3b. `executeUndo` / `executeRedo` — four new branches
 
-Guard first, exactly like `edit-opening`: **if `!walls.includes(wallObj)`, do nothing.** The wall
+Guard the wall exactly as `edit-opening` guards its 3D rebuild (`if (walls.includes(entry.data.wallObj))`),
+but apply that guard to the **whole** branch here: **if `!walls.includes(wallObj)`, do nothing.**
+(`edit-opening` itself applies `Object.assign` first and guards only the `syncOpeningsTo3D` call;
+do not go looking for a whole-branch guard there.) The wall
 may have been replaced by `resize-wall`, which rebuilds openings as `{ ...op }` copies on new wall
 objects, or deleted. That is the established, accepted limitation of `edit-opening`, and C10 inherits
 it rather than inventing a new rule.
@@ -123,11 +131,10 @@ it rather than inventing a new rule.
   if `wallObj.openings` is missing, create `[]`. If `op` is already present, do nothing (idempotent).
   Otherwise `wallObj.openings.splice(Math.min(Math.max(index, 0), wallObj.openings.length), 0, op)`.
   **Reinsert the live `op`, never the snapshot object.**
-  - On **undo `remove-opening`** only, `Object.assign(op, snapshot)` is permitted. A removed opening
-    is unreachable while removed, so this is a no-op in practice.
-  - On **redo `add-opening`**, do **NOT** apply the snapshot. Elevation-panel edits (drag / Apply /
-    Centre / green dims) mutate `op` **without** history (§6). Re-applying the push-time snapshot
-    would silently revert such an edit that the user made before undoing the add.
+  - **Never re-apply the snapshot**, in any branch — no `Object.assign(op, snapshot)` anywhere.
+    One reason it matters: elevation-panel edits (drag / Apply / Centre / green dims) mutate `op`
+    **without** history (§6), so re-applying the push-time snapshot on redo `add-opening` would
+    silently revert an edit the user made before undoing the add.
 
 Then the shared refresh, both directions (one small helper is fine):
 
@@ -188,6 +195,12 @@ wall's opening meshes and rebuilding them (dispose pattern intact).
 4. **Chained with an edit.** In 3D, add a door, drag it along the wall, then delete it from the
    elevation. Undo three times, one at a time. *Expect:* restored at the dragged spot, then back to the
    original spot, then gone. Redo three times. *Expect:* the reverse.
+4a. **Elevation open while undoing a popup add (the stale `elevOpenings` alias)** — desktop, where the
+   elevation panel is a 520px side panel and the 3D wall stays clickable beside it. Open the wall's
+   elevation. Without closing it, click the **same wall** in 3D and add a door from the wall popup (`＋ Door`).
+   Press Ctrl+Z. *Expect:* the elevation redraws **without** the door. Then press `＋ Power Point`
+   in the elevation panel. *Expect:* only the power point is added — the undone door must **not**
+   come back. (Before the re-alias in §3b step 3, the panel's stale copy would restore it.)
 5. **Selection safety.** Select a door in 3D (blue box and green dims), then undo its add. *Expect:* the
    blue box and dims disappear with it, and nothing is left floating.
 6. **Autosave (the data-loss fix).** Restart Planner. Draw a room, add **one** door, do nothing else,
@@ -207,4 +220,4 @@ release, `elev-apply` for an opening, `elev-center-opening`, and `applyGreenDimE
 (its cabinet branch does push, via `writeCabinetTo3D`). Only the **3D** drag and the **3D** dim editor
 push `edit-opening`. Fixing that would use the **existing** `edit-opening` shape, but it is a separate
 unit. O has raised it with H/A in RELAY (6 Oct entry (d)). **Do not fix it here.** Do not make C10
-depend on it either; §3b's "do not apply the snapshot on redo-add" rule exists precisely because of it.
+depend on it either; §3b's "never re-apply the snapshot" rule exists precisely because of it.

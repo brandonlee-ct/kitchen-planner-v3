@@ -4,6 +4,8 @@
 > truth for what's done / next); [ROADMAP.md](ROADMAP.md) is the plain-English plan. This
 > file summarises — update **TASKS.md** when a task moves, then refresh this snapshot.
 
+_Refreshed 7 Oct 2026 by `O-opus-07oct26` (O, PM — H's local Cursor session): H's 6 Oct reading and rulings applied (1.19 + C8 ✅, C12 bathroom ruling, C10 cleared for build, R4 runnable). Local `main` is ahead of `origin/main` by the 6 and 7 Oct docs commits until H pushes. Earlier stamp kept below._
+
 _Last updated: 6 Oct 2026 by `O-opus-06oct26` (O, PM — Opus subagent in H's local Cursor session). Synced from TASKS.md + git: local `main` = `origin/main` = `c812c64` before this docs commit. This snapshot supersedes an unattributed, uncommitted 29 Sep draft whose deploy table was written the day before the push and was wrong (it gave live = `d7fd48a`, "15 commits ahead")._
 
 ## Deploy reality (read this first)
@@ -13,7 +15,9 @@ _Last updated: 6 Oct 2026 by `O-opus-06oct26` (O, PM — Opus subagent in H's lo
 | **Live** (Vercel / `origin/main`) | `c812c64` | Pushed **30 Sep 2026** (reflog `origin/main@{2026-09-30 00:57:29 +1300}: update by push`). Includes **C3** bfcache fix, **1.18** (dormant), **1.19** store-only filter, **C8** 1.18 fixes. Live bundle `assets/index-D9aV4O2w.js` contains `store-only`, `store_only`, `will NOT resolve` and `pageshow` (A verified 6 Oct; O re-fetched read-only 6 Oct). |
 | **Local `main`** | `c812c64` + the 6 Oct docs commits | **0 commits ahead at the time of writing.** The 6 Oct O docs commits are local until H pushes (docs only — no code change). |
 
-**1.19 and C8 are deployed but NOT yet live-verified by H** — they stay ⏳. H live-verified **C3 on desktop** 31 Aug 2026; iPad/iPhone Safari leg of runbook R5 still optional.
+**1.19 and C8: ✅ H live-verified on desktop, 6 Oct 2026** (1.19: 22 store-only hidden; C8: as far as the data allows — no `component_skus` exist yet). The touch leg of 1.19 is not separately confirmed. H live-verified **C3 on desktop** 31 Aug 2026; iPad/iPhone Safari leg of runbook R5 still optional.
+
+**Catalogue — H reading 6 Oct 2026 22:50** (`?catalogaudit=1`, live): 227 products (1 draft) / 1 missing `glb_url` (INSTALL QUOTE REQUEST, by design) / 0 unparseable / 0 missing category / 0 `component_skus` / 22 store-only hidden.
 
 ---
 
@@ -75,8 +79,8 @@ Phase 1 at [planner.brownboxkit.co.nz](https://planner.brownboxkit.co.nz), Shopi
 
 ## In progress (code or wiring)
 
-- **1.18 Component SKUs** — on `origin/main` but **dormant** (no metafield data). Follow-up **C8** is deployed (`c812c64`) and awaiting H live verification; that verification releases R4.
-- **1.19 Store-only catalogue filter** — deployed (`c812c64`); **awaiting H live verification**.
+- **1.18 Component SKUs** — on `origin/main` but **dormant** (no metafield data). C8 ✅ (6 Oct), so **R4 is runnable now** (H).
+- **1.19 Store-only catalogue filter** — ✅ live-verified desktop 6 Oct.
 - **Track 2 — Auto-Design** — wire solver into planner (wizard + gate).
 - **Track 3** — owner applies Supabase SQL; Trade confirms `project_code` key.
 
@@ -84,12 +88,12 @@ Phase 1 at [planner.brownboxkit.co.nz](https://planner.brownboxkit.co.nz), Shopi
 
 ## Blockers & live defects (customer-facing)
 
-- **C12** — pending H confirmation. Some spares are now tagged `store-only` (H, unlogged, since 31 Aug), so 1.19 is no longer a no-op on live data. 👤 H: confirm the products still under `kitchen hardware` are ones customers may legitimately place (hob/oven/sink/tap/rangehood). If so, C12 closes with no code change. Do **not** blanket-hide `kitchen hardware`.
+- **C12** — **H ruled 6 Oct:** bathroom products are in scope (a vanity = one product, one GLB). The 5 kitchen items under `kitchen hardware` stay placeable. 👤 H: tag the 6 bathroom accessories (Vanity Top 750/600/400, Mirror S/L, Bathroom Faucet) `store-only` (R9 step 3). C12 then closes with no code change. Do **not** blanket-hide `kitchen hardware`.
 - **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2; brief ready 6 Oct, awaiting S build.
 
 _C11 was closed 6 Oct 2026 by H ruling: `(drft)` products are intentionally visible for live testing, and they are customer-visible during the test period by owner decision. It is not a defect._
 
-Details and counts: [RELAY.md](RELAY.md) (not on TASKS board until H reports dated `?catalogaudit=1`).
+Details: [RELAY.md](RELAY.md). H's dated counts (6 Oct 22:50) are now on the TASKS board under `1.15c`.
 
 ---
 
@@ -99,18 +103,19 @@ Details and counts: [RELAY.md](RELAY.md) (not on TASKS board until H reports dat
 
 Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
 
-1. **Live verify 1.19 + C8** — per [briefs/1.19-store-only-catalogue-filter.md](briefs/1.19-store-only-catalogue-filter.md) and [briefs/C8-1.18-qty-and-audit-fixes.md](briefs/C8-1.18-qty-and-audit-fixes.md) "how to test"; optional R5 iPad/iPhone Safari leg for C3.
-2. **R1** — Re-run `?catalogaudit=1` on live; report dated numbers. That closes the 1.15c bookkeeping.
-3. **C12** — confirm the remaining `kitchen hardware` products are customer-placeable (A supplies titles).
-4. **R4** — only after step 1 passes for C8: populate `planner.component_skus` + Storefront exposure, then live-verify 1.18.
+1. ~~Live verify 1.19 + C8~~ — **done 6 Oct (desktop).** Optional: 1.19 touch leg; R5 iPad/iPhone Safari leg for C3.
+2. ~~R1 dated `?catalogaudit=1` reading~~ — **done 6 Oct 22:50.**
+3. **C12** — tag the 6 bathroom accessories `store-only` and report (R9 step 3, revised 7 Oct).
+4. **R4** — runnable now: populate `planner.component_skus` + Storefront exposure, then live-verify 1.18.
+4a. **Approve or reject** the bathroom-vanity scope paragraph for `UNIT-SKU-PLAN.md` (RELAY 7 Oct O entry).
 5. **Staff guide** `public/shopify-planner-guide.html` (untracked) — assign to a board item and commit, or delete.
 6. **Push local `main`** after O's 6 Oct docs commits.
 7. **R2 / R3** — Apply Track 3 Supabase SQL; confirm Trade intake uses `project_code`.
 
 **PM / build (O → S) — when scheduled**
 
-- **C9** — OOS badge + pre-cart warning (A granted options 1+2). Brief ready: [briefs/C9-oos-badge-and-precart-warning.md](briefs/C9-oos-badge-and-precart-warning.md) (6 Oct); awaiting S build.
-- **C10** — Openings add/delete → undo/redo + autosave. A ruled the history shape 6 Oct (additive `add-opening` / `remove-opening`). Brief ready: [briefs/C10-opening-history.md](briefs/C10-opening-history.md) (6 Oct); awaiting A's confirmation of one field, then S build.
+- **C9 — first.** OOS badge + pre-cart warning (A granted options 1+2). Brief ready and A-passed: [briefs/C9-oos-badge-and-precart-warning.md](briefs/C9-oos-badge-and-precart-warning.md); awaiting H to schedule the S build.
+- **C10 — after C9.** Openings add/delete → undo/redo + autosave. A confirmed the shape 6 Oct; nits folded 7 Oct. Brief: [briefs/C10-opening-history.md](briefs/C10-opening-history.md); S build may be scheduled.
 - **Track 2** — Auto-design UI wiring.
 - **DIY-2** — Square room + wizard steps 1–2 (brief ready).
 - Backlog: 1.17b, C6 CSV escaping, cosmetics C1/C2/C4/C7, F6 login gate, F7 analytics.

@@ -54,6 +54,7 @@ Never reuse another session's tag.
 | `O-opus-04sep26` | **O** — PM | Opus, running in H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` @ `bcdd270`, 4 Sep 2026. Docs-only: recovering the log text `f3098ce` deleted, on A's 3 Sep finding |
 | `A-fable-06oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present | 6 Oct 2026 audit relayed to O by H. Row added by `O-opus-06oct26` for traceability; **A then wrote its own entry the same evening** (audit of O's 6 Oct commits + the C10 `op` confirmation) |
 | `O-opus-06oct26` | **O** — PM | Opus, running as a subagent inside H's **local** Cursor session (precedent: `O-opus-31aug26`) | `C:\dev\kitchen-planner-v3`, `main` = `origin/main` = `c812c64`, 6 Oct 2026. Docs only: board reconciled to deploy reality, C9 and C10 briefs |
+| `O-opus-07oct26` | **O** — PM | Opus, running in H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, local `main` @ `f98b3c9` (6 Oct docs commits, not yet pushed), 7 Oct 2026. Tag set by H's boot instruction. One-O check done first: `git log -3` showed nothing newer than `f98b3c9`. Docs only: H's 6 Oct readings and rulings recorded |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -79,21 +80,22 @@ Never reuse another session's tag.
 
 **Author:** `S-grok-31aug26` — S, Composer (Cursor Grok 4.6, H's local session 31 Aug). Register rows 1–11 retained from the PR #9 header; rows 9–10 and 12 updated from PR #8; rows 13–19 from the 31 Aug draft (renumbered because PR #8 already used row 12 for C10).
 **Updated by `O-opus-06oct26` (6 Oct 2026):** rows 1, 2, 9, 10, 11 and 13 brought current against `TASKS.md` and the 30 Sep push; rows 20–21 added. Each changed cell says what changed. The 6 Oct log entry carries the evidence.
+**Updated by `O-opus-07oct26` (7 Oct 2026):** rows 2, 3, 7, 9, 10, 12, 21 and 22 brought current with H's 6 Oct reading and rulings. Each changed cell starts with **7 Oct**. The 7 Oct log entry carries the evidence.
 
 | # | Item | Board | Owner of next action | Blocking reason |
 |---|---|---|---|---|
 | 1 | C3 Send-to-Cart stuck after browser Back | Bug brief | H — optional iPad/iPhone Safari leg (R5 step 5) | **6 Oct (`O-opus-06oct26`): ✅ on the board — H live-verified desktop 31 Aug.** The iPad/iPhone Safari leg is not separately confirmed and is still worth a run |
-| 2 | 1.18 Component SKUs (S6) | `1.18` | H — R9 step 1 (verify C8), then R4 | Code in `ade39f8` is on `origin/main`. Dormant. ADD-ON confirmed. **6 Oct (`O-opus-06oct26`): `C8` is now on `origin/main` and live, so the "not on origin/main" hold is lifted. Populate the metafield only after H has live-verified `C8`** |
-| 3 | 1.15c Owner Shopify data pass | `1.15c` | **H only** — R1 | Requires Shopify Admin login. No agent has, or should have, admin credentials |
+| 2 | 1.18 Component SKUs (S6) | `1.18` | **H — R4 (runnable now; R9 step 4)** | **7 Oct (`O-opus-07oct26`): H verified `C8` live on 6 Oct, as far as the data allows. The hold is LIFTED and R4 is runnable.** Read R4 rule (b) first. Earlier text: Code in `ade39f8` is on `origin/main`. Dormant. ADD-ON confirmed. **6 Oct (`O-opus-06oct26`): `C8` is now on `origin/main` and live, so the "not on origin/main" hold is lifted. Populate the metafield only after H has live-verified `C8`** |
+| 3 | 1.15c Owner Shopify data pass | `1.15c` | **H only** — R1 | Requires Shopify Admin login. No agent has, or should have, admin credentials. **7 Oct (`O-opus-07oct26`): H's dated reading of 6 Oct 22:50 is on the board.** The missing-model sub-task is closed. Still open: replace reused/stretched GLBs, and split composite models |
 | 4 | Track 3 — apply Supabase SQL | Track 3 | **H only** — R2 | Requires Supabase SQL editor (service-role). Never client-side |
 | 5 | Track 3 — confirm Trade `project_code` key | Track 3 | **H → Trade** — R3 | Cross-system contract; Law Q forbids unilateral change |
 | 6 | Track 3 — checkout evidence #1034/#1035 | Track 3 | **CLOSED 21 Aug** (A) | H supplied Shopify Admin screenshots for both orders; A checked against CHECKOUT-CAPTURE.md "Done when" — both PASS. 🔴 U1 cleared. Residual: test-mode orders only, Trade-webhook delivery not yet confirmed (see log entry) |
-| 7 | A rulings requested last cycle | — | **CLOSED** (all 4) | **CLOSED 19 Aug:** add-on-vs-BOM intent → **ADD-ON**, confirmed by A+H; one-branch sequencing → accepted (the branch was audited and merged). **CLOSED 20 Aug (A ruling, relayed 21 Aug — see log entry):** agent-observed catalogue counts stay **relay-only** and appear on the board in **no form, not even provisional**, until H reports a clean dated `?catalogaudit=1` reading; unresolved components are **NEVER silently dropped** — warn-and-send stands as built, protected by the R4 zero-unresolved gate |
+| 7 | A rulings requested last cycle | — | **CLOSED** (all 4) | **CLOSED 19 Aug:** add-on-vs-BOM intent → **ADD-ON**, confirmed by A+H; one-branch sequencing → accepted (the branch was audited and merged). **CLOSED 20 Aug (A ruling, relayed 21 Aug — see log entry):** agent-observed catalogue counts stay **relay-only** and appear on the board in **no form, not even provisional**, until H reports a clean dated `?catalogaudit=1` reading; unresolved components are **NEVER silently dropped** — warn-and-send stands as built, protected by the R4 zero-unresolved gate. **7 Oct (`O-opus-07oct26`): the counts condition is SATISFIED.** H reported a clean dated `?catalogaudit=1` reading (6 Oct 2026 22:50, desktop Chrome, live). Those counts are now on the board as "H reading 6 Oct 2026 22:50". Agent-observed counts (e.g. A's category breakdown) still stay relay-only |
 | 8 | C6 CSV injection / quoting hardening | `C6` | O — brief when scheduled | Pre-existing, surfaced by the 1.18 review. Not a regression; deliberately not fixed in 1.18 |
-| 9 | C8 1.18 quantity-edge + audit resolved-set fixes | `C8` | **H — live verify** (R9 step 1) | **BUILT `cf1f7c6`**, merged in `f3098ce`. **6 Oct (`O-opus-06oct26`): DEPLOYED.** On `origin/main` `c812c64` (pushed 30 Sep 2026); the live bundle contains `will NOT resolve`. ⏳ until H live-verifies. That verification releases R4 |
-| 10 | 1.19 store-only catalogue filter | `1.19` | **H — live verify** (R9 step 1) | **BUILT `5eb007b`**, same merge. Value implemented as **`store-only`**, and H's data already uses it (see 6 Oct entry). **6 Oct (`O-opus-06oct26`): DEPLOYED.** On `origin/main` `c812c64`; the live bundle contains `store-only` / `store_only`. ⏳ until H live-verifies. **Still gates U0** until then |
+| 9 | C8 1.18 quantity-edge + audit resolved-set fixes | `C8` | **CLOSED 7 Oct** (H verified 6 Oct) | **7 Oct (`O-opus-07oct26`): ✅ on the board.** H verified it live as far as the data allows (the count lines print; 0 products carry `component_skus`). The qty-edge and draft-parent paths are first exercised on live data by R4 step 4. R4 released. Earlier text: **BUILT `cf1f7c6`**, merged in `f3098ce`. **6 Oct (`O-opus-06oct26`): DEPLOYED.** On `origin/main` `c812c64` (pushed 30 Sep 2026); the live bundle contains `will NOT resolve`. ⏳ until H live-verifies. That verification releases R4 |
+| 10 | 1.19 store-only catalogue filter | `1.19` | H — optional touch leg (R9 step 1.5) | **7 Oct (`O-opus-07oct26`): ✅ on the board — H live-verified desktop 6 Oct (console: 22 store-only hidden).** The touch leg is not separately confirmed (same pattern as C3). The U0 gate leg "1.19 live-verified" is met on desktop. Earlier text: **BUILT `5eb007b`**, same merge. Value implemented as **`store-only`**, and H's data already uses it (see 6 Oct entry). **6 Oct (`O-opus-06oct26`): DEPLOYED.** On `origin/main` `c812c64`; the live bundle contains `store-only` / `store_only`. ⏳ until H live-verifies. **Still gates U0** until then |
 | 11 | F8 Direction 1 / Direction 2 split ruling | `F8` | **CLOSED 31 Aug** (H ruling) | **6 Oct (`O-opus-06oct26`), reconciled to the board:** H ruled 31 Aug — Direction 1 first, D2 placeholder only, one codebase. The ruling half is closed; the build half has no brief and no schedule (see `F8`) |
-| 12 | C10 opening add/delete missing from undo/redo **and from autosave** | new `C10` | **6 Oct (`O-opus-06oct26`): A ruled the shape 6 Oct; O briefed it (`briefs/C10-opening-history.md`). Next: A confirms the `op` + `snapshot` reading, then H schedules the S build** | Pre-existing, found by the 1.19 smoke run. Real data-loss path: a door added and never followed by another mutating action is never autosaved. Fix touches the history-entry shape, which `AGENTS.md` makes ask-first |
+| 12 | C10 opening add/delete missing from undo/redo **and from autosave** | new `C10` | **7 Oct (`O-opus-07oct26`): S build may be scheduled.** A confirmed the shape on 6 Oct; O folded in A's two nits and the `elevOpenings` test step on 7 Oct. 👤 H schedules it, after C9 (row 22). Earlier text: **6 Oct (`O-opus-06oct26`): A ruled the shape 6 Oct; O briefed it (`briefs/C10-opening-history.md`). Next: A confirms the `op` + `snapshot` reading, then H schedules the S build** | Pre-existing, found by the 1.19 smoke run. Real data-loss path: a door added and never followed by another mutating action is never autosaved. Fix touches the history-entry shape, which `AGENTS.md` makes ask-first |
 | 13 | Push local `main` (PR #9 + PR #8 merge) to GitHub | `1.19` / `C8` | **CLOSED 30 Sep 2026** | **6 Oct (`O-opus-06oct26`):** pushed. Reflog `origin/main@{2026-09-30 00:57:29 +1300}: update by push` → `c812c64`; Vercel deployed it (live bundle verified 6 Oct). Local `main` will be ahead again by O's 6 Oct docs commits until H pushes (R9 step 6) |
 | 14 | Branch protection on `main` | `F5` (part) | **H only** — runbook R7 when written | Repo admin settings. Public repo, `"protected": false`, and `main` is what Vercel deploys |
 | 15 | Automated first-pass PR review — Bugbot | `F5` (part) | **H only** to install + accept usage-based billing — runbook R6 when written | Spend + vendor decision. One optional bounded S unit (`.cursor/BUGBOT.md`) follows, and only has value once H has enabled it |
@@ -102,12 +104,68 @@ Never reuse another session's tag.
 | 18 | `README.md` fresh-clone note: `npm ci --include=optional` | none | **H** to authorise, then a one-line doc amendment | Maps to no board item. A fresh clone can fail `npm run build` on jspdf's optional `canvg` with no obvious cause |
 | 19 | Delete branch `cursor/a-audit-relay-entries` after #9 is on GitHub | none | **H** | `AGENTS.md`: merge or delete feature branches the same day the work is accepted |
 | 20 | Untracked staff guide `public/shopify-planner-guide.html` (store-only / categories / units) | **none yet** | **H only** — R9 step 5 | Added by `O-opus-06oct26`. The file is in the working tree, uncommitted and unattributed, and maps to no board item. O did not commit it or delete it. H: assign it (suggested: a sub-line under Setup "Catalogue setup guide") and commit, or delete. The untracked `.cursor/plans/catalogue_images_and_setup_guide_c32df2f3.plan.md` is in the same state and needs the same decision |
-| 21 | C12 — confirm the remaining `kitchen hardware` products are customer-placeable | `C12` | **H only** — R9 step 3 (A supplies titles) | Added by `O-opus-06oct26`. If H confirms, C12 closes with no code change |
-| 22 | C9 OOS badge + pre-cart warning — S build | `C9` | **H** — schedule the S build (brief ready) | Added by `O-opus-06oct26`. Brief: `briefs/C9-oos-badge-and-precart-warning.md`. A granted options 1+2 on 21 Aug; sequencing condition met. Live revenue risk: per A's 6 Oct observation, most products are unavailable |
+| 21 | C12 — confirm the remaining `kitchen hardware` products are customer-placeable | `C12` | **H only** — R9 step 3 (revised 7 Oct): tag the 6 bathroom accessories `store-only` | Added by `O-opus-06oct26`. **7 Oct (`O-opus-07oct26`): H RULED 6 Oct.** Bathroom products are in scope. The 5 kitchen items stay placeable; the 6 bathroom accessories (Vanity Top 750/600/400, Mirror S/L, Bathroom Faucet) go `store-only`. C12 closes, with no code change, once H reports those 6 tagged. The UNIT-SKU-PLAN.md scope note is awaiting H sign-off |
+| 22 | C9 OOS badge + pre-cart warning — S build; **then C10 S build** | `C9`, `C10` | **H** — schedule the S builds: **C9 first** (revenue path), **then C10** (both briefs cleared by A, 6 Oct) | **7 Oct (`O-opus-07oct26`): C10 added to this row** — brief `briefs/C10-opening-history.md`, gate released by A 6 Oct, nits folded 7 Oct. O has started neither build. | Added by `O-opus-06oct26`. Brief: `briefs/C9-oos-badge-and-precart-warning.md`. A granted options 1+2 on 21 Aug; sequencing condition met. Live revenue risk: per A's 6 Oct observation, most products are unavailable |
 
 ---
 
 # Log (newest first)
+
+### 2026-10-07 · O → A (cc H) · H's 6 Oct reading on the board; 1.19 + C8 ticked; C12 bathroom ruling; C10 nits folded; R4 runnable
+
+**Author:** `O-opus-07oct26` — O, PM (Opus, H's local Cursor session)
+**Board items:** `1.15c`, `1.19`, `C8`, `1.18` (gate ii), Track 6 `U1`, `C12`, `C10`, `C9` (sequencing only), `C11` (one wording correction); standing register rows 2, 3, 7, 9, 10, 12, 21, 22
+**Claim level:** **docs-only, local commit, NOT pushed.** The two ticks (`1.19`, `C8`) record **H's** live verification as relayed in H's instruction of 7 Oct. O did not re-verify anything live. No code, no S build, `npm` not run.
+**Relaying work by:** H — the 6 Oct 22:50 `?catalogaudit=1` reading, the desktop verification of 1.19/C8, and the C12 bathroom ruling. A (`A-fable-06oct26`) — the C10 nits, the stale-alias test step, the C12 titles, and the "never landed" finding. H's instruction to this session was itself a relay of A's 6 Oct entries.
+
+**Pre-flight (one-O rule, from A's 6 Oct process finding).** `git log -3` showed nothing newer than `f98b3c9` (A, 22:57 6 Oct), so O proceeded. Branch `main`. The tree was clean apart from the two untracked stray files.
+
+**What O recorded, item by item**
+1. **`1.15c` — counts on the board.** Register item 7 is satisfied, so H's reading is now on the board, cited as "H reading 6 Oct 2026 22:50": **227 products (1 draft) / 1 missing `glb_url` / 0 unparseable / 0 missing category / 0 `component_skus` / 22 store-only hidden.**
+   - The 29 Jul figures are replaced on the 1.15c line and its sub-lines. The 1.15a / 1.15d lines keep theirs, because those are those items' own dated verification records.
+   - The **missing-model sub-task is closed** `[x] ✅`: the 1 product without a model is `INSTALL QUOTE REQUEST`, which has none by design (Task B).
+   - The 1 draft is `*6 Wall Cabinet 600mm (2 Doors) (2400) (draft)`, hidden as intended.
+   - The 19 Aug A hold is marked released.
+   - **1.15c stays `- [ ]`**: the reused/stretched GLB and composite-model sub-tasks have not been reported done.
+2. **`1.19` → `- [x] ✅`, H live-verified desktop 6 Oct** (the console reports 22 store-only products hidden). Following the C3 wording pattern, the board states that the **touch leg (R9 step 1.5) is NOT separately confirmed**.
+3. **`C8` → `- [x] ✅`, verified live as far as the data allows.** The count lines print, and 0 products carry `component_skus`.
+   - Caveat on the board: the qty-edge and draft-parent paths are **not** exercised by live data. They were proven locally with a pre-fix control. R4 step 4 is their first live exercise.
+   - **The hold is lifted: R4 is runnable.** This is recorded on register row 2, the 1.18 gate (ii) status, the Track 6 `U1` status, and a dated status note in R4 itself.
+4. **`C12` — H's 6 Oct ruling recorded** (as relayed in H's 7 Oct instruction).
+   - Bathroom products are in scope. A full vanity is one product with one GLB, and vanity accessories are store-only.
+   - The **5 kitchen items stay placeable**: 450 SINK, Kitchen tap, Hob, Oven, Rangehood.
+   - The **6 bathroom accessories are for H to tag `store-only`**: Vanity Top 750/600/400, Mirror S/L, Bathroom Faucet.
+   - **C12 stays `- [ ] ⬜`** until H reports those 6 tagged. R9 step 3 now carries that wording as a dated revision block, so the original text is kept. O's *expectation*, labelled as such: the store-only count goes from 22 to 28.
+5. **`C10` brief — A's nits folded** (`briefs/C10-opening-history.md`, revision line in the header):
+   - Nit 1: §3b's guard sentence now reads "guard the wall exactly as `edit-opening` guards its 3D rebuild". It also says plainly that `edit-opening` applies `Object.assign` first and guards only `syncOpeningsTo3D`.
+   - Nit 2: the "`Object.assign(op, snapshot)` permitted on undo `remove-opening`" allowance is **deleted**. One rule replaces it: **never re-apply the snapshot**, in any branch.
+   - Consistency edits so the brief does not contradict itself: §2 now says A *confirmed* the `op` + `snapshot` reading, and that the snapshot is carried for forensic / forward-compatibility value only. The §6 back-reference was updated to match.
+   - **New §5 step 4a** (the stale `elevOpenings` alias): with elevation open, click the same wall in 3D, add a door from the wall popup, press Ctrl+Z, and expect the elevation to redraw without the door. Then press `＋ Power Point` and expect the undone door **not** to return. Marked desktop-only, because O checked that `#elevation-panel` is a fixed 520px right-hand panel, so the 3D wall stays clickable beside it. The touch reachability of this step is unknown.
+   - Register row 12 → **"S build may be scheduled"**. TASKS `C10` carries the same status line.
+6. **Register row 22** now holds both builds in H's order: **C9 first (revenue path), then C10.** The C9 board line says the same.
+7. **Correction (Law R).** The `1.15c`, `C11` and `C12` sentences claiming the 31 Aug counts "are recorded in RELAY.md" are struck through or rewritten to say they **were never landed** (`bcdd270` touched only `TASKS.md`), and that they are superseded by H's 6 Oct reading.
+
+**UNIT-SKU-PLAN.md — flagged, NOT amended.** A dated "PENDING SCOPE NOTE — NOT IN FORCE" blockquote was added under the author line. No spec text was changed. **Proposed paragraph for H to approve or reject** (it would go in §1 after "The one-sentence model"):
+
+> **Bathroom vanities (H ruling, 6 Oct 2026).** Bathroom products are in planner scope, but a bathroom
+> vanity is **not a Unit** in this spec's sense. A full vanity — cabinet, basin, tap, splashback and
+> mirror — is **one product with one GLB**, modelled together and sold as one SKU. It has no slots, no
+> companion SKUs and no `planner.component_skus` entries, and the U2 slot UI does not apply to it.
+> Vanity accessories sold separately (vanity tops, mirrors, bathroom faucets) are **store-only** SKUs
+> under §1 rule 2 and never appear in the planner. A bathroom item with swappable parts would need a new
+> H ruling and an amendment to this spec before any brief is written.
+
+Also noted, **not** fixed (the same sign-off rule applies): UNIT-SKU-PLAN §4 U0's "Status of those two gates (19 Aug 2026) … neither is on `main` yet" is stale. Both gates are now live and verified on desktop. O suggests H approve a dated status line alongside the paragraph above.
+
+**Not done, deliberately**
+- **Item 7 (the stray files): left untouched.** H's instruction makes it conditional on H having said "do it", and H has not said that to this session. `public/shopify-planner-guide.html` and `.cursor/plans/catalogue_images_and_setup_guide_c32df2f3.plan.md` are still untracked. **Its §6 Complete-units wording has NOT been checked** against the ADD-ON or bathroom rulings. Register row 20 and R9 step 5 are unchanged.
+- No push (R9 step 6 now covers O's 6 Oct and 7 Oct docs commits). No S build started. `C13` (elevation-panel opening edits) has not been raised: it still waits for H's yes.
+
+**Evidence:** this commit (`TASKS.md`, `RELAY.md`, `PROGRESS.md`, `UNIT-SKU-PLAN.md`, `briefs/C10-opening-history.md`; docs only).
+**Open asks of A:** audit this commit — in particular the two ticks' caveat wording, and whether the C10 §5 step 4a desktop-only scoping is acceptable.
+**Blocked on:** H — tag the 6 C12 products (R9 step 3); R4 (R9 step 4); approve or reject the UNIT-SKU-PLAN paragraph; say "do it" or "delete" on the stray files (R9 step 5); push (R9 step 6); schedule the C9 S build, then C10.
+
+---
 
 ### 2026-10-06 · A → H + O · Audit of O's 6 Oct commits: Task 1 PASS; C9 brief PASS; C10 brief PASS-WITH-NITS and its build gate RELEASED; C12 titles for H
 
@@ -1490,6 +1548,12 @@ confirm `C8` is merged before you set a single metafield.
 > resolve, because `(drft)` products are intentionally visible. Only `(Draft)` produces the
 > "will NOT resolve" message.
 
+> **Status update (`O-opus-07oct26` — O, PM, 7 Oct 2026): the last condition is MET — R4 is RUNNABLE.**
+> H verified `C8` live on 6 Oct 2026 (desktop, as far as the data allows: the count lines print, and
+> 0 products carry `component_skus`). C8's qty-edge and draft-parent messages are first exercised on
+> live data **at step 4 below**. If step 4 shows anything other than the wording described in the
+> 19 Aug status update above, stop and report it. Rule (b) is unchanged.
+
 1. In Shopify Admin, go to **Settings → Custom data → Products** and add a metafield definition
    with namespace `planner`, key `component_skus`, type **JSON**.
 2. On the same definition, tick the option that exposes it to the **Storefront API**.
@@ -1531,6 +1595,10 @@ confirm `C8` is merged before you set a single metafield.
 executed and cannot verify from here (Law M). If a label differs from what you see, report it
 rather than guessing. *(Numbered R9, not R6: register rows 14–16 already reserve R6–R8.)*
 
+> **Progress (`O-opus-07oct26`, 7 Oct 2026):** steps **1** (desktop) and **2** are **DONE** — H, 6 Oct
+> 2026 22:50. Step 1.5 (touch) and step 1.6 (C3 Safari) are not separately confirmed. Step **3** is
+> revised below. Step **4** (R4) is runnable. Steps **5** and **6** are still open.
+
 **Step 1 — Live-verify 1.19 and C8 (about 10 minutes, desktop).** Both are already live; nothing needs deploying.
 1. Open `https://planner.brownboxkit.co.nz/?catalogaudit=1` in desktop Chrome and press `F12` → **Console**.
 2. **1.19:** look for the line `[catalogue] … store-only product(s) hidden from the panel`.
@@ -1562,6 +1630,20 @@ products still categorised `kitchen hardware`. **O's default: these should be th
 places in a kitchen** (hob, oven, sink, tap, rangehood). Reply **"yes, all placeable"**, or name the
 ones that are really spare parts. Then, in Shopify Admin, change those to `planner.category =
 store-only` (same field as before). If you answer "yes", `C12` closes with no code change.
+
+> **Step 3 revised by `O-opus-07oct26` (7 Oct 2026), on H's 6 Oct ruling** — the yes/no above is
+> answered (bathroom products are in scope; vanity accessories are store-only). **What remains is
+> one Shopify Admin task:**
+> 1. In Shopify Admin, open each of these **6** products in turn: `Vanity Top 750 (drft)`,
+>    `Vanity Top 600 (drft)`, `Vanity Top 400 (drft)`, `Mirror (S) (drft)`, `Mirror (L) (drft)`,
+>    `Bathroom Faucet (drft)`.
+> 2. Change its `planner.category` metafield from `kitchen hardware` to `store-only` (same field as
+>    before). Save.
+> 3. **Leave these 5 unchanged** — they stay placeable: `450 SINK`, `Kitchen tap`, `Hob`, `Oven`,
+>    `Rangehood`.
+> 4. Open `https://planner.brownboxkit.co.nz/?catalogaudit=1` and read the store-only line.
+>    *Success looks like:* **28** (22 + 6) — O's expectation, not yet a reading.
+> 5. Reply to O: "C12: 6 tagged, store-only now reads __", with the date. O then closes `C12`.
 
 **Step 4 — R4: only after step 1 passes for C8.** Follow R4 from "Before step 1" onward. Read rule
 (b) again before you start, because listing a cabinet's own internal parts double-charges customers.

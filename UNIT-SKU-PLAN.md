@@ -6,6 +6,12 @@
 >
 > **Author:** `O-opus-19aug26` — O, PM (Opus cloud agent). Spec written 19 Aug 2026 from
 > H's product clarification (same date) and O's competitor research.
+>
+> ⚠ **PENDING SCOPE NOTE — NOT IN FORCE, awaiting H sign-off** (flagged 7 Oct 2026 by
+> `O-opus-07oct26`, on H's 6 Oct bathroom ruling under `TASKS.md` `C12`). Bathroom vanities are
+> **single-SKU / single-GLB** products, unlike the kitchen Units this spec describes. The proposed
+> one-paragraph amendment is in `RELAY.md`, 7 Oct 2026 O entry. **Nothing below has been changed**;
+> this flag is removed when H approves or rejects that paragraph.
 
 ## 1. The business model this serves (H's clarification, 19 Aug 2026)
 
