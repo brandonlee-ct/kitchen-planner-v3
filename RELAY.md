@@ -104,12 +104,40 @@ Never reuse another session's tag.
 | 18 | `README.md` fresh-clone note: `npm ci --include=optional` | none | **H** to authorise, then a one-line doc amendment | Maps to no board item. A fresh clone can fail `npm run build` on jspdf's optional `canvg` with no obvious cause |
 | 19 | Delete branch `cursor/a-audit-relay-entries` after #9 is on GitHub | none | **H** | `AGENTS.md`: merge or delete feature branches the same day the work is accepted |
 | 20 | Untracked staff guide `public/shopify-planner-guide.html` (store-only / categories / units) | **none yet** | **H only** — R9 step 5 | Added by `O-opus-06oct26`. The file is in the working tree, uncommitted and unattributed, and maps to no board item. O did not commit it or delete it. H: assign it (suggested: a sub-line under Setup "Catalogue setup guide") and commit, or delete. The untracked `.cursor/plans/catalogue_images_and_setup_guide_c32df2f3.plan.md` is in the same state and needs the same decision |
-| 21 | C12 — confirm the remaining `kitchen hardware` products are customer-placeable | `C12` | **H only** — R9 step 3 (revised 7 Oct): tag the 6 bathroom accessories `store-only` | Added by `O-opus-06oct26`. **7 Oct (`O-opus-07oct26`): H RULED 6 Oct.** Bathroom products are in scope. The 5 kitchen items stay placeable; the 6 bathroom accessories (Vanity Top 750/600/400, Mirror S/L, Bathroom Faucet) go `store-only`. C12 closes, with no code change, once H reports those 6 tagged. The UNIT-SKU-PLAN.md scope note is awaiting H sign-off |
+| 21 | C12 — confirm the remaining `kitchen hardware` products are customer-placeable | `C12` | **H — read the `?catalogaudit=1` store-only line** (R9 step 3.4) | Added by `O-opus-06oct26`. **7 Oct (`O-opus-07oct26`): H RULED 6 Oct** (bathroom in scope; 5 kitchen items stay placeable; 6 accessories go `store-only`). **Same evening: H reports the 6 tagged.** O's read-only Storefront check agrees. C12 closes, with no code change, when H reports the audit line. The UNIT-SKU-PLAN.md scope note is awaiting H sign-off |
 | 22 | C9 OOS badge + pre-cart warning — S build; **then C10 S build** | `C9`, `C10` | **H** — schedule the S builds: **C9 first** (revenue path), **then C10** (both briefs cleared by A, 6 Oct) | **7 Oct (`O-opus-07oct26`): C10 added to this row** — brief `briefs/C10-opening-history.md`, gate released by A 6 Oct, nits folded 7 Oct. O has started neither build. | Added by `O-opus-06oct26`. Brief: `briefs/C9-oos-badge-and-precart-warning.md`. A granted options 1+2 on 21 Aug; sequencing condition met. Live revenue risk: per A's 6 Oct observation, most products are unavailable |
 
 ---
 
 # Log (newest first)
+
+### 2026-10-07 · O → H + A · H reports the 6 bathroom accessories tagged store-only; Storefront agrees; C12 not closed
+
+**Author:** `O-opus-07oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C12` (register row 21)
+**Claim level:** H's report of an Admin edit, plus O's **read-only** Storefront check the same evening. **Not** an H `?catalogaudit=1` reading. `C12` is **not** ticked.
+**Relaying work by:** H — "all 6 items has been replaced with store-only" (7 Oct 2026).
+
+**O's check** (same query shape as `PRODUCTS_QUERY`, one page, `hasNextPage=false`). The six:
+- `Vanity Top 750 (drft)`, `Vanity Top 600 (drft)`, `Vanity Top 400 (drft)`, `Mirror (S) (drft)`, `Mirror (L) (drft)`, `Bathroom Faucet (drft)` — each `planner.category = store-only`.
+- Still `kitchen hardware`: `/14 450 SINK (Drft)`, `Kitchen tap (Copy) Drft`, `Hob (Drft)`, `Oven (Drft)`, `Rangehood (drft)`. No other product carries that category.
+- Products whose category value is exactly `store-only`: **28**. That matches the expectation 22 + 6. It is an agent observation. It does **not** go on the board (register item 7).
+
+**Not closed, and why.** R9 step 3 closes `C12` when H reads the live audit line and reports the number. The Storefront total returned tonight is **238**, against H's reading of **227** at 22:50 on 6 Oct. O has not investigated that gap and has not changed the 227 figure on the board.
+
+**Blocked on:** H — open `https://planner.brownboxkit.co.nz/?catalogaudit=1`, read the store-only count, reply with that number and today's date.
+
+---
+
+### 2026-10-07 · O → H · Shopify menu correction: "Custom data" is now "Metafields and metaobjects"
+
+**Author:** `O-opus-07oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C12` (the six store-only tags); R4 step 1 (same wrong menu name)
+**Claim level:** correction of a click-path. Not a live verification. Nothing built or pushed.
+**What happened:** H opened Settings looking for **Custom data** (the name in R4 step 1 and `public/catalog-setup.html`) and it is not there. The screenshot shows **Metafields and metaobjects**. Shopify Help Center uses that same name. O amended R4 step 1, `public/catalog-setup.html`, and `public/shopify-planner-guide.html` (section 1 and section 6). The guide file is still untracked. Store-only for the six bathroom accessories is typed on each **product** page, not in Settings.
+**Evidence:** H's Settings screenshot, 7 Oct 2026; Shopify Help "Adding standard metafield definitions" (Settings > Metafields and metaobjects > Products).
+
+---
 
 ### 2026-10-07 · O → A (cc H) · H's 6 Oct reading on the board; 1.19 + C8 ticked; C12 bathroom ruling; C10 nits folded; R4 runnable
 
@@ -1554,7 +1582,15 @@ confirm `C8` is merged before you set a single metafield.
 > live data **at step 4 below**. If step 4 shows anything other than the wording described in the
 > 19 Aug status update above, stop and report it. Rule (b) is unchanged.
 
-1. In Shopify Admin, go to **Settings → Custom data → Products** and add a metafield definition
+> **Menu correction (`O-opus-07oct26`, 7 Oct 2026).** Step 1 said **Settings → Custom data**.
+> That label is not on the admin H has open. H's Settings screenshot (7 Oct 2026) shows
+> **Metafields and metaobjects**, and Shopify Help Center uses the same name
+> (`help.shopify.com` → Settings > Metafields and metaobjects > Products). Step 1 is amended.
+> The Storefront tick in step 2 is unchanged until H sees that screen. Tagging a product
+> `store-only` is **not** done on this Settings page — it is typed on the product, in the
+> existing `planner.category` metafield.
+
+1. In Shopify Admin, go to **Settings → Metafields and metaobjects → Products** and add a metafield definition
    with namespace `planner`, key `component_skus`, type **JSON**.
 2. On the same definition, tick the option that exposes it to the **Storefront API**.
    *This step is the one people miss.* Without it the query returns `null`, the planner sees

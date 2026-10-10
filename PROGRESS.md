@@ -88,7 +88,7 @@ Phase 1 at [planner.brownboxkit.co.nz](https://planner.brownboxkit.co.nz), Shopi
 
 ## Blockers & live defects (customer-facing)
 
-- **C12** — **H ruled 6 Oct:** bathroom products are in scope (a vanity = one product, one GLB). The 5 kitchen items under `kitchen hardware` stay placeable. 👤 H: tag the 6 bathroom accessories (Vanity Top 750/600/400, Mirror S/L, Bathroom Faucet) `store-only` (R9 step 3). C12 then closes with no code change. Do **not** blanket-hide `kitchen hardware`.
+- **C12** — **H ruled 6 Oct:** bathroom products are in scope (a vanity = one product, one GLB). **H reports the 6 bathroom accessories tagged `store-only`, 7 Oct.** 👤 H: read the live `?catalogaudit=1` store-only line and send the number. C12 then closes with no code change. Do **not** blanket-hide `kitchen hardware`.
 - **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2; brief ready 6 Oct, awaiting S build.
 
 _C11 was closed 6 Oct 2026 by H ruling: `(drft)` products are intentionally visible for live testing, and they are customer-visible during the test period by owner decision. It is not a defect._
