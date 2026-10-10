@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopify + Planner: a plain-English guide — Brown Box Kit</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #1a1a1a;
+      color: #eee;
+      line-height: 1.55;
+      padding: 24px 16px 48px;
+    }
+    .wrap { max-width: 700px; margin: 0 auto; }
+    h1 { color: #ff9500; font-size: 24px; margin: 0 0 8px; }
+    h2 { color: #ff9500; font-size: 17px; margin: 34px 0 10px; border-bottom: 1px solid #333; padding-bottom: 6px; }
+    h3 { color: #fff; font-size: 14px; margin: 20px 0 6px; }
+    p, li { font-size: 14px; color: #ccc; }
+    p { margin: 0 0 12px; }
+    ol, ul { padding-left: 22px; margin: 0 0 12px; }
+    li { margin-bottom: 8px; }
+    li strong, p strong { color: #fff; }
+    .lead { color: #aaa; font-size: 14px; margin-bottom: 20px; }
+    .box {
+      background: #252525;
+      border-left: 3px solid #ff9500;
+      padding: 10px 14px;
+      margin: 14px 0 20px;
+      font-size: 13px;
+      color: #ccc;
+    }
+    .box b { color: #ff9500; }
+    .warn { border-left-color: #e5484d; }
+    .warn b { color: #e5484d; }
+    .good { border-left-color: #3fb950; }
+    .good b { color: #3fb950; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0 20px; }
+    th, td { border: 1px solid #333; padding: 8px 10px; text-align: left; vertical-align: top; color: #ccc; }
+    th { background: #252525; color: #ff9500; }
+    code { background: #333; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #fff; }
+    .big { font-size: 15px; padding: 3px 9px; }
+    .note { font-size: 12px; color: #888; margin-top: 8px; }
+    a { color: #ff9500; }
+    .back { display: inline-block; margin-bottom: 20px; text-decoration: none; font-size: 14px; }
+    .back:hover { text-decoration: underline; }
+    .toc { background: #202020; border: 1px solid #333; padding: 10px 18px; margin: 0 0 8px; }
+    .toc li { margin-bottom: 4px; }
+    .yes { color: #3fb950; font-weight: bold; }
+    .no { color: #e5484d; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="/">← Back to Kitchen Planner</a>
+
+    <h1>Shopify + Planner: a plain-English guide</h1>
+    <p class="lead">
+      For the webmaster and staff who add or edit products in Shopify. You don't need to
+      know anything about code. If you can add a product in Shopify Admin, you can do everything here.
+    </p>
+
+    <ol class="toc">
+      <li><a href="#store-only">Store-only: keeping spare parts out of the planner</a> (start here)</li>
+      <li><a href="#big-picture">How the planner and Shopify fit together</a></li>
+      <li><a href="#which-category">Which category do I pick?</a></li>
+      <li><a href="#add-cabinet">Adding a new cabinet, step by step</a></li>
+      <li><a href="#add-part">Adding a spare part (store-only), step by step</a></li>
+      <li><a href="#units">Complete units (benchtop, sink, oven, hob)</a></li>
+      <li><a href="#checks">How to check your work</a></li>
+      <li><a href="#trouble">Something looks wrong</a></li>
+      <li><a href="#words">Glossary</a></li>
+    </ol>
+
+    <!-- ───────────────────────── STORE-ONLY ───────────────────────── -->
+    <h2 id="store-only">1. Store-only: keeping spare parts out of the planner</h2>
+
+    <h3>What it means</h3>
+    <p>
+      Some things we sell are <strong>not cabinets</strong>: hinges, screws, dowels, loose
+      panels, legs, camlocks, drawer runners, shelf holders. Customers can buy them from the
+      shop, but it makes no sense for them to appear in the planner as something you
+      drag into a room.
+    </p>
+    <p>
+      <strong>Store-only</strong> is the label we put on those products. It means:
+    </p>
+    <table>
+      <tbody>
+        <tr><td>On the website / shop</td><td class="yes">Yes, sells as normal</td></tr>
+        <tr><td>In the planner's product list (the ⊞ button)</td><td class="no">No, hidden</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Why hide them? A cabinet already comes with its own hinges, legs and doors, and the
+      cabinet price covers all of that. If a hinge showed up in the planner, a customer could
+      place a "hinge" in the middle of their kitchen and get a confusing quote.
+    </p>
+
+    <div class="box good">
+      <b>The rule in one line:</b> if a customer should never place it in a room as
+      its own item, tag it <code class="big">store-only</code>.
+    </div>
+
+    <h3>How to apply it (the 60-second version)</h3>
+    <ol>
+      <li>In Shopify Admin go to <strong>Products</strong> and open the product (for example, "Hinges 110°").</li>
+      <li>Scroll down to the <strong>Metafields</strong> section on the product page.</li>
+      <li>Find the one called <strong>category</strong> (its full name is <code>planner.category</code>).</li>
+      <li>Type exactly: <code class="big">store-only</code></li>
+      <li>Click <strong>Save</strong>.</li>
+    </ol>
+    <div class="box good">
+      <b>Success looks like:</b> the product page shows <code>store-only</code> in the
+      category metafield, and after the planner is refreshed the product is no longer in the ⊞ Products list.
+      It is still for sale on the shop.
+    </div>
+    <div class="box warn">
+      <b>Do not look in Settings for "Custom data".</b> Shopify renamed that menu.
+      On the admin as of 7 Oct 2026 it is <strong>Settings → Metafields and metaobjects</strong>
+      (confirmed on the Brown Box Kit Settings screen, and in
+      <a href="https://help.shopify.com/en/manual/custom-data/metafields/metafield-definitions/adding-standard-metafield-definitions">Shopify's help</a>).
+      You do <strong>not</strong> open Settings to tag a product <code>store-only</code>.
+      Type it on the product page, in the steps above. The product-list columns
+      <strong>Product type</strong> and <strong>Category</strong> are the wrong place too.
+      Settings → Metafields and metaobjects is only for creating a brand-new metafield
+      definition, such as <code>planner.component_skus</code> in section 6.
+    </div>
+
+    <h3>Spelling matters</h3>
+    <table>
+      <thead><tr><th>You type</th><th>Works?</th></tr></thead>
+      <tbody>
+        <tr><td><code>store-only</code></td><td class="yes">Yes (correct)</td></tr>
+        <tr><td><code>Store-Only</code> or <code>store-only </code> with a space at the end</td><td class="yes">Yes (capitals and stray spaces are forgiven)</td></tr>
+        <tr><td><code>store only</code> (space instead of hyphen)</td><td class="no">No. The part will show in the planner</td></tr>
+        <tr><td><code>storeonly</code>, <code>store_only</code>, <code>spare</code>, <code>parts</code></td><td class="no">No</td></tr>
+        <tr><td><code>kitchen hardware</code></td><td class="no">No. This is a normal category, so the product is <strong>not</strong> hidden</td></tr>
+        <tr><td>Field left empty</td><td class="no">No. An empty category means "show it"</td></tr>
+      </tbody>
+    </table>
+    <p>
+      The safest habit is to <strong>copy and paste</strong> <code>store-only</code> from this page.
+    </p>
+
+    <div class="box warn">
+      <b>Important:</b> a title containing <code>(drft)</code> is an intentional live-test marker.
+      Those products <strong>stay visible</strong> in the planner. Do not unpublish them to hide them.
+      The planner only hides a title that contains <code>(Draft)</code>. To keep a spare part
+      off the planner while it stays for sale, use <code>store-only</code>.
+    </div>
+
+    <div class="box">
+      <b>The store-only filter is live.</b> After you save <code>store-only</code> and refresh
+      the planner, that product leaves the ⊞ Products list. It stays for sale on the shop.
+      Confirm with <a href="#checks">the checks in section 7</a>.
+    </div>
+
+    <h3>Good to know</h3>
+    <ul>
+      <li><strong>Hidden is not deleted.</strong> A store-only product stays in Shopify and on the website exactly as before.</li>
+      <li>
+        <strong>Do not add a spare part to a cabinet's extra-items list.</strong>
+        Hinges, legs, doors and fixings are already in the cabinet price. Listing them again
+        charges the customer twice. Store-only only keeps them off the planner list.
+        (See <a href="#units">section 6</a>.)
+      </li>
+      <li>Store-only products are not shown to customers in the planner at all, so they don't need a 3D model, dimensions or a planner photo.</li>
+      <li>If you're not sure whether something should be store-only, ask the owner before publishing.</li>
+    </ul>
+
+    <!-- ───────────────────────── BIG PICTURE ───────────────────────── -->
+    <h2 id="big-picture">2. How the planner and Shopify fit together</h2>
+    <p>
+      The planner does <strong>not</strong> have its own product list. Every time someone opens
+      it, it asks Shopify "what products do you have?" and builds its ⊞ Products list from
+      the answer. So:
+    </p>
+    <ul>
+      <li><strong>You change products in Shopify. You never change anything in the planner.</strong></li>
+      <li>The planner picks up changes the next time the page is opened or refreshed. There's no button to press.</li>
+      <li>Prices, product photos and stock come from Shopify too. The quote and "Send to Cart" use the real Shopify prices (NZD).</li>
+    </ul>
+
+    <h3>What the planner reads from each product</h3>
+    <table>
+      <thead><tr><th>Shopify field</th><th>What the planner does with it</th></tr></thead>
+      <tbody>
+        <tr><td>Title</td><td>The name shown in the list, quote and cart</td></tr>
+        <tr><td>Product type</td><td>The heading the product is grouped under in the list</td></tr>
+        <tr><td>Photo (first / featured image)</td><td>The little thumbnail in the list</td></tr>
+        <tr><td>Variant price</td><td>The price in the quote and cart. If it's missing, the price shows as $0</td></tr>
+        <tr><td><code>planner.glb_url</code></td><td>The 3D model shown in the room</td></tr>
+        <tr><td><code>planner.width_mm</code>, <code>height_mm</code>, <code>depth_mm</code></td><td>The size in the room (in millimetres)</td></tr>
+        <tr><td><code>planner.category</code></td><td>Where and how it sits in the room, <strong>or</strong> whether it appears at all (store-only)</td></tr>
+        <tr><td><code>planner.component_skus</code></td><td>Extra items that come with this one (see <a href="#units">section 6</a>). Owner only</td></tr>
+      </tbody>
+    </table>
+    <p class="note">"Metafield" is just Shopify's word for an extra custom field on a product.</p>
+
+    <div class="box">
+      <b>A product only reaches the planner if</b> it is <strong>Active</strong> and available on the
+      <strong>Online Store</strong> sales channel (the same product page a customer can see on
+      brownboxkit.co.nz). Draft or unpublished products never appear.
+    </div>
+
+    <!-- ───────────────────────── WHICH CATEGORY ───────────────────────── -->
+    <h2 id="which-category">3. Which category do I pick?</h2>
+    <p>Go down this list and use the first one that fits. Type the word into the <code>planner.category</code> metafield.</p>
+
+    <table>
+      <thead><tr><th>What is the product?</th><th>Category to type</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Spare part: hinge, screw, dowel, camlock, drawer runner, leg, loose panel, trim, shelf holder</td>
+          <td><code>store-only</code></td>
+          <td>Sells on the shop, <strong>hidden</strong> from the planner</td>
+        </tr>
+        <tr>
+          <td>A service that isn't a physical item (for example an install quote request)</td>
+          <td><code>service</code></td>
+          <td>Appears in the list, goes on the quote, but isn't drawn in the room</td>
+        </tr>
+        <tr>
+          <td>Floor cabinet</td>
+          <td><code>base</code></td>
+          <td>Sits on the floor slab. Used by Auto-Design</td>
+        </tr>
+        <tr>
+          <td>Wall-hung cabinet</td>
+          <td><code>wall</code></td>
+          <td>Hangs on the wall, starting 1500 mm above the floor</td>
+        </tr>
+        <tr>
+          <td>Corner cabinet</td>
+          <td><code>corner</code></td>
+          <td>Drops toward the nearest room corner</td>
+        </tr>
+        <tr>
+          <td>Tall cabinet or pantry</td>
+          <td><code>tall</code></td>
+          <td>Full-height, on the floor</td>
+        </tr>
+        <tr>
+          <td>Island cabinet</td>
+          <td><code>island</code></td>
+          <td>Island placement rules</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="box warn">
+      <b>Don't use <code>kitchen hardware</code> for spare parts.</b> It looks sensible, but the planner
+      treats it as a normal category. A "kitchen hardware" product still appears in the list.
+      Some genuine planner items (a sink, an oven, a hob) may also use similar wording, so hiding by that word would
+      hide things customers do need. Spare parts get <code>store-only</code>. Nothing else.
+    </div>
+
+    <p class="note">
+      If <code>planner.category</code> is left empty, the planner falls back to the Shopify
+      <strong>Product type</strong>. It's much cleaner to always fill the category in.
+      Also: the planner looks for the words "island", "corner", "tall", "pantry" and "wall" in the
+      category, product type and title to decide placement, so avoid those words in a title unless they're true.
+    </p>
+
+    <!-- ───────────────────────── ADD CABINET ───────────────────────── -->
+    <h2 id="add-cabinet">4. Adding a new cabinet, step by step</h2>
+    <p>
+      This is a short version. The full illustrated version is in the
+      <a href="/catalog-setup.html">Add cabinets to the planner</a> guide.
+    </p>
+    <ol>
+      <li><strong>Upload the 3D model.</strong> Shopify Admin → <strong>Content → Files</strong> → upload the <code>.glb</code> file → click it → <strong>Copy link</strong>. The link starts with <code>https://cdn.shopify.com/</code> and ends in <code>.glb</code>.</li>
+      <li><strong>Create the product</strong> (Products → Add product): title, product type (for example "Base Cabinet"), a <strong>photo</strong>, and the <strong>price</strong>.</li>
+      <li>
+        <strong>Fill in the planner metafields</strong> on the product:
+        <ul>
+          <li><code>glb_url</code>: paste the link from step 1</li>
+          <li><code>width_mm</code>, <code>height_mm</code>, <code>depth_mm</code>: whole numbers, for example 600, 720, 580</li>
+          <li><code>category</code>: <code>base</code>, <code>wall</code>, <code>corner</code>, <code>tall</code> or <code>island</code> (see section 3)</li>
+        </ul>
+      </li>
+      <li>Set status to <strong>Active</strong>, tick <strong>Online Store</strong> under Sales channels, and <strong>Save</strong>.</li>
+      <li>Do the <a href="#checks">checks in section 7</a>.</li>
+    </ol>
+    <div class="box">
+      <b>If you skip the size fields</b> the planner still shows the product, but as a plain
+      brown box at a made-up size of 600 × 720 × 580 mm. Customers will notice, so fill them in.
+    </div>
+
+    <!-- ───────────────────────── ADD PART ───────────────────────── -->
+    <h2 id="add-part">5. Adding a spare part (store-only), step by step</h2>
+    <p>Much shorter, because the planner doesn't need to know about it.</p>
+    <ol>
+      <li><strong>Create the product</strong> as normal: title, photo, price, description, Product type (for example "Hardware").</li>
+      <li>In the metafields, set <code>category</code> to <code class="big">store-only</code>. You do <strong>not</strong> need a 3D model or sizes.</li>
+      <li>Set status to <strong>Active</strong>, tick <strong>Online Store</strong>, <strong>Save</strong>.</li>
+      <li><a href="#checks">Check</a> that it appears on the website but <strong>not</strong> in the planner.</li>
+    </ol>
+    <div class="box warn">
+      <b>Order matters:</b> set <code>store-only</code> <strong>before</strong> you tick Online
+      Store, or at the same time as you save. If you publish a hinge first and tag it later, it sits in the
+      planner list, placeable by customers, until you fix it.
+    </div>
+
+    <h3>Fixing existing products</h3>
+    <p>
+      Products added earlier may have spare parts tagged <code>kitchen hardware</code> or nothing at all.
+      Open each one, change <code>category</code> to <code>store-only</code>, and Save. The
+      planner's diagnostic (section 7) lists them so you can work through the list.
+    </p>
+
+    <!-- ───────────────────────── UNITS ───────────────────────── -->
+    <h2 id="units">6. Complete units (benchtop, sink, oven, hob)</h2>
+    <p>
+      Our idea is that a customer taps one cabinet and gets a <em>complete unit</em>: the
+      cabinet plus its benchtop, sink, oven or hob. Each of those is still its own product with
+      its own price, and each is its own line in the cart, but the customer only handles one object.
+    </p>
+    <p>
+      This is set up with a metafield called <code>planner.component_skus</code> on the
+      <strong>cabinet</strong>. It lists the extra items that ride along with it, and they're
+      <strong>added on top</strong> of the cabinet price. The cabinet price is not reduced.
+      List only a real extra: benchtop, sink, oven, hob or tap. Never list hinges, legs, doors
+      or fixings.
+    </p>
+    <p>
+      <b>Bathroom vanities are not set up this way.</b> A full vanity — cabinet, basin, tap,
+      splashback and mirror modelled together — is <b>one product with one 3D model</b>.
+      Do not split it, and do not fill in <code>planner.component_skus</code> on it.
+      Vanity tops, mirrors and bathroom faucets sold on their own are <code>store-only</code>.
+    </p>
+    <div class="box warn">
+      <b>Owner only, for now.</b> This one needs exact technical values (Shopify variant IDs) and
+      a mistake can make the whole cart fail at checkout. Please <strong>don't fill it in
+      yourself</strong> until the owner has released the step-by-step instructions for it.
+      When that definition is created, the menu is <strong>Settings → Metafields and metaobjects → Products</strong>.
+      Older notes call this menu <strong>Custom data</strong>. That name is gone.
+    </div>
+    <p>What you can safely do today: make sure companion products (benchtops, sinks, ovens, hobs) exist in Shopify with a real price, a photo and the right category. Parts that only ever exist inside a unit (like the hinges) get <code>store-only</code>.</p>
+
+    <!-- ───────────────────────── CHECKS ───────────────────────── -->
+    <h2 id="checks">7. How to check your work</h2>
+
+    <h3>Quick check (everyone, 1 minute)</h3>
+    <ol>
+      <li>Open <a href="https://planner.brownboxkit.co.nz" target="_blank" rel="noopener">planner.brownboxkit.co.nz</a>.</li>
+      <li>Force a fresh load: <strong>Ctrl + F5</strong> on a computer; on iPhone or iPad, pull the page down to refresh.</li>
+      <li>Tap the <strong>⊞ Products</strong> button (top-left).</li>
+      <li>
+        <strong>Cabinet:</strong> you should see it under its Product type heading, with its
+        photo. Tap it. It should appear in the room with the real 3D shape (not a plain brown box).
+      </li>
+      <li><strong>Spare part:</strong> you should <strong>not</strong> find it anywhere in the list. Open the website and confirm it's still on sale there.</li>
+    </ol>
+
+    <h3>Detailed check (webmaster, 3 minutes)</h3>
+    <p>The planner has a built-in report card for the catalogue.</p>
+    <ol>
+      <li>Open the planner with <code>?catalogaudit=1</code> on the end: <code>https://planner.brownboxkit.co.nz/?catalogaudit=1</code></li>
+      <li>Press <strong>F12</strong> and click the <strong>Console</strong> tab. (On a phone or iPad add <code>&amp;debug=1</code> to the address instead. A small console appears on screen.)</li>
+      <li>
+        Read the summary lines. The ones you care about:
+        <ul>
+          <li><strong>Missing planner.glb_url</strong>: products with no 3D model</li>
+          <li><strong>Missing planner.category</strong>: products with no category</li>
+          <li><strong>Store-only products (hidden from the catalogue panel)</strong>: how many parts are being hidden. If it says <code>0</code> and you've tagged some, they haven't taken effect (see the spelling table in section 1).</li>
+        </ul>
+      </li>
+    </ol>
+    <p class="note">The report only reads data. It can't change or break anything.</p>
+
+    <!-- ───────────────────────── TROUBLE ───────────────────────── -->
+    <h2 id="trouble">8. Something looks wrong</h2>
+    <table>
+      <thead><tr><th>What you see</th><th>Most likely cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>A spare part (hinge, screw...) shows in the planner</td>
+          <td>Category isn't exactly <code>store-only</code> (typo, or it's <code>kitchen hardware</code> / empty)</td>
+          <td>Check the spelling on the product, save, refresh the planner</td>
+        </tr>
+        <tr>
+          <td>A cabinet is missing from the list</td>
+          <td>Not Active, not on Online Store, category is <code>store-only</code> by mistake, or the title contains "(Draft)"</td>
+          <td>Check each of those on the product page, then refresh the planner</td>
+        </tr>
+        <tr>
+          <td>Cabinet is a plain brown box</td>
+          <td>Missing or wrong <code>glb_url</code></td>
+          <td>Copy the link again from Content → Files</td>
+        </tr>
+        <tr>
+          <td>Cabinet is the wrong size</td>
+          <td>Typo in a size field, or a size is missing (it falls back to 600 × 720 × 580)</td>
+          <td>Fix the millimetre numbers. Whole numbers only, no "mm"</td>
+        </tr>
+        <tr>
+          <td>Price shows $0.00</td>
+          <td>No price on the variant</td>
+          <td>Set the price in Shopify</td>
+        </tr>
+        <tr>
+          <td>No thumbnail</td>
+          <td>No photo on the product</td>
+          <td>Add one under Media</td>
+        </tr>
+        <tr>
+          <td>Cabinet lands on the wrong spot (for example at wall height)</td>
+          <td>Wrong category, or the title/type contains the word "wall", "corner", "tall" or "island"</td>
+          <td>Correct the category. Check the title wording</td>
+        </tr>
+        <tr>
+          <td>Customer reaches the checkout and sees "Out of stock"</td>
+          <td>One item in the cart is sold out. Shopify then refuses the whole cart</td>
+          <td>Fix stock in Shopify. The planner doesn't warn customers about this yet</td>
+        </tr>
+        <tr>
+          <td>Changed something in Shopify, planner still shows the old version</td>
+          <td>Old page still loaded in the browser</td>
+          <td>Ctrl + F5 (or pull to refresh on iPhone / iPad)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ───────────────────────── GLOSSARY ───────────────────────── -->
+    <h2 id="words">9. Glossary</h2>
+    <table>
+      <tbody>
+        <tr><td><strong>Planner</strong></td><td>The 3D kitchen design tool at planner.brownboxkit.co.nz</td></tr>
+        <tr><td><strong>Store-only</strong></td><td>A product for sale on the shop but hidden from the planner's list. Set with <code>planner.category</code> = <code>store-only</code></td></tr>
+        <tr><td><strong>Metafield</strong></td><td>An extra custom field on a Shopify product. Ours are all in the <code>planner</code> group</td></tr>
+        <tr><td><strong>Category</strong></td><td>The <code>planner.category</code> metafield: tells the planner how to place a product, or to hide it</td></tr>
+        <tr><td><strong>GLB</strong></td><td>The 3D model file for a product</td></tr>
+        <tr><td><strong>SKU / variant</strong></td><td>One specific purchasable version of a product (for example a size or colour) with its own price</td></tr>
+        <tr><td><strong>Companion / component</strong></td><td>An extra product that comes with a cabinet (benchtop, sink, oven, hob)</td></tr>
+        <tr><td><strong>Unit</strong></td><td>A cabinet plus its companions, treated by the customer as one item</td></tr>
+        <tr><td><strong>Active</strong></td><td>Shopify product status meaning it is live. Only Active products can reach the planner</td></tr>
+        <tr><td><strong>Send to Cart</strong></td><td>The planner button that puts the whole design into a Shopify cart and goes to checkout</td></tr>
+      </tbody>
+    </table>
+
+    <p class="note" style="margin-top:32px">
+      Brown Box Kit Kitchen Planner · staff guide · the product list loads from Shopify each time the planner opens.
+    </p>
+  </div>
+</body>
+</html>

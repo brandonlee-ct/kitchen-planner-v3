@@ -108,7 +108,7 @@ Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
 3. **C12** — tag the 6 bathroom accessories `store-only` and report (R9 step 3, revised 7 Oct).
 4. **R4** — runnable now: populate `planner.component_skus` + Storefront exposure, then live-verify 1.18.
 4a. **Approve or reject** the bathroom-vanity scope paragraph for `UNIT-SKU-PLAN.md` (RELAY 7 Oct O entry).
-5. **Staff guide** `public/shopify-planner-guide.html` (untracked) — assign to a board item and commit, or delete.
+5. ~~Staff guide~~ — **done 10 Oct.** Committed under Setup and linked from the catalogue setup page.
 6. **Push local `main`** after O's 6 Oct docs commits.
 7. **R2 / R3** — Apply Track 3 Supabase SQL; confirm Trade intake uses `project_code`.
 

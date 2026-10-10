@@ -169,6 +169,7 @@ Future scope (H requests — not scheduled; O to scope/brief later):
 - [x] ✅ executor + reviewer subagents (`.cursor/agents/`)
 - [x] ✅ Supabase security SQL drafted
 - [x] ✅ Catalogue setup guide ([public/catalog-setup.html](public/catalog-setup.html)) + product thumbnails in panel (Shopify `featuredImage`)
+  - [x] ✅ Staff guide ([public/shopify-planner-guide.html](public/shopify-planner-guide.html)) — store-only, categories, complete units. Committed 10 Oct 2026 on H's "do it" (`O-opus-07oct26`). §6 matches the ADD-ON ruling (extras charged on top; cabinet price not reduced; hinges never listed). A bathroom vanity is one product and one model; vanity accessories are store-only (H ruling 6 Oct).
 
 ## 🚀 Phase 1 LAUNCHED — 14 Jun 2026
 - [x] ✅ Shopify nav link added: "Design Your Kitchen" → https://planner.brownboxkit.co.nz (Option A, standalone tab)

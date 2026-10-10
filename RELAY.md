@@ -103,13 +103,31 @@ Never reuse another session's tag.
 | 17 | Stale PRs #5 and #6 | none | **H only** | Close or merge. Left open since before the machine migration; no board item, so nothing tracks them |
 | 18 | `README.md` fresh-clone note: `npm ci --include=optional` | none | **H** to authorise, then a one-line doc amendment | Maps to no board item. A fresh clone can fail `npm run build` on jspdf's optional `canvg` with no obvious cause |
 | 19 | Delete branch `cursor/a-audit-relay-entries` after #9 is on GitHub | none | **H** | `AGENTS.md`: merge or delete feature branches the same day the work is accepted |
-| 20 | Untracked staff guide `public/shopify-planner-guide.html` (store-only / categories / units) | **none yet** | **H only** — R9 step 5 | Added by `O-opus-06oct26`. The file is in the working tree, uncommitted and unattributed, and maps to no board item. O did not commit it or delete it. H: assign it (suggested: a sub-line under Setup "Catalogue setup guide") and commit, or delete. The untracked `.cursor/plans/catalogue_images_and_setup_guide_c32df2f3.plan.md` is in the same state and needs the same decision |
+| 20 | Staff guide `public/shopify-planner-guide.html` | Setup "Catalogue setup guide" | **CLOSED 10 Oct** (H: "do it") | **10 Oct (`O-opus-07oct26`):** committed as a sub-line under Setup, linked from `public/catalog-setup.html`. §6 checked against ADD-ON and the 6 Oct bathroom ruling; three stale sentences corrected (see the log). The plan file was never committed; it is deleted from the working tree |
 | 21 | C12 — confirm the remaining `kitchen hardware` products are customer-placeable | `C12` | **H — read the `?catalogaudit=1` store-only line** (R9 step 3.4) | Added by `O-opus-06oct26`. **7 Oct (`O-opus-07oct26`): H RULED 6 Oct** (bathroom in scope; 5 kitchen items stay placeable; 6 accessories go `store-only`). **Same evening: H reports the 6 tagged.** O's read-only Storefront check agrees. C12 closes, with no code change, when H reports the audit line. The UNIT-SKU-PLAN.md scope note is awaiting H sign-off |
 | 22 | C9 OOS badge + pre-cart warning — S build; **then C10 S build** | `C9`, `C10` | **H** — schedule the S builds: **C9 first** (revenue path), **then C10** (both briefs cleared by A, 6 Oct) | **7 Oct (`O-opus-07oct26`): C10 added to this row** — brief `briefs/C10-opening-history.md`, gate released by A 6 Oct, nits folded 7 Oct. O has started neither build. | Added by `O-opus-06oct26`. Brief: `briefs/C9-oos-badge-and-precart-warning.md`. A granted options 1+2 on 21 Aug; sequencing condition met. Live revenue risk: per A's 6 Oct observation, most products are unavailable |
 
 ---
 
 # Log (newest first)
+
+### 2026-10-10 · O → A (cc H) · Item 7 done: staff guide committed; §6 checked; plan file deleted
+
+**Author:** `O-opus-07oct26` — O, PM (same session; H said "do it" on 10 Oct)
+**Board item:** Setup "Catalogue setup guide" (new sub-line). Register row 20, R9 step 5.
+**Claim level:** docs committed locally. **Not pushed.** No code.
+**What happened:** H authorised item 7. O committed `public/shopify-planner-guide.html`, added one link from `public/catalog-setup.html`, and deleted `.cursor/plans/catalogue_images_and_setup_guide_c32df2f3.plan.md`. That plan file was never in git, so the commit has no deletion for it; it is gone from the working tree.
+
+**§6 check**
+- **ADD-ON (19 Aug): matches.** Extras are charged on top, and the cabinet price is not reduced. O added the explicit "never list hinges, legs, doors or fixings" line, because a bullet in section 1 told staff the opposite (a cabinet "can list 2 × Soft-close Hinge"). That bullet is rewritten. Listing those parts would double-charge.
+- **Bathroom ruling (6 Oct): §6 was silent, which would let staff treat a vanity as a complete unit.** O added one paragraph: a full vanity is one product and one 3D model, with no `component_skus`; vanity tops, mirrors and bathroom faucets are `store-only`. `UNIT-SKU-PLAN.md` is still the pending flag only. H has not approved that spec paragraph.
+
+**Two other sentences corrected in the same file, so the committed guide does not contradict the board:** `(drft)` titles stay visible (C11); the store-only filter is live (1.19, H verified 6 Oct). The guide had said both were still pending.
+
+**Evidence:** this commit. The 7 Oct menu correction and the C12 "6 tagged" note are the commit immediately before it (`a71bb91`), not this one.
+**Blocked on:** H — the `?catalogaudit=1` store-only number (C12); approve or reject the UNIT-SKU-PLAN paragraph; push; schedule C9, then C10.
+
+---
 
 ### 2026-10-07 · O → H + A · H reports the 6 bathroom accessories tagged store-only; Storefront agrees; C12 not closed
 
@@ -1684,6 +1702,8 @@ store-only` (same field as before). If you answer "yes", `C12` closes with no co
 **Step 4 — R4: only after step 1 passes for C8.** Follow R4 from "Before step 1" onward. Read rule
 (b) again before you start, because listing a cabinet's own internal parts double-charges customers.
 Pick **one** test product first.
+
+> **Step 5 done (`O-opus-07oct26`, 10 Oct 2026).** H said "do it". The guide is committed under Setup, linked from `catalog-setup.html`, and the plan file is deleted. The steps below are the record of the ask.
 
 **Step 5 — the untracked staff guide (1 minute).** `public/shopify-planner-guide.html` sits in the
 working tree, uncommitted and on no board item. **O's default:** keep it, as a sub-line under
