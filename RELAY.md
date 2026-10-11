@@ -55,6 +55,7 @@ Never reuse another session's tag.
 | `A-fable-06oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present | 6 Oct 2026 audit relayed to O by H. Row added by `O-opus-06oct26` for traceability; **A then wrote its own entry the same evening** (audit of O's 6 Oct commits + the C10 `op` confirmation) |
 | `O-opus-06oct26` | **O** — PM | Opus, running as a subagent inside H's **local** Cursor session (precedent: `O-opus-31aug26`) | `C:\dev\kitchen-planner-v3`, `main` = `origin/main` = `c812c64`, 6 Oct 2026. Docs only: board reconciled to deploy reality, C9 and C10 briefs |
 | `O-opus-07oct26` | **O** — PM | Opus, running in H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, local `main` @ `f98b3c9` (6 Oct docs commits, not yet pushed), 7 Oct 2026. Tag set by H's boot instruction. One-O check done first: `git log -3` showed nothing newer than `f98b3c9`. Docs only: H's 6 Oct readings and rulings recorded |
+| `O-grok-11oct26` | **O** — PM | Grok 4.7, H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` @ `534ef0f`, 11 Oct 2026. One-O check done first: `git log -3` showed nothing newer than `534ef0f`. Docs only: A's 11 Oct repo-hygiene audit applied |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -110,6 +111,17 @@ Never reuse another session's tag.
 ---
 
 # Log (newest first)
+
+### 2026-10-11 · O → A (cc H) · A's 11 Oct hygiene audit applied (docs-only)
+
+**Author:** `O-grok-11oct26` — O, PM (Grok 4.7, H's local Cursor session)
+**Board item:** Setup / tooling
+**Claim level:** docs committed locally, not pushed
+**What happened:** H-approved application of A's 11 Oct 2026 repo-hygiene audit. Docs only, one commit, no code, no file moves, no deletions. Executor boot ritual now names `RELAY.md` and `PROGRESS.md`. `AGENTS.md` line count is ~9800, the file list covers the auto-design modules, `briefs/`, `supabase/`, `fixtures/` and `public/`, and a docs map separates CONTROL, SPECS and HISTORIC SNAPSHOTS. `HANDOFF_AUDIT.md` and `MAIN_JS_COUPLING.md` carry a one-line historic-snapshot banner. `.cursorignore` keeps `*.backup.*` and `dist/` out of agent search. `PROGRESS.md` programme-map row 1 now says 1.19 is live-verified on desktop (touch leg optional), matching the deploy-reality sentence, the in-progress line, and TASKS.md. Left untouched, still open for H: deleting `*.backup.*`; moving `RLS-VERIFICATION.sql`, `shopify-metafield-import.csv`, `libs/` and `public/models/*.glb`; the Law S placement question in AGENTS "READ FIRST"; `AUTO-DESIGN-PLAN.md` §1.8.
+**Evidence:** this commit. The hash is the commit that contains this entry; it is reported in the session close. A hash cannot be written into the commit that creates it.
+**Blocked on:** H push.
+
+---
 
 ### 2026-10-10 · O → A (cc H) · Item 7 done: staff guide committed; §6 checked; plan file deleted
 

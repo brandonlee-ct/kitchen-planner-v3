@@ -4,6 +4,8 @@
 > truth for what's done / next); [ROADMAP.md](ROADMAP.md) is the plain-English plan. This
 > file summarises — update **TASKS.md** when a task moves, then refresh this snapshot.
 
+_Refreshed 11 Oct 2026 by `O-grok-11oct26` (O, PM — Grok 4.7 in H's local Cursor session): A's 11 Oct repo-hygiene audit applied (docs-only). Programme-map row 1 now matches the board: 1.19 live-verified on desktop. Local `main` stays ahead of `origin/main` until H pushes. Earlier stamp kept below._
+
 _Refreshed 7 Oct 2026 by `O-opus-07oct26` (O, PM — H's local Cursor session): H's 6 Oct reading and rulings applied (1.19 + C8 ✅, C12 bathroom ruling, C10 cleared for build, R4 runnable). Local `main` is ahead of `origin/main` by the 6 and 7 Oct docs commits until H pushes. Earlier stamp kept below._
 
 _Last updated: 6 Oct 2026 by `O-opus-06oct26` (O, PM — Opus subagent in H's local Cursor session). Synced from TASKS.md + git: local `main` = `origin/main` = `c812c64` before this docs commit. This snapshot supersedes an unattributed, uncommitted 29 Sep draft whose deploy table was written the day before the push and was wrong (it gave live = `d7fd48a`, "15 commits ahead")._
@@ -25,7 +27,7 @@ _Last updated: 6 Oct 2026 by `O-opus-06oct26` (O, PM — Opus subagent in H's lo
 
 | Track | Status (summary) |
 |---|---|
-| **1 — Phase 1 Shopify MVP** | ✅ **Launched** 14 Jun 2026. Sprint 1 code closed (S1–S5). Open: **1.7** login bridge 🧠, **1.15c** owner catalogue data (partial), **1.17b** cosmetic, **1.18** (dormant, awaiting R4) / **1.19** deployed, awaiting H live verify. |
+| **1 — Phase 1 Shopify MVP** | ✅ **Launched** 14 Jun 2026. Sprint 1 code closed (S1–S5). Open: **1.7** login bridge 🧠, **1.15c** owner catalogue data (partial), **1.17b** cosmetic, **1.18** (dormant, awaiting R4) / **1.19** ✅ live-verified desktop 6 Oct (touch leg optional). |
 | **2 — Auto-Design** | ⏳ Solver modules ✅; UI wizard + toolbar wiring ⏳ behind hybrid gate (`?autodesign=1` / admin roles). |
 | **3 — Planner ↔ Trade** | ⏳ Checkout capture ✅ verified (#1034/#1035). SQL for `project_code` + planner-admin RLS **authored, not applied** — H runbooks R2/R3. |
 | **4 — Phase 2 (Pro)** | ⏳ Bluetooth laser ✅; rest queued in ROADMAP Part 3. |

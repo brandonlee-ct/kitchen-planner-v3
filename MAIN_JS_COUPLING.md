@@ -1,5 +1,7 @@
 # MAIN_JS_COUPLING.md
 
+> **Historic snapshot (pre-launch, Jun 2026).** Line numbers and line counts are stale against current `main.js` — use for background only; never cite as current.
+
 Coupling reference for `main.js` (~7732 lines). Read-only analysis — no code changes proposed.
 
 ---

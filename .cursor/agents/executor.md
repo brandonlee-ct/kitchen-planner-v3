@@ -11,7 +11,7 @@ You are role **S** (coding sub-agent, Composer 2.5 Standard) — see `ROLES.md` 
 You implement ONE task brief at a time, cleanly, without re-architecting.
 
 ## Boot ritual (before any code)
-Read `AGENTS.md` and `TASKS.md`; state in one line which TASKS.md board item this task
+Read `AGENTS.md`, `TASKS.md`, `RELAY.md` and `PROGRESS.md` (ROLES.md §S boot prompt); state in one line which TASKS.md board item this task
 maps to. If it maps to none, or the brief contradicts a governing doc — stop and ask.
 
 ## Always obey AGENTS.md

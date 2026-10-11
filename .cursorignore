@@ -1,0 +1,4 @@
+# Legacy manual backups — git holds history; keep them out of agent search
+*.backup.*
+# Build output
+dist/

@@ -1,5 +1,7 @@
 # HANDOFF_AUDIT.md — Repo Tidy-Up Audit (Phase 1)
 
+> **Historic snapshot (pre-launch, Jun 2026).** Line numbers and line counts are stale against current `main.js` — use for background only; never cite as current.
+
 Read-only audit of `main.js`, `auth.js`, `index.html`, `style.css` ahead of MVP launch.
 **Nothing has been deleted or changed.** This is a findings list only — flag which items
 to action and I'll do them in a follow-up.

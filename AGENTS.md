@@ -38,11 +38,11 @@ is to **implement tasks cleanly without re-architecting**.
 - **three.js** `^0.184` (`OrbitControls`, `GLTFLoader` from `three/addons`).
 - **@supabase/supabase-js** `^2.107`.
 - **eruda** on-screen console (CDN in `index.html`) for debugging on iPad/phone.
-- No automated tests — verify by running `npm run dev` and exercising the UI.
+- No automated tests for the planner itself; the auto-design solver has unit tests in `auto-design.test.html` — verify by running `npm run dev` and exercising the UI.
 
 ## Files
 
-- `main.js` — the full planner (**~9750 lines, working**): walls, GLB import, elevation
+- `main.js` — the full planner (**~9800 lines, working**): walls, GLB import, elevation
   view, undo/redo, touch + desktop input, quote totals, CSV export, Shopify fetch,
   Supabase wiring. Single file by design.
 - `index.html` — toolbar, panels, modals, drawer. Most styling is inline here.
@@ -51,6 +51,24 @@ is to **implement tasks cleanly without re-architecting**.
   `loadProject`, `updateProject`, `deleteProject`).
 - `style.css` — responsive layout; iPhone/iPad breakpoints already in place.
 - `*.backup.*` — legacy manual backups, redundant now git holds history. Don't edit.
+- `auto-design.js` — Track 2 solver + wiring, pure modules, tested by `auto-design.test.html`.
+- `auto-design-rules.js` — Track 2 solver + wiring, pure modules, tested by `auto-design.test.html`.
+- `auto-design-adapter.js` — Track 2 solver + wiring, pure modules, tested by `auto-design.test.html`.
+- `auto-design-wizard.js` — Track 2 solver + wiring, pure modules, tested by `auto-design.test.html`.
+- `briefs/` — S# briefs — a brief is NOT active unless its TASKS.md item is ⏳.
+- `supabase/` — SQL for H to apply — authored ≠ applied.
+- `fixtures/` — test catalogue.
+- `public/` — static guides + legacy GLBs.
+
+## Docs map — which files govern
+
+**CONTROL** (binding, read at boot): `AGENTS.md`, `ROLES.md`, `LESSONS-LEARNED.md`, `TASKS.md`, `RELAY.md`, `PROGRESS.md`.
+
+**SPECS** (scope only, status lives on the board): `ARCHITECTURE.md`, `ROADMAP.md`, `AUTO-DESIGN-PLAN.md`, `DIY-MODE-PLAN.md`, `UNIT-SKU-PLAN.md`, `P2-MONOREPO-BRIEF.md`, `CHECKOUT-CAPTURE.md`, `SMOKE-SCRIPT.md`, `S-BRIEFS-ITEMS-0-5.md`, `briefs/*`.
+
+**HISTORIC SNAPSHOTS** (read for background only; line numbers are stale; never cite as current): `HANDOFF_AUDIT.md`, `MAIN_JS_COUPLING.md`, `TASK-Q-PRELAUNCH-REVIEW.md`, `SuperAPP-BBK-Combined-Architecture.md` (non-authoritative).
+
+Pointers elsewhere: `FEASIBILITY*.md` (moved to bbk-suite).
 
 ## Architecture decisions — DO NOT CHANGE WITHOUT ASKING
 
