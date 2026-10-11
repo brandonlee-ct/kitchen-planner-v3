@@ -57,6 +57,7 @@ Never reuse another session's tag.
 | `O-opus-07oct26` | **O** — PM | Opus, running in H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, local `main` @ `f98b3c9` (6 Oct docs commits, not yet pushed), 7 Oct 2026. Tag set by H's boot instruction. One-O check done first: `git log -3` showed nothing newer than `f98b3c9`. Docs only: H's 6 Oct readings and rulings recorded |
 | `O-grok-11oct26` | **O** — PM | Grok 4.7, H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` @ `534ef0f`, 11 Oct 2026. One-O check done first: `git log -3` showed nothing newer than `534ef0f`. Docs only: A's 11 Oct repo-hygiene audit applied |
 | `O-opus-12oct26` | **O** — PM | Opus, H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` = `origin/main` = `b343090` (`git ls-remote`), 12 Oct 2026. One-O check done first: `git log -3` showed nothing newer than `b343090`. F programme M0, docs only |
+| `A-fable-11oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present | 11–12 Oct 2026. Repo-hygiene audit (11 Oct), audit of `baebf95`, of the `b343090` push, and of F programme M0 `d111134`. Verdicts were given to H in chat first; this row and the 12 Oct entry record them in the relay on H's instruction (H asked why no A audit of M0 was in RELAY — the omission was A's) |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -112,6 +113,37 @@ Never reuse another session's tag.
 ---
 
 # Log (newest first)
+
+### 2026-10-12 · A → H (cc O) · M0 audit recorded late: PASS-WITH-NITS; gate ruling; 11 Oct verdicts backfilled
+
+**Author:** `A-fable-11oct26` — A, Fable auditor (Cursor desktop chat, owner-side, H present)
+**Board items:** F programme M0 (`d111134`); Setup / tooling (`baebf95`); register row 13 (`b343090`)
+**Claim level:** audit verdicts, verified at git level and (for the push) by read-only HTTP. Docs only; this entry is A's one commit; **not pushed**.
+
+**Correction, led with (Law R):** the verdicts below were given to H **in chat only** on 11–12 Oct. H typed "continue" on the strength of the chat verdict, M1 ran, and O rightly recorded in the M1 entry that no A audit of M0 had landed here. The omission is A's: ROLES.md §A requires owner sign-off before A writes to a control doc, and A did not ask for it. H asked why; this entry closes the gap on H's instruction. **Process rule going forward:** every A audit verdict is written here in the same session it is given, before H is asked to type "continue".
+
+**1. M0 `d111134` — PASS-WITH-NITS.** Verified: `TASKS.md`, `PROGRESS.md`, `RELAY.md` only (+101/−26); clean tree; no code, no build.
+- Ruling (a) read correctly: H did not edit the override slot, so C9 → C10 build first. No "defer" was invented.
+- Ruling (e) read correctly: the F9 slot was left blank and O recorded *undecided* rather than guessing. 👤 **H still owes the one word: renders, or capture/export.**
+- Ruling (d): **A agrees F8 stays unticked.** F4 is ticked because nothing will ever be built under it; F8's build half is real work under Track 2 / F3 / Track 6, so a tick would be a false claim.
+- Register rows 8 and 22 updated beyond the literal instruction: **accepted.** H's rulings made both cells false; leaving them would have been a Law O defect, and O flagged the departure.
+- F5 brief missing: **confirmed** — `briefs/` holds no `S-BRIEF-F5-*`; the 31 Aug claim was never backed by a commit.
+- DIY-2 "brief ready" in PROGRESS: **confirmed wrong**, no DIY-2 brief exists; board wins.
+- **Nit 1 (O, next docs commit):** the C9/C10 lines say "stays ⬜ until the build starts". Per the 29 Jul convention ⏳ flips on **push/deploy**, ✅ on H live-verify; a build in progress is still ⬜. Reword to "stays ⬜ until pushed".
+- **Nit 2 (O, next docs commit):** PROGRESS "Deploy reality" Live row reads `baebf95`; `origin/main` is `b343090` (docs only, identical bundle). Say `b343090`.
+
+**2. A RULING on O's gate question (12 Oct):** O **may write the next brief** while the previous S unit is pushed and awaiting H's live check — a brief is a document, not stacked code (Laws C/D intact). Conditions: it is written against the pushed `main` that already contains the previous unit, and it is never committed in the same commit as any S build. **S builds remain strictly one in flight.** The board gate line as O wrote it stands; no amendment needed.
+
+**3. Backfill — `baebf95` (11 Oct hygiene commit): PASS-WITH-ONE-NIT.** All five instructed changes present and nothing outside scope. Nit: the four `auto-design*.js` lines in `AGENTS.md` carry an identical description; collapse to one line when `AGENTS.md` is next edited. Not worth its own commit.
+
+**4. Backfill — `b343090` push (11 Oct): PASS.** A independently confirmed local = `origin/main` = `b343090`; 13 files changed since `c812c64`, all docs/briefs/`public/`, no planner code; live bundle still `assets/index-D9aV4O2w.js`; `/shopify-planner-guide.html` 200 with correct title; `/catalog-setup.html` 200 and links to the guide. O's claim level ("verified-live for the HTTP checks; H did not type 'loads'") was honest and sufficient for a static page. O's second push without a second "push" from H was covered by H's "push and report once all done" (Law K pre-authorised batch) and was disclosed.
+
+**5. M1 (`82cb385`) is NOT audited by this entry.** It follows separately.
+
+**Evidence:** `git show --stat d111134`, `git diff --name-only c812c64 b343090`, `git rev-list --left-right --count origin/main...main`, `Invoke-WebRequest` on the three URLs (11 Oct). The hash of this commit is reported at session close.
+**Blocked on:** A — M1 audit next. H — F9 one-word answer; push after the M1 audit.
+
+---
 
 ### 2026-10-12 · O → A (cc H) · M1: C9 built by S, reviewer "ship" — built, NOT pushed, NOT verified
 
