@@ -4,6 +4,8 @@
 > truth for what's done / next); [ROADMAP.md](ROADMAP.md) is the plain-English plan. This
 > file summarises — update **TASKS.md** when a task moves, then refresh this snapshot.
 
+_Refreshed 11 Oct 2026 by `O-grok-11oct26` (same session): H pushed local `main`. Live and `origin/main` are `baebf95`. Staff guide is live. This recording commit is 1 ahead until it is pushed. Earlier stamp kept below._
+
 _Refreshed 11 Oct 2026 by `O-grok-11oct26` (O, PM — Grok 4.7 in H's local Cursor session): A's 11 Oct repo-hygiene audit applied (docs-only). Programme-map row 1 now matches the board: 1.19 live-verified on desktop. Local `main` stays ahead of `origin/main` until H pushes. Earlier stamp kept below._
 
 _Refreshed 7 Oct 2026 by `O-opus-07oct26` (O, PM — H's local Cursor session): H's 6 Oct reading and rulings applied (1.19 + C8 ✅, C12 bathroom ruling, C10 cleared for build, R4 runnable). Local `main` is ahead of `origin/main` by the 6 and 7 Oct docs commits until H pushes. Earlier stamp kept below._
@@ -14,8 +16,8 @@ _Last updated: 6 Oct 2026 by `O-opus-06oct26` (O, PM — Opus subagent in H's lo
 
 | Where | Commit | What it means |
 |---|---|---|
-| **Live** (Vercel / `origin/main`) | `c812c64` | Pushed **30 Sep 2026** (reflog `origin/main@{2026-09-30 00:57:29 +1300}: update by push`). Includes **C3** bfcache fix, **1.18** (dormant), **1.19** store-only filter, **C8** 1.18 fixes. Live bundle `assets/index-D9aV4O2w.js` contains `store-only`, `store_only`, `will NOT resolve` and `pageshow` (A verified 6 Oct; O re-fetched read-only 6 Oct). |
-| **Local `main`** | `c812c64` + the 6 Oct docs commits | **0 commits ahead at the time of writing.** The 6 Oct O docs commits are local until H pushes (docs only — no code change). |
+| **Live** (Vercel / `origin/main`) | `baebf95` | Pushed **11 Oct 2026** (`c812c64..baebf95`). Docs plus the staff guide. Planner bundle unchanged: `assets/index-D9aV4O2w.js` (O fetched 11 Oct, HTTP 200). Guide `https://planner.brownboxkit.co.nz/shopify-planner-guide.html` returned 200. Prior code push remains inside this history (`c812c64`, 30 Sep). |
+| **Local `main`** | `baebf95` | **0 commits ahead** after that push. This recording commit makes local `main` **1 ahead** until it is pushed. |
 
 **1.19 and C8: ✅ H live-verified on desktop, 6 Oct 2026** (1.19: 22 store-only hidden; C8: as far as the data allows — no `component_skus` exist yet). The touch leg of 1.19 is not separately confirmed. H live-verified **C3 on desktop** 31 Aug 2026; iPad/iPhone Safari leg of runbook R5 still optional.
 
@@ -111,7 +113,7 @@ Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
 4. **R4** — runnable now: populate `planner.component_skus` + Storefront exposure, then live-verify 1.18.
 4a. **Approve or reject** the bathroom-vanity scope paragraph for `UNIT-SKU-PLAN.md` (RELAY 7 Oct O entry).
 5. ~~Staff guide~~ — **done 10 Oct.** Committed under Setup and linked from the catalogue setup page.
-6. **Push local `main`** after O's 6 Oct docs commits.
+6. ~~Push local `main` after O's 6 Oct docs commits.~~ — **done 11 Oct.**
 7. **R2 / R3** — Apply Track 3 Supabase SQL; confirm Trade intake uses `project_code`.
 
 **PM / build (O → S) — when scheduled**

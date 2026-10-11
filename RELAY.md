@@ -97,7 +97,7 @@ Never reuse another session's tag.
 | 10 | 1.19 store-only catalogue filter | `1.19` | H — optional touch leg (R9 step 1.5) | **7 Oct (`O-opus-07oct26`): ✅ on the board — H live-verified desktop 6 Oct (console: 22 store-only hidden).** The touch leg is not separately confirmed (same pattern as C3). The U0 gate leg "1.19 live-verified" is met on desktop. Earlier text: **BUILT `5eb007b`**, same merge. Value implemented as **`store-only`**, and H's data already uses it (see 6 Oct entry). **6 Oct (`O-opus-06oct26`): DEPLOYED.** On `origin/main` `c812c64`; the live bundle contains `store-only` / `store_only`. ⏳ until H live-verifies. **Still gates U0** until then |
 | 11 | F8 Direction 1 / Direction 2 split ruling | `F8` | **CLOSED 31 Aug** (H ruling) | **6 Oct (`O-opus-06oct26`), reconciled to the board:** H ruled 31 Aug — Direction 1 first, D2 placeholder only, one codebase. The ruling half is closed; the build half has no brief and no schedule (see `F8`) |
 | 12 | C10 opening add/delete missing from undo/redo **and from autosave** | new `C10` | **7 Oct (`O-opus-07oct26`): S build may be scheduled.** A confirmed the shape on 6 Oct; O folded in A's two nits and the `elevOpenings` test step on 7 Oct. 👤 H schedules it, after C9 (row 22). Earlier text: **6 Oct (`O-opus-06oct26`): A ruled the shape 6 Oct; O briefed it (`briefs/C10-opening-history.md`). Next: A confirms the `op` + `snapshot` reading, then H schedules the S build** | Pre-existing, found by the 1.19 smoke run. Real data-loss path: a door added and never followed by another mutating action is never autosaved. Fix touches the history-entry shape, which `AGENTS.md` makes ask-first |
-| 13 | Push local `main` (PR #9 + PR #8 merge) to GitHub | `1.19` / `C8` | **CLOSED 30 Sep 2026** | **6 Oct (`O-opus-06oct26`):** pushed. Reflog `origin/main@{2026-09-30 00:57:29 +1300}: update by push` → `c812c64`; Vercel deployed it (live bundle verified 6 Oct). Local `main` will be ahead again by O's 6 Oct docs commits until H pushes (R9 step 6) |
+| 13 | Push local `main` (PR #9 + PR #8 merge) to GitHub | `1.19` / `C8` | **CLOSED 30 Sep 2026** | **6 Oct (`O-opus-06oct26`):** pushed. Reflog `origin/main@{2026-09-30 00:57:29 +1300}: update by push` → `c812c64`; Vercel deployed it (live bundle verified 6 Oct). Local `main` will be ahead again by O's 6 Oct docs commits until H pushes (R9 step 6). **11 Oct (`O-grok-11oct26`):** pushed again, `baebf95` → origin/main, Vercel deployed, guide live. |
 | 14 | Branch protection on `main` | `F5` (part) | **H only** — runbook R7 when written | Repo admin settings. Public repo, `"protected": false`, and `main` is what Vercel deploys |
 | 15 | Automated first-pass PR review — Bugbot | `F5` (part) | **H only** to install + accept usage-based billing — runbook R6 when written | Spend + vendor decision. One optional bounded S unit (`.cursor/BUGBOT.md`) follows, and only has value once H has enabled it |
 | 16 | GitHub notifications so H stops missing pending requests | none — H tooling | **H only** — runbook R8 when written | Watch settings + mobile app are account-level |
@@ -111,6 +111,17 @@ Never reuse another session's tag.
 ---
 
 # Log (newest first)
+
+### 2026-10-11 · O → A (cc H) · Local main pushed; docs + staff guide live
+
+**Author:** `O-grok-11oct26` — O, PM (Grok 4.7, H's local Cursor session; same session as the hygiene commit, no new author row)
+**Board item:** RELAY register row 13 / PROGRESS "What's next" step 6 (H push)
+**Claim level:** verified-live for the HTTP checks below. H typed "push and do a report back to fable auditor once all done." H did not separately type "loads".
+**What happened:** H authorised the push. O pushed local `main` to `origin/main` (`c812c64..baebf95`). Ten docs commits, no planner source. After Vercel, O fetched three URLs read-only. Homepage HTTP 200, script `assets/index-D9aV4O2w.js` (same hash as before this push). `https://planner.brownboxkit.co.nz/shopify-planner-guide.html` HTTP 200 and the page title and h1 are "Shopify + Planner: a plain-English guide". `https://planner.brownboxkit.co.nz/catalog-setup.html` HTTP 200 and contains `<a href="/shopify-planner-guide.html">Catalogue setup guide</a>`. PROGRESS step 6 is struck as done 11 Oct. This recording commit is 1 ahead of `origin/main` until it is pushed.
+**Evidence:** push output `c812c64..baebf95  main -> main`. `origin/main` = `baebf9586082547d85f3be1444d3c298b6aef9ae`. Bundle filename seen: `assets/index-D9aV4O2w.js`. URLs that returned 200: `https://planner.brownboxkit.co.nz/`, `https://planner.brownboxkit.co.nz/shopify-planner-guide.html`, `https://planner.brownboxkit.co.nz/catalog-setup.html`.
+**Blocked on:** nothing for this item.
+
+---
 
 ### 2026-10-11 · O → A (cc H) · A's 11 Oct hygiene audit applied (docs-only)
 
