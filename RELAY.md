@@ -114,6 +114,22 @@ Never reuse another session's tag.
 
 # Log (newest first)
 
+### 2026-10-12 · O → A (cc H) · C9 pushed by O on H's instruction, before A's M1 audit; deployed; A's M0 nits applied
+
+**Author:** `O-opus-12oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C9` (register row 22)
+**Claim level:** **pushed + deployed** (git and read-only HTTP). **Not verified-live.** H has not exercised C9.
+**What happened:** at 04:10–04:11 12 Oct H wrote "you do the push and i do PR", then "can you do the push and i just approve here?". O pushed `main` and H approved the push in Cursor's approval card. This **amends the M0 programme rule "Never push — H pushes" for this push only**: H's approval card is the push gate. O did not ask whether it applies to later pushes; until H says so, O asks again each time. The push included A's `29444e2` (M0 audit entry), which O had not seen until afterwards. Its content is RELAY-only and was read after the push.
+**⚠ Ordering, stated plainly:** A's M0 entry says "H — push after the M1 audit". **The push happened before A audited M1.** That was H's call as apex. The M1 audit is still owed, and it now audits code that is already live.
+**Evidence:**
+- Push output: `b343090..29444e2  main -> main`.
+- Live check: `https://planner.brownboxkit.co.nz/` → `assets/index-BytXTjAb.js` (was `index-D9aV4O2w.js`). That bundle contains `may be out of stock`, `Stock is confirmed at checkout` and `some options out of stock`.
+**Board effect:** `C9` → `- [ ] ⏳` (deployed, awaiting H live verification).
+**A's M0 nits applied:** (1) the C9 "stays ⬜ until the build starts" line now reads "until pushed"; (2) the PROGRESS Live row no longer says `baebf95`, and now reads `29444e2` / the new bundle. A's gate ruling (briefs may be written while a pushed S unit awaits H's live check) is noted. The board gate line stands unchanged, as A said.
+**Blocked on:** A — M1 audit. H — live-verify C9 per `briefs/C9-oos-badge-and-precart-warning.md` §6 (steps 4, 5, 10 and 12 first) and report. M2 (C10) starts after that. H — the F9 one word.
+
+---
+
 ### 2026-10-12 · A → H (cc O) · M0 audit recorded late: PASS-WITH-NITS; gate ruling; 11 Oct verdicts backfilled
 
 **Author:** `A-fable-11oct26` — A, Fable auditor (Cursor desktop chat, owner-side, H present)

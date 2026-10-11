@@ -18,8 +18,8 @@ _Last updated: 6 Oct 2026 by `O-opus-06oct26` (O, PM — Opus subagent in H's lo
 
 | Where | Commit | What it means |
 |---|---|---|
-| **Live** (Vercel / `origin/main`) | `baebf95` | Pushed **11 Oct 2026** (`c812c64..baebf95`). Docs plus the staff guide. Planner bundle unchanged: `assets/index-D9aV4O2w.js` (O fetched 11 Oct, HTTP 200). Guide `https://planner.brownboxkit.co.nz/shopify-planner-guide.html` returned 200. Prior code push remains inside this history (`c812c64`, 30 Sep). |
-| **Local `main`** | `b343090` | **12 Oct:** `origin/main` is also `b343090` (`git ls-remote`), so the 11 Oct recording commit is pushed. O's M0 docs commit makes local `main` **1 ahead** until H pushes. |
+| **Live** (Vercel / `origin/main`) | `29444e2` | **12 Oct 2026, 04:11:** pushed by O on H's instruction and approval (`b343090..29444e2`). **C9 is deployed:** the live bundle is now `assets/index-BytXTjAb.js` and contains the C9 strings (O fetched it read-only). H has not live-verified C9 yet. Earlier: `b343090` was the docs-only state before this push; it had the same bundle as `baebf95` (A's M0 nit 2). _11 Oct row, kept:_ `baebf95` pushed **11 Oct 2026** (`c812c64..baebf95`). Docs plus the staff guide. Planner bundle unchanged: `assets/index-D9aV4O2w.js` (O fetched 11 Oct, HTTP 200). Guide `https://planner.brownboxkit.co.nz/shopify-planner-guide.html` returned 200. Prior code push remains inside this history (`c812c64`, 30 Sep). |
+| **Local `main`** | `29444e2` + this docs commit | **12 Oct 04:11:** equal to `origin/main` after the push. This recording commit makes local `main` **1 ahead** until it is pushed. |
 
 **1.19 and C8: ✅ H live-verified on desktop, 6 Oct 2026** (1.19: 22 store-only hidden; C8: as far as the data allows — no `component_skus` exist yet). The touch leg of 1.19 is not separately confirmed. H live-verified **C3 on desktop** 31 Aug 2026; iPad/iPhone Safari leg of runbook R5 still optional.
 
@@ -95,7 +95,7 @@ Phase 1 at [planner.brownboxkit.co.nz](https://planner.brownboxkit.co.nz), Shopi
 ## Blockers & live defects (customer-facing)
 
 - **C12** — **H ruled 6 Oct:** bathroom products are in scope (a vanity = one product, one GLB). **H reports the 6 bathroom accessories tagged `store-only`, 7 Oct.** 👤 H: read the live `?catalogaudit=1` store-only line and send the number. C12 then closes with no code change. Do **not** blanket-hide `kitchen hardware`.
-- **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2; brief ready 6 Oct. **Scheduled first by H, 12 Oct (F programme M1).** Built 12 Oct (`82cb385`). Not pushed, so the live site still has no warning.
+- **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2; brief ready 6 Oct. **Scheduled first by H, 12 Oct (F programme M1).** Built 12 Oct (`82cb385`); deployed 12 Oct 04:11. Awaiting H live verification.
 
 _C11 was closed 6 Oct 2026 by H ruling: `(drft)` products are intentionally visible for live testing, and they are customer-visible during the test period by owner decision. It is not a defect._
 
@@ -120,7 +120,7 @@ Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
 
 **PM / build (O → S) — the F programme (H, 12 Oct 2026). One S unit in flight; milestone-by-milestone with an A audit at each STOP.** Rulings and the per-item gates are in [TASKS.md](TASKS.md) § Future scope → F programme.
 
-1. **C9** — M1 S build. OOS badge + pre-cart warning. Brief A-passed: [briefs/C9-oos-badge-and-precart-warning.md](briefs/C9-oos-badge-and-precart-warning.md). **Built 12 Oct, commit `82cb385` (reviewer: ship). Not pushed, not verified.** 👤 H: push, then live-verify per the brief §6.
+1. **C9** — M1 S build. OOS badge + pre-cart warning. Brief A-passed: [briefs/C9-oos-badge-and-precart-warning.md](briefs/C9-oos-badge-and-precart-warning.md). **Built 12 Oct, commit `82cb385` (reviewer: ship). ⏳ Pushed + deployed 12 Oct 04:11 (bundle `index-BytXTjAb.js`). Not live-verified.** 👤 H: live-verify per the brief §6. A's M1 audit is still owed.
 2. **C10** — M2 S build, after C9 is live-verified. Openings add/delete → undo/redo + autosave. Brief A-passed: [briefs/C10-opening-history.md](briefs/C10-opening-history.md).
 3. **F1 + C6** — M3 brief, then M4 build. CSV image column plus one escaping helper (C6 is folded in).
 4. **F2** — M5 brief, then M6 build. PDF thumbnails, grouped by category.
