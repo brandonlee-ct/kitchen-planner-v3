@@ -113,6 +113,39 @@ Never reuse another session's tag.
 
 # Log (newest first)
 
+### 2026-10-12 · O → A (cc H) · M1: C9 built by S, reviewer "ship" — built, NOT pushed, NOT verified
+
+**Author:** `O-opus-12oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C9` (register row 22)
+**Claim level:** **built.** Code commit `82cb385` on local `main`, plus this docs commit. **Not pushed, not verified-local in a browser, not verified-live.**
+**Relaying work by:** S — Composer (`composer-2.5-fast`, executor subagent), which wrote the code and ran `npm run build`. Reviewer subagent, which gave the verdict. O read the send-cart insertion point at file level and committed the unit.
+
+**Gate on entry.** H typed "continue" at 03:45 12 Oct. **No A audit of M0 has landed in this file.** O took H's "continue" as the signal that A has audited, per H's programme rule. If A's M0 findings exist in chat only, they are not yet recorded here.
+
+**What was built** (`main.js` only, +57 / −0):
+- **Badge.** In `renderProductPanel`, after the `default size` badge, one `div.product-item-badge`. It reads `out of stock` when every sku with a `variantId` has `available === false`, and `some options out of stock` when only some do. The check is strict `=== false`. No CSS change.
+- **Helper.** `findUnavailableCartLines(lineMap)` indexes `products` by `variantId`. It reports only variants that are found **and** `available === false`. `getComponentVariantIndex` is untouched.
+- **Pre-flight.** In the `btn-send-cart` handler, after `if (lineMap.size === 0)` and before `const lines` / `btn.disabled = true`, there is one `confirm()` with the brief §3b copy (singular/plural, 8-line cap, final line verbatim). Cancel returns before anything is disabled. OK runs the existing code unchanged.
+
+**Evidence:**
+- `82cb385` `git show --stat`: `main.js | 57 +` (1 file).
+- S: `npm run build` → `✓ built in 15.53s`.
+- Reviewer: **ship**, with no blocking findings. The cart `lines` stay byte-identical because the helper only reads `lineMap`. Cancel returns before `newProjectCode()` and `btn.disabled`, so the C3 `pageshow` path is unaffected. No scene_json, history, `placeProduct`, `PRODUCTS_QUERY` or `cartCreate`-input change. Product names reach `confirm()` as a plain string; the badge uses `textContent`.
+- **Nits, not actioned** (O writes no code; A/H may ask for a follow-up): (1) `findUnavailableCartLines` sits under the `// ── Component SKUs … (1.18) ──` header and would be better under its own `// ── Cart availability pre-flight (C9) ──` header; (2) the two badge branches duplicate create/append.
+
+**Not done, stated plainly.**
+- Neither S nor O ran the planner in a browser. The brief's DoD item "exercised in the target role/context/device" and the `AGENTS.md` smoke checklist are **open**.
+- The reviewer lists what only a live run can prove: `?embed=1` inside the real storefront frame (brief risk 1); the `cartCreate` payload identical to the pre-change build; the long-list dialog fitting an iPhone; Cancel → button green; Back from checkout (C3); whether INSTALL QUOTE REQUEST is badged (risk 2).
+
+**Departure, flagged.** M1 says "commit as S's unit". O made **two** commits: the code unit `82cb385` (code only, so it can be reverted on its own, Law D), then this docs-only record (Law J). If A or H want one commit per milestone, say so for M2.
+
+**Blocked on:**
+- A — audit M1.
+- H — push `main` (this sends `d111134`, `82cb385` and this docs commit). Then live-verify per `briefs/C9-oos-badge-and-precart-warning.md` §6, using the live URL in step 1, not a branch checkout. Steps 4, 5, 10 and 12 first.
+- `C9` ticks ✅ only on H's report. M2 (C10) does not start until then.
+
+---
+
 ### 2026-10-12 · O → A (cc H) · F programme opened (M0): H's rulings (a)–(e) and the sequence on the board
 
 **Author:** `O-opus-12oct26` — O, PM (Opus, H's local Cursor session)

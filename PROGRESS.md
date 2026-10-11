@@ -95,7 +95,7 @@ Phase 1 at [planner.brownboxkit.co.nz](https://planner.brownboxkit.co.nz), Shopi
 ## Blockers & live defects (customer-facing)
 
 - **C12** — **H ruled 6 Oct:** bathroom products are in scope (a vanity = one product, one GLB). **H reports the 6 bathroom accessories tagged `store-only`, 7 Oct.** 👤 H: read the live `?catalogaudit=1` store-only line and send the number. C12 then closes with no code change. Do **not** blanket-hide `kitchen hardware`.
-- **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2; brief ready 6 Oct. **Scheduled first by H, 12 Oct (F programme M1).** No S build has started yet.
+- **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2; brief ready 6 Oct. **Scheduled first by H, 12 Oct (F programme M1).** Built 12 Oct (`82cb385`). Not pushed, so the live site still has no warning.
 
 _C11 was closed 6 Oct 2026 by H ruling: `(drft)` products are intentionally visible for live testing, and they are customer-visible during the test period by owner decision. It is not a defect._
 
@@ -120,7 +120,7 @@ Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
 
 **PM / build (O → S) — the F programme (H, 12 Oct 2026). One S unit in flight; milestone-by-milestone with an A audit at each STOP.** Rulings and the per-item gates are in [TASKS.md](TASKS.md) § Future scope → F programme.
 
-1. **C9** — M1 S build. OOS badge + pre-cart warning. Brief A-passed: [briefs/C9-oos-badge-and-precart-warning.md](briefs/C9-oos-badge-and-precart-warning.md).
+1. **C9** — M1 S build. OOS badge + pre-cart warning. Brief A-passed: [briefs/C9-oos-badge-and-precart-warning.md](briefs/C9-oos-badge-and-precart-warning.md). **Built 12 Oct, commit `82cb385` (reviewer: ship). Not pushed, not verified.** 👤 H: push, then live-verify per the brief §6.
 2. **C10** — M2 S build, after C9 is live-verified. Openings add/delete → undo/redo + autosave. Brief A-passed: [briefs/C10-opening-history.md](briefs/C10-opening-history.md).
 3. **F1 + C6** — M3 brief, then M4 build. CSV image column plus one escaping helper (C6 is folded in).
 4. **F2** — M5 brief, then M6 build. PDF thumbnails, grouped by category.
