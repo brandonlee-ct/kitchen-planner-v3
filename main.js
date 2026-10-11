@@ -5106,6 +5106,22 @@ function renderProductPanel() {
         body.appendChild(sizeBadge);
       }
 
+      const cartable = product.skus.filter(s => s.variantId);
+      if (cartable.length > 0) {
+        const oosCount = cartable.filter(s => s.available === false).length;
+        if (oosCount === cartable.length) {
+          const oosBadge = document.createElement('div');
+          oosBadge.className = 'product-item-badge';
+          oosBadge.textContent = 'out of stock';
+          body.appendChild(oosBadge);
+        } else if (oosCount > 0) {
+          const oosBadge = document.createElement('div');
+          oosBadge.className = 'product-item-badge';
+          oosBadge.textContent = 'some options out of stock';
+          body.appendChild(oosBadge);
+        }
+      }
+
       div.appendChild(thumb);
       div.appendChild(body);
 
@@ -5252,6 +5268,29 @@ function resolveComponentLines(product) {
     }
     return { variantId: c.variantId, qty: c.qty, name: hit.name, label: hit.label, unitPrice: hit.price };
   });
+}
+
+function findUnavailableCartLines(lineMap) {
+  const byVariant = new Map();
+  products.forEach(p => {
+    (p.skus || []).forEach(s => {
+      if (s.variantId && !byVariant.has(s.variantId)) {
+        byVariant.set(s.variantId, {
+          name: p.name,
+          label: s.label || '',
+          available: s.available,
+        });
+      }
+    });
+  });
+  const out = [];
+  lineMap.forEach((qty, variantId) => {
+    const hit = byVariant.get(variantId);
+    if (hit && hit.available === false) {
+      out.push({ name: hit.name, label: hit.label, qty });
+    }
+  });
+  return out;
 }
 
 function updateQuote() {
@@ -5985,6 +6024,24 @@ document.getElementById('btn-send-cart').addEventListener('click', async () => {
   if (lineMap.size === 0) {
     showImportToast('Add cabinets to your plan first.', true);
     return;
+  }
+
+  const unavailableLines = findUnavailableCartLines(lineMap);
+  if (unavailableLines.length) {
+    console.log('[send-to-cart] ' + unavailableLines.length + ' line(s) may be out of stock');
+    const n = unavailableLines.length;
+    const head = n === 1 ? '1 item may be out of stock:' : n + ' items may be out of stock:';
+    const listLines = unavailableLines.slice(0, 8).map(u => {
+      let line = '• ' + u.name;
+      if (u.label && u.label !== 'Standard') line += ' — ' + u.label;
+      return line + ' (×' + u.qty + ')';
+    });
+    if (unavailableLines.length > 8) {
+      listLines.push('…and ' + (unavailableLines.length - 8) + ' more');
+    }
+    const msg = head + '\n\n' + listLines.join('\n') +
+      '\n\nStock is confirmed at checkout. Continue to checkout anyway?';
+    if (!confirm(msg)) return;
   }
 
   const lines = Array.from(lineMap.entries()).map(([variantId, qty]) => ({
