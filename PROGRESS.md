@@ -4,6 +4,8 @@
 > truth for what's done / next); [ROADMAP.md](ROADMAP.md) is the plain-English plan. This
 > file summarises — update **TASKS.md** when a task moves, then refresh this snapshot.
 
+_Refreshed 12 Oct 2026 by `O-opus-12oct26` (O, PM — Opus, H's local Cursor session), F programme M0: H's 12 Oct rulings are on the board, and "What's next" now follows the F programme order. Before this commit, `origin/main` = local `main` = `b343090` (`git ls-remote`, 12 Oct). O did not re-check the live bundle; this is a docs-only change. This commit is 1 ahead until H pushes. Earlier stamps kept below._
+
 _Refreshed 11 Oct 2026 by `O-grok-11oct26` (same session): H pushed local `main`. Live and `origin/main` are `baebf95`. Staff guide is live. This recording commit is 1 ahead until it is pushed. Earlier stamp kept below._
 
 _Refreshed 11 Oct 2026 by `O-grok-11oct26` (O, PM — Grok 4.7 in H's local Cursor session): A's 11 Oct repo-hygiene audit applied (docs-only). Programme-map row 1 now matches the board: 1.19 live-verified on desktop. Local `main` stays ahead of `origin/main` until H pushes. Earlier stamp kept below._
@@ -17,7 +19,7 @@ _Last updated: 6 Oct 2026 by `O-opus-06oct26` (O, PM — Opus subagent in H's lo
 | Where | Commit | What it means |
 |---|---|---|
 | **Live** (Vercel / `origin/main`) | `baebf95` | Pushed **11 Oct 2026** (`c812c64..baebf95`). Docs plus the staff guide. Planner bundle unchanged: `assets/index-D9aV4O2w.js` (O fetched 11 Oct, HTTP 200). Guide `https://planner.brownboxkit.co.nz/shopify-planner-guide.html` returned 200. Prior code push remains inside this history (`c812c64`, 30 Sep). |
-| **Local `main`** | `baebf95` | **0 commits ahead** after that push. This recording commit makes local `main` **1 ahead** until it is pushed. |
+| **Local `main`** | `b343090` | **12 Oct:** `origin/main` is also `b343090` (`git ls-remote`), so the 11 Oct recording commit is pushed. O's M0 docs commit makes local `main` **1 ahead** until H pushes. |
 
 **1.19 and C8: ✅ H live-verified on desktop, 6 Oct 2026** (1.19: 22 store-only hidden; C8: as far as the data allows — no `component_skus` exist yet). The touch leg of 1.19 is not separately confirmed. H live-verified **C3 on desktop** 31 Aug 2026; iPad/iPhone Safari leg of runbook R5 still optional.
 
@@ -93,7 +95,7 @@ Phase 1 at [planner.brownboxkit.co.nz](https://planner.brownboxkit.co.nz), Shopi
 ## Blockers & live defects (customer-facing)
 
 - **C12** — **H ruled 6 Oct:** bathroom products are in scope (a vanity = one product, one GLB). **H reports the 6 bathroom accessories tagged `store-only`, 7 Oct.** 👤 H: read the live `?catalogaudit=1` store-only line and send the number. C12 then closes with no code change. Do **not** blanket-hide `kitchen hardware`.
-- **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2; brief ready 6 Oct, awaiting S build.
+- **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2; brief ready 6 Oct. **Scheduled first by H, 12 Oct (F programme M1).** No S build has started yet.
 
 _C11 was closed 6 Oct 2026 by H ruling: `(drft)` products are intentionally visible for live testing, and they are customer-visible during the test period by owner decision. It is not a defect._
 
@@ -116,13 +118,20 @@ Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
 6. ~~Push local `main` after O's 6 Oct docs commits.~~ — **done 11 Oct.**
 7. **R2 / R3** — Apply Track 3 Supabase SQL; confirm Trade intake uses `project_code`.
 
-**PM / build (O → S) — when scheduled**
+**PM / build (O → S) — the F programme (H, 12 Oct 2026). One S unit in flight; milestone-by-milestone with an A audit at each STOP.** Rulings and the per-item gates are in [TASKS.md](TASKS.md) § Future scope → F programme.
 
-- **C9 — first.** OOS badge + pre-cart warning (A granted options 1+2). Brief ready and A-passed: [briefs/C9-oos-badge-and-precart-warning.md](briefs/C9-oos-badge-and-precart-warning.md); awaiting H to schedule the S build.
-- **C10 — after C9.** Openings add/delete → undo/redo + autosave. A confirmed the shape 6 Oct; nits folded 7 Oct. Brief: [briefs/C10-opening-history.md](briefs/C10-opening-history.md); S build may be scheduled.
-- **Track 2** — Auto-design UI wiring.
-- **DIY-2** — Square room + wizard steps 1–2 (brief ready).
-- Backlog: 1.17b, C6 CSV escaping, cosmetics C1/C2/C4/C7, F6 login gate, F7 analytics.
+1. **C9** — M1 S build. OOS badge + pre-cart warning. Brief A-passed: [briefs/C9-oos-badge-and-precart-warning.md](briefs/C9-oos-badge-and-precart-warning.md).
+2. **C10** — M2 S build, after C9 is live-verified. Openings add/delete → undo/redo + autosave. Brief A-passed: [briefs/C10-opening-history.md](briefs/C10-opening-history.md).
+3. **F1 + C6** — M3 brief, then M4 build. CSV image column plus one escaping helper (C6 is folded in).
+4. **F2** — M5 brief, then M6 build. PDF thumbnails, grouped by category.
+5. **F3** — M7 design note (plan + elevation drawings). Briefs follow only after H signs off the note.
+6. **F6** — M9 scoping: what a guest may do before sign-in. An H ruling comes before any brief.
+7. **F7** — M10 scoping: analytics vendor and cost. It stops at H's spend/vendor decision.
+8. **F5** — M11 runbooks R6/R7/R8 and a ROLES.md human-roles draft. H applies them.
+9. **F9** — last, **un-briefed**: H has not yet said whether it means renders or capture/export.
+
+Deferred by H (12 Oct): cosmetics C1/C2/C4/C7. Closed for this programme: F4, F8.
+Not in the programme and unscheduled while it holds the S slot: Track 2 auto-design wiring, **DIY-2** (unblocked, but its build brief is **not written yet** — the board governs; this snapshot's earlier "brief ready" was wrong), 1.17b, the C13 candidate.
 
 **Deferred / Opus**
 

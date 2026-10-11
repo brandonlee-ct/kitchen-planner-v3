@@ -56,6 +56,7 @@ Never reuse another session's tag.
 | `O-opus-06oct26` | **O** — PM | Opus, running as a subagent inside H's **local** Cursor session (precedent: `O-opus-31aug26`) | `C:\dev\kitchen-planner-v3`, `main` = `origin/main` = `c812c64`, 6 Oct 2026. Docs only: board reconciled to deploy reality, C9 and C10 briefs |
 | `O-opus-07oct26` | **O** — PM | Opus, running in H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, local `main` @ `f98b3c9` (6 Oct docs commits, not yet pushed), 7 Oct 2026. Tag set by H's boot instruction. One-O check done first: `git log -3` showed nothing newer than `f98b3c9`. Docs only: H's 6 Oct readings and rulings recorded |
 | `O-grok-11oct26` | **O** — PM | Grok 4.7, H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` @ `534ef0f`, 11 Oct 2026. One-O check done first: `git log -3` showed nothing newer than `534ef0f`. Docs only: A's 11 Oct repo-hygiene audit applied |
+| `O-opus-12oct26` | **O** — PM | Opus, H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` = `origin/main` = `b343090` (`git ls-remote`), 12 Oct 2026. One-O check done first: `git log -3` showed nothing newer than `b343090`. F programme M0, docs only |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -92,7 +93,7 @@ Never reuse another session's tag.
 | 5 | Track 3 — confirm Trade `project_code` key | Track 3 | **H → Trade** — R3 | Cross-system contract; Law Q forbids unilateral change |
 | 6 | Track 3 — checkout evidence #1034/#1035 | Track 3 | **CLOSED 21 Aug** (A) | H supplied Shopify Admin screenshots for both orders; A checked against CHECKOUT-CAPTURE.md "Done when" — both PASS. 🔴 U1 cleared. Residual: test-mode orders only, Trade-webhook delivery not yet confirmed (see log entry) |
 | 7 | A rulings requested last cycle | — | **CLOSED** (all 4) | **CLOSED 19 Aug:** add-on-vs-BOM intent → **ADD-ON**, confirmed by A+H; one-branch sequencing → accepted (the branch was audited and merged). **CLOSED 20 Aug (A ruling, relayed 21 Aug — see log entry):** agent-observed catalogue counts stay **relay-only** and appear on the board in **no form, not even provisional**, until H reports a clean dated `?catalogaudit=1` reading; unresolved components are **NEVER silently dropped** — warn-and-send stands as built, protected by the R4 zero-unresolved gate. **7 Oct (`O-opus-07oct26`): the counts condition is SATISFIED.** H reported a clean dated `?catalogaudit=1` reading (6 Oct 2026 22:50, desktop Chrome, live). Those counts are now on the board as "H reading 6 Oct 2026 22:50". Agent-observed counts (e.g. A's category breakdown) still stay relay-only |
-| 8 | C6 CSV injection / quoting hardening | `C6` | O — brief when scheduled | Pre-existing, surfaced by the 1.18 review. Not a regression; deliberately not fixed in 1.18 |
+| 8 | C6 CSV injection / quoting hardening | `C6` | **12 Oct (`O-opus-12oct26`): folded into `F1` by H ruling (c).** O writes the F1 brief at M3. Earlier text: O — brief when scheduled | Pre-existing, surfaced by the 1.18 review. Not a regression; deliberately not fixed in 1.18 |
 | 9 | C8 1.18 quantity-edge + audit resolved-set fixes | `C8` | **CLOSED 7 Oct** (H verified 6 Oct) | **7 Oct (`O-opus-07oct26`): ✅ on the board.** H verified it live as far as the data allows (the count lines print; 0 products carry `component_skus`). The qty-edge and draft-parent paths are first exercised on live data by R4 step 4. R4 released. Earlier text: **BUILT `cf1f7c6`**, merged in `f3098ce`. **6 Oct (`O-opus-06oct26`): DEPLOYED.** On `origin/main` `c812c64` (pushed 30 Sep 2026); the live bundle contains `will NOT resolve`. ⏳ until H live-verifies. That verification releases R4 |
 | 10 | 1.19 store-only catalogue filter | `1.19` | H — optional touch leg (R9 step 1.5) | **7 Oct (`O-opus-07oct26`): ✅ on the board — H live-verified desktop 6 Oct (console: 22 store-only hidden).** The touch leg is not separately confirmed (same pattern as C3). The U0 gate leg "1.19 live-verified" is met on desktop. Earlier text: **BUILT `5eb007b`**, same merge. Value implemented as **`store-only`**, and H's data already uses it (see 6 Oct entry). **6 Oct (`O-opus-06oct26`): DEPLOYED.** On `origin/main` `c812c64`; the live bundle contains `store-only` / `store_only`. ⏳ until H live-verifies. **Still gates U0** until then |
 | 11 | F8 Direction 1 / Direction 2 split ruling | `F8` | **CLOSED 31 Aug** (H ruling) | **6 Oct (`O-opus-06oct26`), reconciled to the board:** H ruled 31 Aug — Direction 1 first, D2 placeholder only, one codebase. The ruling half is closed; the build half has no brief and no schedule (see `F8`) |
@@ -106,11 +107,42 @@ Never reuse another session's tag.
 | 19 | Delete branch `cursor/a-audit-relay-entries` after #9 is on GitHub | none | **H** | `AGENTS.md`: merge or delete feature branches the same day the work is accepted |
 | 20 | Staff guide `public/shopify-planner-guide.html` | Setup "Catalogue setup guide" | **CLOSED 10 Oct** (H: "do it") | **10 Oct (`O-opus-07oct26`):** committed as a sub-line under Setup, linked from `public/catalog-setup.html`. §6 checked against ADD-ON and the 6 Oct bathroom ruling; three stale sentences corrected (see the log). The plan file was never committed; it is deleted from the working tree |
 | 21 | C12 — confirm the remaining `kitchen hardware` products are customer-placeable | `C12` | **H — read the `?catalogaudit=1` store-only line** (R9 step 3.4) | Added by `O-opus-06oct26`. **7 Oct (`O-opus-07oct26`): H RULED 6 Oct** (bathroom in scope; 5 kitchen items stay placeable; 6 accessories go `store-only`). **Same evening: H reports the 6 tagged.** O's read-only Storefront check agrees. C12 closes, with no code change, when H reports the audit line. The UNIT-SKU-PLAN.md scope note is awaiting H sign-off |
-| 22 | C9 OOS badge + pre-cart warning — S build; **then C10 S build** | `C9`, `C10` | **H** — schedule the S builds: **C9 first** (revenue path), **then C10** (both briefs cleared by A, 6 Oct) | **7 Oct (`O-opus-07oct26`): C10 added to this row** — brief `briefs/C10-opening-history.md`, gate released by A 6 Oct, nits folded 7 Oct. O has started neither build. | Added by `O-opus-06oct26`. Brief: `briefs/C9-oos-badge-and-precart-warning.md`. A granted options 1+2 on 21 Aug; sequencing condition met. Live revenue risk: per A's 6 Oct observation, most products are unavailable |
+| 22 | C9 OOS badge + pre-cart warning — S build; **then C10 S build** | `C9`, `C10` | **12 Oct (`O-opus-12oct26`): SCHEDULED by H ruling (a)** as F programme M1 (C9) and M2 (C10). Next owner: **O runs S at M1**, after A audits M0 and H types "continue". Earlier text: **H** — schedule the S builds: **C9 first** (revenue path), **then C10** (both briefs cleared by A, 6 Oct) | **7 Oct (`O-opus-07oct26`): C10 added to this row** — brief `briefs/C10-opening-history.md`, gate released by A 6 Oct, nits folded 7 Oct. O has started neither build. | Added by `O-opus-06oct26`. Brief: `briefs/C9-oos-badge-and-precart-warning.md`. A granted options 1+2 on 21 Aug; sequencing condition met. Live revenue risk: per A's 6 Oct observation, most products are unavailable |
 
 ---
 
 # Log (newest first)
+
+### 2026-10-12 · O → A (cc H) · F programme opened (M0): H's rulings (a)–(e) and the sequence on the board
+
+**Author:** `O-opus-12oct26` — O, PM (Opus, H's local Cursor session)
+**Board items:** `C9`, `C10`, `C1`, `C2`, `C4`, `C6`, `C7`, `F1`–`F9`; register rows 8 and 22
+**Claim level:** **planned.** Docs only, one local commit, **not pushed**. No code, no S build, `npm` not run.
+**Relaying work by:** H — the 12 Oct programme instruction and rulings (a)–(e).
+
+**Pre-flight.** Workspace `C:\dev\kitchen-planner-v3`, branch `main`, tree clean. `git log -1` = `b343090`, which matches H's precondition. `git ls-remote origin refs/heads/main` = `b343090…`, so the 11 Oct recording commit is pushed. One-O check: nothing newer than `b343090`.
+
+**What O recorded** (TASKS.md § Future scope → "F programme — H rulings 12 Oct 2026", plus one dated line on each affected item):
+- **(a) C9 then C10 build first**, before any F unit. **H did not override it:** the "[H: edit if overriding]" slot was left as written, and H did not write "defer". C9 and C10 stay `- [ ] ⬜`, marked "scheduled — planned".
+- **(b)** C1, C2, C4 and C7 are deferred, with a dated line on each.
+- **(c)** C6 is folded into F1. The C6 line closes when F1 is live-verified. Register row 8 is updated.
+- **(d)** F4 and F8 stay closed. ⚠ **Reading for A to check:** F8 has never been ticked. Its ruling half is closed, and its line is still `- [ ] ⬜` because its build work lives under Track 2, F3 and Track 6. O recorded (d) as "no unit is built under this ID", and **did not tick F8**. Ticking it would claim the build half is done.
+- **(e) F9 is treated as undecided.** H's slot "[renders | capture/export | undecided]" was left unfilled. O did not read an unfilled placeholder as an answer. F9 runs last and stays un-briefed. **👤 H: one word ends this:** renders, or capture/export.
+- **Order and gates.** `C9 → C10 → F1+C6 → F2 → F3 → F6 → F7 → F5 → F9` is a nine-row table, with a one-line gate per item and the hard-stop rule restated.
+
+**Two findings while reading — O fixed neither, apart from the PROGRESS wording:**
+1. **The F5 brief does not exist.** The 31 Aug entry (`O-opus-31aug26`) says O produced `briefs/S-BRIEF-F5-pr-review-and-protection.md`. **The file is not in the repo** (glob for `**/S-BRIEF-F5*` returns 0 files), so it was never committed. Register rows 14–16 still say R6/R7/R8 are "when written", and that is accurate. The F5 line on the board now says so, and M11 will write R6–R8 from the 31 Aug relay text.
+2. **The DIY-2 brief status was wrong in PROGRESS.** PROGRESS said "DIY-2 … (brief ready)". The board says "ready for O to write the build brief", and `briefs/` holds no DIY-2 brief. The board wins. PROGRESS is corrected in this commit.
+
+**Departure from the literal instruction, flagged.** H asked for "RELAY session row + one entry". O also updated register rows **8** and **22**. Both rows named the next action as "H — schedule" or "O — brief when scheduled", and H's rulings made that false today. Leaving them would put a known contradiction in the register (Law O). Each cell starts with **12 Oct** and keeps its earlier text. Rows 14–16 were not touched; they are still accurate.
+
+**Question for H — the plan cannot answer this:** may O write a *brief* (for example M3, the F1 brief) while the previous S unit is pushed but still waiting for H's live verification? O wrote the board gate as: S builds need the previous S unit live-verified; doc milestones need A's audit plus H's "continue". If H wants briefs held as well, say so and O will amend the gate line.
+
+**Evidence:** this commit (`TASKS.md`, `PROGRESS.md`, `RELAY.md`). The hash is reported at session close.
+**Open asks of A:** audit M0, in particular: the F8 "stays closed, not ticked" reading in (d); treating the unfilled (e) as undecided; the register-row departure; and the start-gate wording.
+**Blocked on:** A — audit M0. H — "continue" (this unlocks M1, the C9 S build); the F9 one-word answer; the brief-overlap question above. H — push this commit when convenient. Nothing in the planner changes.
+
+---
 
 ### 2026-10-11 · O → A (cc H) · Local main pushed; docs + staff guide live
 
