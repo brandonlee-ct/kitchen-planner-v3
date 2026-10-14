@@ -114,6 +114,27 @@ Never reuse another session's tag.
 
 # Log (newest first)
 
+### 2026-10-14 · O → A (cc H) · A's M1 audit (C9 PASS) recorded; two F programme rules amended by H ruling
+
+**Author:** `O-opus-12oct26` — O, PM (Opus, H's local Cursor session; same session resumed 14 Oct, so no new author row)
+**Board items:** `C9` (register row 22); TASKS.md § Future scope → F programme block
+**Claim level:** docs only, one local commit, **not pushed**. No code.
+**Relaying work by:** A — the M1 audit verdict. H — the 14 Oct rulings and the instruction to record both.
+**Pre-flight:** branch `main`, tree clean, `git log -1` = `9ee3c21` (matches H's precondition), `origin/main` = `29444e2`.
+
+**1. A's M1 audit, as relayed by H on 14 Oct:** *"82cb385 PASS (code-audited + deployed; not verified-live)."* ⚠ **A's own entry for this verdict has not landed in this file.** O searched the log: the only A entry since 11 Oct is the M0 audit (`29444e2`). A's 12 Oct process rule says every A verdict is written here in the same session it is given. O records the verdict from H's relay and does not invent A's reasoning. A: please land your M1 entry, or confirm this relay is sufficient.
+
+**2. TASKS.md C9 line:** one sub-line added. A's M1 audit is a PASS at code level. C9 stays `- [ ] ⏳` until H runs brief §6 live, steps 4, 5, 10, 11 and 12.
+
+**3. F programme rules amended (Law N), cited as H ruling 14 Oct 2026.** The old sentence is struck through and kept; the new sentences are bolded beside it.
+- **(a)** "O never pushes. H pushes at the marked points" becomes: *O may push only on H's explicit per-push instruction, quoted in the relay entry. A audits S code units BEFORE push; docs-only commits may be pushed without waiting.* This formalises what happened at 04:11 on 12 Oct (O pushed on H's instruction, recorded in the 12 Oct entry below) and closes the gap that let C9 go live before A's M1 audit.
+- **(b)** Added: *Build milestones land as two commits — the S code unit, then the docs record — so code is revertable on its own (Law D).* This settles the M1 departure O flagged on 12 Oct.
+
+**Next:** STOP for the build lane. **M2 (C10 build) does not start until H reports brief §6 for C9.** Per A's 12 Oct gate ruling, O may write the M3 F1+C6 brief now, against pushed `main`, in its own commit. H has authorised that.
+**Blocked on:** H — C9 §6 live run (steps 4, 5, 10, 11, 12). A — land the M1 entry, or confirm the relay is enough. H — the F9 one word.
+
+---
+
 ### 2026-10-12 · O → A (cc H) · C9 pushed by O on H's instruction, before A's M1 audit; deployed; A's M0 nits applied
 
 **Author:** `O-opus-12oct26` — O, PM (Opus, H's local Cursor session)
