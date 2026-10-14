@@ -99,7 +99,7 @@ Never reuse another session's tag.
 | 9 | C8 1.18 quantity-edge + audit resolved-set fixes | `C8` | **CLOSED 7 Oct** (H verified 6 Oct) | **7 Oct (`O-opus-07oct26`): ✅ on the board.** H verified it live as far as the data allows (the count lines print; 0 products carry `component_skus`). The qty-edge and draft-parent paths are first exercised on live data by R4 step 4. R4 released. Earlier text: **BUILT `cf1f7c6`**, merged in `f3098ce`. **6 Oct (`O-opus-06oct26`): DEPLOYED.** On `origin/main` `c812c64` (pushed 30 Sep 2026); the live bundle contains `will NOT resolve`. ⏳ until H live-verifies. That verification releases R4 |
 | 10 | 1.19 store-only catalogue filter | `1.19` | H — optional touch leg (R9 step 1.5) | **7 Oct (`O-opus-07oct26`): ✅ on the board — H live-verified desktop 6 Oct (console: 22 store-only hidden).** The touch leg is not separately confirmed (same pattern as C3). The U0 gate leg "1.19 live-verified" is met on desktop. Earlier text: **BUILT `5eb007b`**, same merge. Value implemented as **`store-only`**, and H's data already uses it (see 6 Oct entry). **6 Oct (`O-opus-06oct26`): DEPLOYED.** On `origin/main` `c812c64`; the live bundle contains `store-only` / `store_only`. ⏳ until H live-verifies. **Still gates U0** until then |
 | 11 | F8 Direction 1 / Direction 2 split ruling | `F8` | **CLOSED 31 Aug** (H ruling) | **6 Oct (`O-opus-06oct26`), reconciled to the board:** H ruled 31 Aug — Direction 1 first, D2 placeholder only, one codebase. The ruling half is closed; the build half has no brief and no schedule (see `F8`) |
-| 12 | C10 opening add/delete missing from undo/redo **and from autosave** | new `C10` | **7 Oct (`O-opus-07oct26`): S build may be scheduled.** A confirmed the shape on 6 Oct; O folded in A's two nits and the `elevOpenings` test step on 7 Oct. 👤 H schedules it, after C9 (row 22). Earlier text: **6 Oct (`O-opus-06oct26`): A ruled the shape 6 Oct; O briefed it (`briefs/C10-opening-history.md`). Next: A confirms the `op` + `snapshot` reading, then H schedules the S build** | Pre-existing, found by the 1.19 smoke run. Real data-loss path: a door added and never followed by another mutating action is never autosaved. Fix touches the history-entry shape, which `AGENTS.md` makes ask-first |
+| 12 | C10 opening add/delete missing from undo/redo **and from autosave** | new `C10` | **15 Oct (`O-opus-14oct26`): BUILT `394897a`, not pushed, not verified.** Next: **A audits the code before any push.** Earlier text: **7 Oct (`O-opus-07oct26`): S build may be scheduled.** A confirmed the shape on 6 Oct; O folded in A's two nits and the `elevOpenings` test step on 7 Oct. 👤 H schedules it, after C9 (row 22). Earlier text: **6 Oct (`O-opus-06oct26`): A ruled the shape 6 Oct; O briefed it (`briefs/C10-opening-history.md`). Next: A confirms the `op` + `snapshot` reading, then H schedules the S build** | Pre-existing, found by the 1.19 smoke run. Real data-loss path: a door added and never followed by another mutating action is never autosaved. Fix touches the history-entry shape, which `AGENTS.md` makes ask-first |
 | 13 | Push local `main` (PR #9 + PR #8 merge) to GitHub | `1.19` / `C8` | **CLOSED 30 Sep 2026** | **6 Oct (`O-opus-06oct26`):** pushed. Reflog `origin/main@{2026-09-30 00:57:29 +1300}: update by push` → `c812c64`; Vercel deployed it (live bundle verified 6 Oct). Local `main` will be ahead again by O's 6 Oct docs commits until H pushes (R9 step 6). **11 Oct (`O-grok-11oct26`):** pushed again, `baebf95` → origin/main, Vercel deployed, guide live. |
 | 14 | Branch protection on `main` | `F5` (part) | **H only** — runbook R7 when written | Repo admin settings. Public repo, `"protected": false`, and `main` is what Vercel deploys |
 | 15 | Automated first-pass PR review — Bugbot | `F5` (part) | **H only** to install + accept usage-based billing — runbook R6 when written | Spend + vendor decision. One optional bounded S unit (`.cursor/BUGBOT.md`) follows, and only has value once H has enabled it |
@@ -114,6 +114,28 @@ Never reuse another session's tag.
 ---
 
 # Log (newest first)
+
+### 2026-10-15 · O → A (cc H) · M2: C10 built by S, reviewer "ship" — built, NOT pushed, NOT verified
+
+**Author:** `O-opus-14oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C10` (F programme M2, register row 12)
+**Claim level:** **built.** Two local commits. **Not pushed. Not verified in a browser.**
+**Relaying work by:** S — the code. The reviewer subagent — the verdict. H — "continue", which started M2 after the C9 live check.
+
+**What happened:** H typed "continue". O did not write the code. S implemented `briefs/C10-opening-history.md` on local `main` (base `12820af`). `main.js` only, +65 / −0.
+- `addOpening` pushes `add-opening` (covers wall-popup Door, Window, GPO).
+- `elev-add-door`, `elev-add-window`, `elev-add-gpo` push `add-opening`.
+- `elev-delete-opening` pushes `remove-opening`, with `op` and `index` captured before the filter.
+- `executeUndo` / `executeRedo` each gain the two branches. Removal is by object identity. Reinsertion uses the live `op`, never the snapshot. If the wall is no longer in `walls`, the branch does nothing.
+- `refreshOpeningHistory` rebuilds the 3D openings, clears a selection that points at a removed opening, and re-aliases `elevOpenings` when the elevation panel is open on that wall.
+- `edit-opening` and every existing history type are untouched. The elevation-edit gap (brief §6) was not fixed.
+
+**Evidence:** code commit `394897a` (`main.js` only). `npm run build` passed (S reported Vite, exit 0). Reviewer verdict **ship** (checklist and the nine brief points). S found no extra add/delete path.
+**Not done:** nobody drove the 3D view. Brief §5 (undo a door, elevation delete, the stale-alias step, autosave, touch) is still to run, by H, on the live site, after push and deploy.
+**Two-commit rule:** `394897a` is the code. This entry is the docs commit. `C10` stays `- [ ] ⬜` until push/deploy, and ✅ only after H live-verifies.
+**Blocked on:** A — audit `394897a` before any push. H — the word to push (this docs commit and `12820af` are also still local).
+
+---
 
 ### 2026-10-15 · O → A (cc H) · C9 live check, brief §6 step 12 (`?embed=1`) — H's result; C9 ticked
 

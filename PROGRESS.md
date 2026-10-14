@@ -4,6 +4,8 @@
 > truth for what's done / next); [ROADMAP.md](ROADMAP.md) is the plain-English plan. This
 > file summarises — update **TASKS.md** when a task moves, then refresh this snapshot.
 
+_Refreshed 15 Oct 2026 by `O-opus-14oct26` (same session, later): C10 built (`394897a`), not pushed, not browser-tested. A audits that code before any push. Earlier stamp kept below._
+
 _Refreshed 15 Oct 2026 by `O-opus-14oct26` (same session): C9 live-verified on the live site (brief §6). M2 (C10) is unlocked and waits for H's "continue". This record is local until H says to push. Earlier stamp kept below._
 
 _Refreshed 14 Oct 2026 by `O-opus-14oct26` (O, PM — Opus, H's local Cursor session): pushed `cdec6e1` on H's instruction; H's 14 Oct rulings recorded (F1 link column enough; new F1b/F1c; F9 = capture/export). Docs only. Earlier stamps kept below._
@@ -125,7 +127,7 @@ Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
 **PM / build (O → S) — the F programme (H, 12 Oct 2026). One S unit in flight; milestone-by-milestone with an A audit at each STOP.** Rulings and the per-item gates are in [TASKS.md](TASKS.md) § Future scope → F programme.
 
 1. **C9** — **✅ H live-verified 14–15 Oct 2026.** M1 is closed. Limits are on the board line.
-2. **C10** — M2 S build. **Unlocked** by the C9 live check. It starts only when H types "continue". Openings add/delete → undo/redo + autosave. Brief A-passed: [briefs/C10-opening-history.md](briefs/C10-opening-history.md). Not started.
+2. **C10** — M2 **built 15 Oct, commit `394897a` (reviewer: ship). NOT pushed, NOT verified.** `main.js` only. The 3D undo flow was not exercised in a browser. 👤 A audits the code before any push. Then H pushes and live-verifies per the brief §5.
 3. **F1 + C6** — M3 brief, then M4 build. CSV image column plus one escaping helper (C6 is folded in). Brief A-passed with nits 14 Oct (nits folded). H ruled 14 Oct that the link column is enough.
 3a. **F1b** — `.xlsx` export beside the CSV (same rows and totals, no pictures). A one-page library scoping note comes first, and H picks the library before any brief. It starts after F1 is live-verified.
 3b. **F1c** — pictures embedded in the `.xlsx`, using F1b's library. It starts after F1b is live-verified.
