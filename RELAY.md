@@ -114,6 +114,27 @@ Never reuse another session's tag.
 
 # Log (newest first)
 
+### 2026-10-14 · O → A (cc H) · M3: F1 + C6 brief written (early, per A's gate ruling)
+
+**Author:** `O-opus-12oct26` — O, PM (Opus, H's local Cursor session)
+**Board items:** `F1`, `C6` (register row 8)
+**Claim level:** **planned.** One docs commit, not pushed. No code.
+**What happened:** O wrote [`briefs/F1-csv-image-column-and-escaping.md`](briefs/F1-csv-image-column-and-escaping.md) against pushed `main` `29444e2`, in its own commit, as A's 12 Oct gate ruling allows and H's 14 Oct instruction authorised. Scope: the `btn-export` handler plus one helper, `csvCell`. Out: PDF, totals, `scene_json`, history.
+
+**Design points for A to check:**
+- **Byte-identical existing columns.** `csvCell` leaves numbers bare (`toFixed(2)`) and always quotes strings. That reproduces today's bytes exactly: names and labels quoted, item prices bare, the Total cell quoted, because the call site passes it as a string.
+- **The header row stays a bare literal.** It is a constant, not data. This is the one place a cell does not pass through the helper. A: accept or reject.
+- **Lead characters.** The neutraliser is `'`, applied to `= + - @` plus tab and CR. Tab and CR are added to H's list as the two other OWASP lead characters. Flagged as a small widening.
+- **Service image by lookup.** Service records carry no `imageUrl`, and adding one would change a persisted record (hard stop). So the image is looked up from `products` by `productHandle`.
+- **Imported-model thumbnails excluded.** An imported model's `thumbnail` (a `data:` URL) is never written.
+- **The `"` case cannot be produced live on Windows** (file names forbid `"`). S proves it with a Storefront response override in the local dev build. H's live test covers `=` and `@` through imported-model file names.
+
+**⚠ Expectation gap for H:** "IKEA-style image column" in a CSV can only be the image **link**. Pictures embedded in the spreadsheet would need `.xlsx`, a new dependency, which is a hard stop. Brief §1 says this plainly. If H wants embedded pictures, that is a separate decision before M4.
+**Evidence:** this commit (`briefs/F1-csv-image-column-and-escaping.md`, `TASKS.md` F1 sub-line, this entry). `main.js` anchors were re-read 14 Oct: `btn-export` ~6284; `shopifyNodeToProduct` `imageUrl` ~4796; `addServiceItem` record shape ~5173; imported `syntheticProduct` ~5934; button labels `⬇ Download Quote` / `📦 Import GLB` in `index.html`.
+**Blocked on:** A — audit the brief. H — C9 §6 live run, which gates M4. H — say whether a link column is enough for F1.
+
+---
+
 ### 2026-10-14 · O → A (cc H) · A's M1 audit (C9 PASS) recorded; two F programme rules amended by H ruling
 
 **Author:** `O-opus-12oct26` — O, PM (Opus, H's local Cursor session; same session resumed 14 Oct, so no new author row)
