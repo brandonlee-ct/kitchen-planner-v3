@@ -59,7 +59,7 @@ Never reuse another session's tag.
 | `O-opus-12oct26` | **O** — PM | Opus, H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` = `origin/main` = `b343090` (`git ls-remote`), 12 Oct 2026. One-O check done first: `git log -3` showed nothing newer than `b343090`. F programme M0, docs only |
 | `O-opus-14oct26` | **O** — PM | Opus, H's **local** Cursor session (not a cloud agent); a fresh chat, so a new tag (no memory of `O-opus-12oct26`) | `C:\dev\kitchen-planner-v3`, `main` @ `cdec6e1`, tree clean, 4 ahead of `origin/main` `29444e2`, 14 Oct 2026. One-O check done first: `git log -1` = `cdec6e1`, nothing newer. Push on H's instruction, 14 Oct rulings, C9 live-check record |
 | `A-fable-11oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present | 11–14 Oct 2026 (same standing session; 14 Oct: M1 audit of `82cb385`, audit of `f24f577` + the F1 brief `455081f`). Repo-hygiene audit (11 Oct), audit of `baebf95`, of the `b343090` push, and of F programme M0 `d111134`. Verdicts were given to H in chat first; this row and the 12 Oct entry record them in the relay on H's instruction (H asked why no A audit of M0 was in RELAY — the omission was A's) |
-| `A-fable-15oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present; a fresh chat, so a new tag (no memory of `A-fable-11oct26`) | `C:\dev\kitchen-planner-v3`, local `main` @ `822126d` (→ `394897a` → `12820af`), tree clean, 3 ahead of `origin/main` `a397f49`, 15 Oct 2026. Pre-flight per H's boot prompt passed. M2 audit of C10 code unit `394897a` before push, plus honesty check of `12820af` and `822126d`. Verdict given to H in chat first; written here on H's "record it" |
+| `A-fable-15oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present; a fresh chat, so a new tag (no memory of `A-fable-11oct26`) | `C:\dev\kitchen-planner-v3`, local `main` @ `822126d` (→ `394897a` → `12820af`), tree clean, 3 ahead of `origin/main` `a397f49`, 15 Oct 2026. Pre-flight per H's boot prompt passed. M2 audit of C10 code unit `394897a` before push, plus honesty check of `12820af` and `822126d`; then (03:52) audit of O's record `dd90d80`. Verdicts given to H in chat first; written here on H's "record it" |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -115,6 +115,24 @@ Never reuse another session's tag.
 ---
 
 # Log (newest first)
+
+### 2026-10-15 · A → H (cc O) · Audit of O's `dd90d80` (record of A's M2 verdict) — PASS-WITH-NITS, accurately recorded; O right not to push
+
+**Author:** `A-fable-15oct26` — A, Fable auditor (owner-side, H present; same session as the `0e60d80` entry below)
+**Board item:** `C10` (F programme M2, register row 12); the `C13` candidate text
+**Claim level:** **audited at file/git level** on local `main` `dd90d80` (parent `0e60d80`; `origin/main` still `a397f49`). Docs only; nothing pushed by A. Not a re-audit of `394897a`, which A passed in the entry below.
+**Scope (H's boot prompt):** does `dd90d80` record A's verdict faithfully — nit 1 optional and the unit not reopened; the stale-copy observation added to the `C13` candidate; `C10` still `- [ ] ⬜`.
+
+**Verdict: PASS-WITH-NITS. O recorded A accurately; no correction to send.** `dd90d80` touches `PROGRESS.md`, `RELAY.md`, `TASKS.md` only (+19 / −3); no code.
+1. **Nit 1 — ✓.** TASKS C10 sub-line records it as OPTIONAL, "A judges it unreachable", "do not reopen the unit for it". Nit 2 recorded as harmless and brief-mandated. `394897a` untouched.
+2. **C13 stale-copy observation — ✓.** New TASKS sub-line: `openWallElevation` copies the array (`main.js` ~2926); popup `＋ Door` then panel `＋ Power Point` on the same open wall drops the popup door and its mesh; "C10 neither causes nor worsens it"; "`C13` still needs H's yes before any brief." Not widened, not softened. (C13 has no board line of its own because it has no H yes; carrying it as C10 sub-lines is consistent with 7 Oct.)
+3. **`C10` still `- [ ] ⬜` — ✓.** Head line unchanged; F table row 2, register row 12 and PROGRESS all read "push released … not pushed, not verified". O's reason for not pushing is correct: H's 03:03 message relayed A's drafted wording ("Something like: …"), which is not an H instruction. Under the 14 Oct amendment O needs H's words, quoted. **O was right.**
+
+**Nit (cosmetic, not a mis-recording):** the top refresh stamp in `PROGRESS.md` still says "A audits that code before any push", now done; `dd90d80` added no stamp of its own. One stamp line next time O touches PROGRESS; not worth a separate commit.
+
+**Next owner:** **H** — if the push is wanted, give it in H's own voice, naming `12820af`, `394897a`, `822126d`, `0e60d80`, `dd90d80` and this commit. **O** — on that sentence: push; confirm `origin/main`; flip `C10` to `- [ ] ⏳`; confirm the live bundle hash changed from `index-BytXTjAb.js`; hand brief §5 to H (steps 2, 3, 4a, 5, 6 + one touch pass). ✅ only on H's live report.
+
+---
 
 ### 2026-10-15 · O → A (cc H) · A's M2 audit (C10 PASS-WITH-NITS) recorded on the board; push NOT done — no H push sentence yet
 
