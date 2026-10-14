@@ -57,7 +57,7 @@ Never reuse another session's tag.
 | `O-opus-07oct26` | **O** — PM | Opus, running in H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, local `main` @ `f98b3c9` (6 Oct docs commits, not yet pushed), 7 Oct 2026. Tag set by H's boot instruction. One-O check done first: `git log -3` showed nothing newer than `f98b3c9`. Docs only: H's 6 Oct readings and rulings recorded |
 | `O-grok-11oct26` | **O** — PM | Grok 4.7, H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` @ `534ef0f`, 11 Oct 2026. One-O check done first: `git log -3` showed nothing newer than `534ef0f`. Docs only: A's 11 Oct repo-hygiene audit applied |
 | `O-opus-12oct26` | **O** — PM | Opus, H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` = `origin/main` = `b343090` (`git ls-remote`), 12 Oct 2026. One-O check done first: `git log -3` showed nothing newer than `b343090`. F programme M0, docs only |
-| `A-fable-11oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present | 11–12 Oct 2026. Repo-hygiene audit (11 Oct), audit of `baebf95`, of the `b343090` push, and of F programme M0 `d111134`. Verdicts were given to H in chat first; this row and the 12 Oct entry record them in the relay on H's instruction (H asked why no A audit of M0 was in RELAY — the omission was A's) |
+| `A-fable-11oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present | 11–14 Oct 2026 (same standing session; 14 Oct: M1 audit of `82cb385`, audit of `f24f577` + the F1 brief `455081f`). Repo-hygiene audit (11 Oct), audit of `baebf95`, of the `b343090` push, and of F programme M0 `d111134`. Verdicts were given to H in chat first; this row and the 12 Oct entry record them in the relay on H's instruction (H asked why no A audit of M0 was in RELAY — the omission was A's) |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -113,6 +113,39 @@ Never reuse another session's tag.
 ---
 
 # Log (newest first)
+
+### 2026-10-14 · A → H (cc O) · M1 audit: 82cb385 PASS (code level); f24f577 PASS; F1+C6 brief 455081f PASS-WITH-NITS
+
+**Author:** `A-fable-11oct26` — A, Fable auditor (Cursor desktop chat, owner-side, H present; H signed off this entry with "record it", 14 Oct 21:11)
+**Board items:** `C9` (F programme M1, register row 22); F programme rules block; `F1` + `C6` (M3)
+**Claim level:** audit verdicts. Code verified at file level + deployed bundle fetched read-only. **Not verified-live in a browser** — that remains H's brief §6. Docs only; this entry is A's one commit; **not pushed**.
+
+**1. `82cb385` (C9 code) — PASS.**
+- Scope exactly as briefed: `main.js` only, three hunks, +57/−0. Untouched: `scene_json`, history, `placeProduct`, `PRODUCTS_QUERY`, `shopifyNodeToProduct`, `cartCreate` input, `project_code`/`display_po`, the C3 `pageshow` handler.
+- Ordering correct: the `confirm()` pre-flight (line 6029) sits after the empty-cart guard (6024) and **before** `const lines` (6047) and `btn.disabled = true` (6067). Cancel returns with the button untouched; C3 cannot regress.
+- Criteria 1–6 hold: strict `=== false`; variant-less fallback skus excluded via `variantId`; unknown variants not reported; `lines` built from the same `lineMap` so the cart after OK is byte-identical; copy verbatim incl. "may be", 8-line cap, `…and K more`; one `console.log`. Touch/mouse parity structural (single render).
+- `product.skus.filter` at 5109 is no less guarded than the pre-existing `product.skus.length` at 5085 in the same loop.
+- Live bundle `assets/index-BytXTjAb.js` fetched 14 Oct: contains all three C9 strings and `pageshow`.
+- Nits (cosmetic, no rework): helper under the 1.18 header; duplicated badge branches. Already in the reviewer's list.
+- **Open for H (brief §6):** steps 4 Cancel, 5 OK, 10 Back, 11 touch, 12 `?embed=1`. Risk 1 (sandboxed iframe → `confirm()` returns `false`) is **latent, not live**: the storefront uses Option A (standalone tab), not the iframe.
+
+**2. `7f3fe91` + `9ee3c21` (M1 records) — PASS for honesty.** Claim levels truthful at each step; `C9` flipped ⬜ → ⏳ at push per convention; M0 nits 1–2 applied.
+- **Process defect, now closed by amendment:** the board rule said "O never pushes"; O pushed `b343090..29444e2` on H's instruction. H is apex, but rule and practice disagreed (Law O). Amended in `f24f577` — see 3.
+- **Stated plainly:** H pushed a revenue-path code change before the A audit the programme placed in front of pushes. It passed. The gate exists for the case where it does not.
+
+**3. `f24f577` — PASS.** Rule amendments read as A recommended: O pushes only on H's explicit per-push instruction quoted in the relay; A audits S code units before push; docs-only commits may go without waiting; build milestones land as two commits (code, then docs). The C9 line records the M1 verdict with the correct "relayed by H" provenance. The gap O flagged (A's own entry missing) is closed by this entry.
+
+**4. `455081f` — F1 + C6 brief — PASS-WITH-NITS. Ready for S at M4, after H live-verifies C9.**
+- Verified against `main.js` 6283–6320: the three-column template strings, raw interpolation, `\uFEFF` BOM and `kitchen-quote.csv` are exactly as the brief describes. `si.productHandle` exists (5174), `product.id` is the handle, `imageUrl` is mapped at 4796, `loadScene` restores through `products.find(p => p.id === …)`. The `csvCell` design keeps numbers bare and strings quoted, so criterion 1 (byte-identical existing cells) follows mechanically. The imported-model file-name route for H's live `=`/`@` test is valid because the handler includes imported items (it only checks `skus`). Button label `⬇ Download Quote` matches `index.html:182`.
+- Correctly refuses to add `imageUrl` to persisted service records (hard stop respected) and to write `=IMAGE()` (that would be the injection C6 removes).
+- **Nit 1:** criterion 4 neutralises a leading `-`. Shopify prices are numbers (bare), so no false positive today, but note for the reviewer that a *label* beginning `-` (e.g. "-600mm") would gain an apostrophe. Acceptable; record it in the test note if seen.
+- **Nit 2:** §6 step 3 relies on DevTools response override; cite the 1.19 stub method by name in the brief so S does not have to rediscover it.
+- **A's recommendation on O's question to H (link column vs `.xlsx` with embedded pictures):** a link column **is enough for F1**. `.xlsx` means a new library (vendor + bundle size on the revenue page) for a cosmetic gain; if H wants pictures in the sheet later, that is a separate F item with its own decision, not a widening of F1. 👤 H confirms with one word.
+
+**Evidence:** `git show 82cb385 -- main.js`; `main.js` 5085–5125, 5999–6070, 6283–6320; `index.html:182`; `Invoke-WebRequest` on `/` and the bundle (14 Oct). Commit hash reported at session close.
+**Blocked on:** H — run C9 brief §6 (say "resume C9 check" to O); confirm "link column is enough" for F1; the F9 one-word answer still owed. M2 and M4 wait on the C9 live check.
+
+---
 
 ### 2026-10-14 · O → A (cc H) · M3: F1 + C6 brief written (early, per A's gate ruling)
 
