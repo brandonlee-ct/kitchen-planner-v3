@@ -4,6 +4,8 @@
 > truth for what's done / next); [ROADMAP.md](ROADMAP.md) is the plain-English plan. This
 > file summarises — update **TASKS.md** when a task moves, then refresh this snapshot.
 
+_Refreshed 14 Oct 2026 by `O-opus-14oct26` (O, PM — Opus, H's local Cursor session): pushed `cdec6e1` on H's instruction; H's 14 Oct rulings recorded (F1 link column enough; new F1b/F1c; F9 = capture/export). Docs only. Earlier stamps kept below._
+
 _Refreshed 12 Oct 2026 by `O-opus-12oct26` (O, PM — Opus, H's local Cursor session), F programme M0: H's 12 Oct rulings are on the board, and "What's next" now follows the F programme order. Before this commit, `origin/main` = local `main` = `b343090` (`git ls-remote`, 12 Oct). O did not re-check the live bundle; this is a docs-only change. This commit is 1 ahead until H pushes. Earlier stamps kept below._
 
 _Refreshed 11 Oct 2026 by `O-grok-11oct26` (same session): H pushed local `main`. Live and `origin/main` are `baebf95`. Staff guide is live. This recording commit is 1 ahead until it is pushed. Earlier stamp kept below._
@@ -18,8 +20,8 @@ _Last updated: 6 Oct 2026 by `O-opus-06oct26` (O, PM — Opus subagent in H's lo
 
 | Where | Commit | What it means |
 |---|---|---|
-| **Live** (Vercel / `origin/main`) | `29444e2` | **12 Oct 2026, 04:11:** pushed by O on H's instruction and approval (`b343090..29444e2`). **C9 is deployed:** the live bundle is now `assets/index-BytXTjAb.js` and contains the C9 strings (O fetched it read-only). H has not live-verified C9 yet. Earlier: `b343090` was the docs-only state before this push; it had the same bundle as `baebf95` (A's M0 nit 2). _11 Oct row, kept:_ `baebf95` pushed **11 Oct 2026** (`c812c64..baebf95`). Docs plus the staff guide. Planner bundle unchanged: `assets/index-D9aV4O2w.js` (O fetched 11 Oct, HTTP 200). Guide `https://planner.brownboxkit.co.nz/shopify-planner-guide.html` returned 200. Prior code push remains inside this history (`c812c64`, 30 Sep). |
-| **Local `main`** | `29444e2` + this docs commit | **12 Oct 04:11:** equal to `origin/main` after the push. This recording commit makes local `main` **1 ahead** until it is pushed. |
+| **Live** (Vercel / `origin/main`) | `cdec6e1` | **14 Oct 2026:** O pushed `29444e2..cdec6e1` on H's quoted instruction (four docs-only commits). Vercel status for `cdec6e1`: "Deployment has completed". The bundle is unchanged, still `assets/index-BytXTjAb.js` (O fetched it read-only). _12 Oct row, kept:_ **12 Oct 2026, 04:11:** pushed by O on H's instruction and approval (`b343090..29444e2`). **C9 is deployed:** the live bundle is now `assets/index-BytXTjAb.js` and contains the C9 strings (O fetched it read-only). H has not live-verified C9 yet. Earlier: `b343090` was the docs-only state before this push; it had the same bundle as `baebf95` (A's M0 nit 2). _11 Oct row, kept:_ `baebf95` pushed **11 Oct 2026** (`c812c64..baebf95`). Docs plus the staff guide. Planner bundle unchanged: `assets/index-D9aV4O2w.js` (O fetched 11 Oct, HTTP 200). Guide `https://planner.brownboxkit.co.nz/shopify-planner-guide.html` returned 200. Prior code push remains inside this history (`c812c64`, 30 Sep). |
+| **Local `main`** | `cdec6e1` + this docs commit | **14 Oct:** equal to `origin/main` after the push. The 14 Oct rulings commit is pushed on H's same instruction; the later C9 check record waits for H's word. |
 
 **1.19 and C8: ✅ H live-verified on desktop, 6 Oct 2026** (1.19: 22 store-only hidden; C8: as far as the data allows — no `component_skus` exist yet). The touch leg of 1.19 is not separately confirmed. H live-verified **C3 on desktop** 31 Aug 2026; iPad/iPhone Safari leg of runbook R5 still optional.
 
@@ -122,13 +124,15 @@ Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
 
 1. **C9** — M1 S build. OOS badge + pre-cart warning. Brief A-passed: [briefs/C9-oos-badge-and-precart-warning.md](briefs/C9-oos-badge-and-precart-warning.md). **Built 12 Oct, commit `82cb385` (reviewer: ship). ⏳ Pushed + deployed 12 Oct 04:11 (bundle `index-BytXTjAb.js`). Not live-verified.** 👤 H: live-verify per the brief §6. A's M1 audit is still owed.
 2. **C10** — M2 S build, after C9 is live-verified. Openings add/delete → undo/redo + autosave. Brief A-passed: [briefs/C10-opening-history.md](briefs/C10-opening-history.md).
-3. **F1 + C6** — M3 brief, then M4 build. CSV image column plus one escaping helper (C6 is folded in).
+3. **F1 + C6** — M3 brief, then M4 build. CSV image column plus one escaping helper (C6 is folded in). Brief A-passed with nits 14 Oct (nits folded). H ruled 14 Oct that the link column is enough.
+3a. **F1b** — `.xlsx` export beside the CSV (same rows and totals, no pictures). A one-page library scoping note comes first, and H picks the library before any brief. It starts after F1 is live-verified.
+3b. **F1c** — pictures embedded in the `.xlsx`, using F1b's library. It starts after F1b is live-verified.
 4. **F2** — M5 brief, then M6 build. PDF thumbnails, grouped by category.
 5. **F3** — M7 design note (plan + elevation drawings). Briefs follow only after H signs off the note.
 6. **F6** — M9 scoping: what a guest may do before sign-in. An H ruling comes before any brief.
 7. **F7** — M10 scoping: analytics vendor and cost. It stops at H's spend/vendor decision.
 8. **F5** — M11 runbooks R6/R7/R8 and a ROLES.md human-roles draft. H applies them.
-9. **F9** — last, **un-briefed**: H has not yet said whether it means renders or capture/export.
+9. **F9** — last. **H answered 14 Oct: capture/export** (better 3D-view screenshots: resolution, UI hidden, save/attach). Renders are out of scope. Not yet briefed.
 
 Deferred by H (12 Oct): cosmetics C1/C2/C4/C7. Closed for this programme: F4, F8.
 Not in the programme and unscheduled while it holds the S slot: Track 2 auto-design wiring, **DIY-2** (unblocked, but its build brief is **not written yet** — the board governs; this snapshot's earlier "brief ready" was wrong), 1.17b, the C13 candidate.

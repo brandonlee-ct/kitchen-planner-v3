@@ -67,6 +67,9 @@ to see the picture; the planner will **never write that formula itself**, becaus
 formula is exactly what the escaping in this brief exists to block. **If H wants pictures to appear inside
 the spreadsheet when it opens, that needs an `.xlsx` export, which means a new library — a new vendor
 dependency, and therefore a hard stop for a separate H decision.** This brief does not do that.
+**H RULED 14 Oct 2026: the link column is enough for F1; F1's scope is unchanged.** The `.xlsx` export is
+a separate later item, `F1b` (scoping note first, then H picks the library), and pictures inside it are
+`F1c`. Neither is part of this brief.
 
 ## 2. Acceptance criteria
 
@@ -80,6 +83,9 @@ dependency, and therefore a hard stop for a separate H decision.** This brief do
 4. **Formula neutralised.** A value starting with `=`, `+`, `-`, `@`, tab (`\t`) or CR (`\r`) is written with a
    leading apostrophe (`'`) inside the quotes, so it opens as text, never as a formula. (Tab and CR are added
    to H's list because they are the other two OWASP CSV-injection lead characters. They cost nothing.)
+   **Note for the reviewer (A nit 1, 14 Oct):** prices are numbers and stay bare, so a price never gains an
+   apostrophe. But a **label** (a name or variant string) that begins with `-`, for example `-600mm`, will be
+   written `"'-600mm"`. That is accepted behaviour, not a defect. If S or H sees one, record it in the test note.
 5. **Image column.** Each placed item, component line and service line carries its product's `imageUrl`,
    or an empty cell when there is none. The Total row's image cell is empty. Imported models get an empty
    cell. **Never** write an imported model's `thumbnail`: it is a `data:` URL tens of kilobytes long.
@@ -198,9 +204,13 @@ Keep the existing `// ✅ FIX 2` header, the 1.18 comments and the BOM comment. 
    the Total row's link cell is blank. Prices are right-aligned numbers, and the total matches the
    on-screen quote.
 3. **The `"` case (S, controlled — not possible from a Windows file name).** In the local dev build, give
-   one product a title containing `"` without touching Shopify: in DevTools → Network, use
-   **Override content** on the Storefront GraphQL response (or the local-stub method used for 1.19's
-   "controlled Storefront response"), changing one placeable product's `title` to `24" Test Cabinet`.
+   one product a title containing `"` without touching Shopify. **Method: intercept the Storefront
+   response**, the same method used for 1.19's 21/21 browser check (RELAY.md, 19 Aug entry "PR #7 merged;
+   `1.19` store-only filter + `C8` fixes built", evidence item 2: "against an intercepted Storefront
+   response"). That 1.19 harness was never committed, so do it with **Chrome DevTools Local Overrides**:
+   load the page once, then in DevTools → **Network**, right-click the POST to `SHOPIFY_ENDPOINT`
+   (`…/api/<version>/graphql.json`, defined at `main.js` ~4592) → **Override content**, and in the saved
+   response change one placeable product's `title` to `24" Test Cabinet` (JSON-escaped as `24\" Test Cabinet`).
    Reload, place it, and click **⬇ Download Quote**. *Expect:* in Excel and Sheets the name reads `24" Test Cabinet` in one
    cell, and the Variant / Price / Image cells are not shifted. Remove the override afterwards.
 4. **Formula cases (H can run these live).** Take any `.glb` file. You can download one from a product's

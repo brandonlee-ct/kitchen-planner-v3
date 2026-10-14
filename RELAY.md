@@ -57,6 +57,7 @@ Never reuse another session's tag.
 | `O-opus-07oct26` | **O** — PM | Opus, running in H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, local `main` @ `f98b3c9` (6 Oct docs commits, not yet pushed), 7 Oct 2026. Tag set by H's boot instruction. One-O check done first: `git log -3` showed nothing newer than `f98b3c9`. Docs only: H's 6 Oct readings and rulings recorded |
 | `O-grok-11oct26` | **O** — PM | Grok 4.7, H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` @ `534ef0f`, 11 Oct 2026. One-O check done first: `git log -3` showed nothing newer than `534ef0f`. Docs only: A's 11 Oct repo-hygiene audit applied |
 | `O-opus-12oct26` | **O** — PM | Opus, H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` = `origin/main` = `b343090` (`git ls-remote`), 12 Oct 2026. One-O check done first: `git log -3` showed nothing newer than `b343090`. F programme M0, docs only |
+| `O-opus-14oct26` | **O** — PM | Opus, H's **local** Cursor session (not a cloud agent); a fresh chat, so a new tag (no memory of `O-opus-12oct26`) | `C:\dev\kitchen-planner-v3`, `main` @ `cdec6e1`, tree clean, 4 ahead of `origin/main` `29444e2`, 14 Oct 2026. One-O check done first: `git log -1` = `cdec6e1`, nothing newer. Push on H's instruction, 14 Oct rulings, C9 live-check record |
 | `A-fable-11oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present | 11–14 Oct 2026 (same standing session; 14 Oct: M1 audit of `82cb385`, audit of `f24f577` + the F1 brief `455081f`). Repo-hygiene audit (11 Oct), audit of `baebf95`, of the `b343090` push, and of F programme M0 `d111134`. Verdicts were given to H in chat first; this row and the 12 Oct entry record them in the relay on H's instruction (H asked why no A audit of M0 was in RELAY — the omission was A's) |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
@@ -113,6 +114,29 @@ Never reuse another session's tag.
 ---
 
 # Log (newest first)
+
+### 2026-10-14 · O → A (cc H) · Pushed cdec6e1 on H's instruction; H's 14 Oct rulings recorded (F1 unchanged, F1b/F1c added, F9 = capture/export)
+
+**Author:** `O-opus-14oct26` — O, PM (Opus, H's local Cursor session)
+**Board items:** F programme block (rulings (e)–(g), order table); `F1` + `C6` (M3); new `F1b`, `F1c`; `F9`
+**Claim level:** **pushed** (the four docs commits, git + read-only HTTP). The rulings themselves are docs only, in this one commit, pushed on H's instruction in the same 14 Oct session prompt: *"RECORD H RULINGS (14 Oct), docs only, one commit, then push it too."* No code.
+**Relaying work by:** H — the push instruction and the 14 Oct rulings. A — the two F1 brief nits (14 Oct A entry below).
+
+**1. Push.** H's per-push instruction, quoted as the 14 Oct rule requires: *"H, 14 Oct 21:27: push local main (9ee3c21, f24f577, 455081f, cdec6e1 — all docs) to origin/main."* Pre-flight: branch `main`, tree clean, `git log -1` = `cdec6e1`, `origin/main` = `29444e2`, 4 ahead. O checked that all four commits touch only `RELAY.md`, `TASKS.md`, `PROGRESS.md` and `briefs/F1-csv-image-column-and-escaping.md`. Docs only, so A's code-before-push audit does not apply.
+- Push output: `29444e2..cdec6e1  main -> main`. `git ls-remote origin refs/heads/main` → `cdec6e1090bf…`.
+- Vercel commit status for `cdec6e1`: `success`, "Deployment has completed" (09:22:50Z).
+- Live `https://planner.brownboxkit.co.nz/` → 200, and the bundle is still **`assets/index-BytXTjAb.js`** (unchanged, as expected for a docs-only push).
+
+**2. H rulings, 14 Oct 2026, recorded on the board (Law N):**
+- **(f) F1 scope:** the link column is enough for F1. Unchanged. This answers A's 14 Oct recommendation and O's §1 question. The brief §1 now says so.
+- **(g) New `F1b` and `F1c`**, each its own S unit, inserted in the order table as rows **3a** and **3b**, between F1 and F2; no other row is renumbered. **F1b** is the `.xlsx` export beside the CSV (same rows, same totals, no pictures). Its **hard stop comes first**: a one-page scoping note on ExcelJS vs SheetJS (its free tier has no image embedding) vs any other candidate, covering licence, gzipped bundle size, image support and maintenance. **H picks the library before any brief.** **F1c** is the pictures inside the `.xlsx`, using F1b's library. Sequence: F1 live-verified → F1b note → H picks → F1b brief / build / verify → F1c. The smoke checklist runs after each.
+- **(e) answered — F9 = capture/export** (A's default, which H accepted): better screenshots of the 3D view, meaning resolution, UI hidden, and save/attach. **Renders are NOT in scope**; if wanted, they become a later item. Ruling (e), the order-table row 9 and the F9 line are updated, with the old text struck through.
+- **A's two F1 brief nits folded** into `briefs/F1-csv-image-column-and-escaping.md`: (1) a reviewer note under criterion 4 that a *label* beginning `-` (e.g. `-600mm`) gains an apostrophe, which is accepted, and is to be recorded in the test note if seen; (2) §6 step 3 now names the method. ⚠ **Stated plainly:** the 1.19 record (19 Aug entry, evidence item 2) says only "an intercepted Storefront response". The harness was never committed, so the exact mechanism it used is not in the repo. The brief cites that record and names a concrete, reproducible method: Chrome DevTools **Local Overrides** → **Override content** on the POST to `SHOPIFY_ENDPOINT` (`main.js` ~4592). O did not invent the 1.19 mechanism.
+
+**Next:** resume the C9 live check with H (brief §6: steps 4, 5, 10, 6, 11, 12, one at a time). M2 and M4 still wait on it.
+**Blocked on:** H — the C9 §6 results.
+
+---
 
 ### 2026-10-14 · A → H (cc O) · M1 audit: 82cb385 PASS (code level); f24f577 PASS; F1+C6 brief 455081f PASS-WITH-NITS
 
