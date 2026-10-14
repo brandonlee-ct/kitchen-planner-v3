@@ -433,6 +433,27 @@ function executeUndo(entry) {
   } else if (entry.type === 'remove-service-item') {
     serviceItems.push(entry.data.record);
     updateQuote();
+  } else if (entry.type === 'add-opening') {
+    // ✅ FIX: C10 — undo an add by removing the live opening. Never re-apply snapshot.
+    const wallObj = entry.data.wallObj;
+    const op = entry.data.op;
+    if (walls.includes(wallObj)) {
+      const i = wallObj.openings.indexOf(op);
+      if (i !== -1) wallObj.openings.splice(i, 1);
+      refreshOpeningHistory(wallObj, op, true);
+    }
+  } else if (entry.type === 'remove-opening') {
+    // ✅ FIX: C10 — undo a delete by reinserting the live opening, not the snapshot.
+    const wallObj = entry.data.wallObj;
+    const op = entry.data.op;
+    const index = entry.data.index;
+    if (walls.includes(wallObj)) {
+      if (!wallObj.openings) wallObj.openings = [];
+      if (wallObj.openings.indexOf(op) === -1) {
+        wallObj.openings.splice(Math.min(Math.max(index, 0), wallObj.openings.length), 0, op);
+      }
+      refreshOpeningHistory(wallObj, op, false);
+    }
   }
 }
 function executeRedo(entry) {
@@ -513,6 +534,43 @@ function executeRedo(entry) {
   } else if (entry.type === 'remove-service-item') {
     serviceItems = serviceItems.filter(x => x !== entry.data.record);
     updateQuote();
+  } else if (entry.type === 'add-opening') {
+    // ✅ FIX: C10 — redo an add by reinserting the live opening, not the snapshot.
+    const wallObj = entry.data.wallObj;
+    const op = entry.data.op;
+    const index = entry.data.index;
+    if (walls.includes(wallObj)) {
+      if (!wallObj.openings) wallObj.openings = [];
+      if (wallObj.openings.indexOf(op) === -1) {
+        wallObj.openings.splice(Math.min(Math.max(index, 0), wallObj.openings.length), 0, op);
+      }
+      refreshOpeningHistory(wallObj, op, false);
+    }
+  } else if (entry.type === 'remove-opening') {
+    // ✅ FIX: C10 — redo a delete by removing the live opening. Never re-apply snapshot.
+    const wallObj = entry.data.wallObj;
+    const op = entry.data.op;
+    if (walls.includes(wallObj)) {
+      const i = wallObj.openings.indexOf(op);
+      if (i !== -1) wallObj.openings.splice(i, 1);
+      refreshOpeningHistory(wallObj, op, true);
+    }
+  }
+}
+
+// ── C10: refresh after add-opening / remove-opening undo/redo ───────────────
+// 3D rebuild, drop a selection that points at a removed opening, and re-alias
+// the elevation list so a stale elevOpenings copy cannot bring an undone
+// opening back. snapshot is forensic only — never written back onto op.
+function refreshOpeningHistory(wallObj, op, removed) {
+  syncOpeningsTo3D(wallObj);
+  if (removed) {
+    if (elevSelectedItem === op) clearElevSelection();
+    if (opDim3D.sel && opDim3D.sel.op === op) clearOpening3DSelection();
+  }
+  if (elevWall === wallObj) {
+    elevOpenings = wallObj.openings;
+    if (typeof drawElevation === 'function') drawElevation();
   }
 }
 
@@ -3419,8 +3477,11 @@ function drawRuler(ctx, info, direction) {
   
   document.getElementById('elev-delete-opening').addEventListener('click', () => {
     if (elevSelectedKind !== 'opening' || !elevSelectedItem || !elevWall) return;
+    const op = elevSelectedItem;
+    const index = elevWall.openings.indexOf(op);
     elevOpenings      = elevOpenings.filter(o => o !== elevSelectedItem);
     elevWall.openings = elevOpenings;
+    pushHistory({ type: 'remove-opening', data: { wallObj: elevWall, op, snapshot: { ...op }, index } });
     clearElevSelection();
     syncOpeningsTo3D(elevWall);
     drawElevation();
@@ -3448,6 +3509,7 @@ function drawRuler(ctx, info, direction) {
     op.distFromLeft = Math.min(op.distFromLeft, wallLenMm - op.width - 100);
     elevOpenings.push(op);
     elevWall.openings = elevOpenings;
+    pushHistory({ type: 'add-opening', data: { wallObj: elevWall, op, snapshot: { ...op }, index: elevWall.openings.indexOf(op) } });
     syncOpeningsTo3D(elevWall);
     selectElevItem('opening', op);
     drawElevation();
@@ -3460,6 +3522,7 @@ function drawRuler(ctx, info, direction) {
     op.distFromLeft = Math.min(op.distFromLeft, wallLenMm - op.width - 100);
     elevOpenings.push(op);
     elevWall.openings = elevOpenings;
+    pushHistory({ type: 'add-opening', data: { wallObj: elevWall, op, snapshot: { ...op }, index: elevWall.openings.indexOf(op) } });
     syncOpeningsTo3D(elevWall);
     selectElevItem('opening', op);
     drawElevation();
@@ -3472,6 +3535,7 @@ function drawRuler(ctx, info, direction) {
     op.distFromLeft = Math.min(op.distFromLeft, wallLenMm - op.width - 100);
     elevOpenings.push(op);
     elevWall.openings = elevOpenings;
+    pushHistory({ type: 'add-opening', data: { wallObj: elevWall, op, snapshot: { ...op }, index: elevWall.openings.indexOf(op) } });
     syncOpeningsTo3D(elevWall);
     selectElevItem('opening', op);
     drawElevation();
@@ -3556,6 +3620,7 @@ function drawRuler(ctx, info, direction) {
       : { type: 'window', distFromLeft: 200, floorDist: 900, width: 1200, height: 1200 };
     op.distFromLeft = Math.min(op.distFromLeft, wallLenMm - op.width - 100);
     wallObj.openings.push(op);
+    pushHistory({ type: 'add-opening', data: { wallObj, op, snapshot: { ...op }, index: wallObj.openings.length - 1 } });
     syncOpeningsTo3D(wallObj);
     return op;
   }
