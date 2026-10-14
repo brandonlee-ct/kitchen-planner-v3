@@ -59,6 +59,7 @@ Never reuse another session's tag.
 | `O-opus-12oct26` | **O** — PM | Opus, H's **local** Cursor session (not a cloud agent) | `C:\dev\kitchen-planner-v3`, `main` = `origin/main` = `b343090` (`git ls-remote`), 12 Oct 2026. One-O check done first: `git log -3` showed nothing newer than `b343090`. F programme M0, docs only |
 | `O-opus-14oct26` | **O** — PM | Opus, H's **local** Cursor session (not a cloud agent); a fresh chat, so a new tag (no memory of `O-opus-12oct26`) | `C:\dev\kitchen-planner-v3`, `main` @ `cdec6e1`, tree clean, 4 ahead of `origin/main` `29444e2`, 14 Oct 2026. One-O check done first: `git log -1` = `cdec6e1`, nothing newer. Push on H's instruction, 14 Oct rulings, C9 live-check record |
 | `A-fable-11oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present | 11–14 Oct 2026 (same standing session; 14 Oct: M1 audit of `82cb385`, audit of `f24f577` + the F1 brief `455081f`). Repo-hygiene audit (11 Oct), audit of `baebf95`, of the `b343090` push, and of F programme M0 `d111134`. Verdicts were given to H in chat first; this row and the 12 Oct entry record them in the relay on H's instruction (H asked why no A audit of M0 was in RELAY — the omission was A's) |
+| `A-fable-15oct26` | **A** — Fable auditor | Fable, Cursor desktop chat (owner-side), H present; a fresh chat, so a new tag (no memory of `A-fable-11oct26`) | `C:\dev\kitchen-planner-v3`, local `main` @ `822126d` (→ `394897a` → `12820af`), tree clean, 3 ahead of `origin/main` `a397f49`, 15 Oct 2026. Pre-flight per H's boot prompt passed. M2 audit of C10 code unit `394897a` before push, plus honesty check of `12820af` and `822126d`. Verdict given to H in chat first; written here on H's "record it" |
 
 > Roles are defined in [ROLES.md](ROLES.md): `H` owner (apex), `O` PM, `S` Composer builder,
 > `A` Fable auditor. `S` and the reviewer subagent do not currently write here directly — O relays
@@ -114,6 +115,42 @@ Never reuse another session's tag.
 ---
 
 # Log (newest first)
+
+### 2026-10-15 · A → H (cc O) · M2 audit of C10 code unit `394897a` — PASS-WITH-NITS, push released; docs `12820af` + `822126d` honest
+
+**Author:** `A-fable-15oct26` — A, Fable auditor (owner-side, H present)
+**Board item:** `C10` (F programme M2, register row 12); `C9` docs record (`12820af`) checked incidentally
+**Claim level:** **audited at file/git level**, pre-push, on local `main` `822126d`. Not a browser test. Nothing was pushed by A.
+**Scope (H's boot prompt):** the unpushed C10 code unit `394897a` against `briefs/C10-opening-history.md`, plus an honesty check of `12820af` (C9 ✅) and `822126d` (C10 record). Depth: claims first, deeper only where one smelled. Verdict given to H in chat first (A rule, 12 Oct); written here on H's "record it".
+
+**Verdict: PASS-WITH-NITS. H's push of `394897a` (with `12820af`, `822126d`) is released.** No code change required before push.
+
+**Code, `394897a` (`main.js` only, +65 / −0) — each claim checked, all hold:**
+- Payload at all five push sites (`main.js` 3484, 3512, 3525, 3538, 3623) is exactly `{ wallObj, op, snapshot, index }` (A ruling 6 Oct). `snapshot` is read nowhere: no `Object.assign`, never inserted.
+- Undo add / redo remove: removal by identity (`indexOf(op)` → `splice`). Redo add / undo remove: reinsert the **live `op`**, idempotent, index clamped. Every branch is wrapped in `if (walls.includes(wallObj))`, so a wall replaced by `resize-wall` or deleted is left alone (the inherited `edit-opening` limitation, as the brief says).
+- `edit-opening` (branches 414 / 517, push sites 9363 / 9588) and every older history type are untouched; the diff is insertion-only.
+- The elevation-edit gap (brief §6) was **not** quietly fixed: `elev-center-opening`, `elev-apply`, `applyGreenDimEdit`, the elevation drag release are absent from the diff and still push nothing. It stays candidate `C13`, waiting for H's yes.
+- `addOpening(wallObj, type)` signature and return value unchanged (3613); callers are only `wp-door` / `wp-window` / `wp-gpo` (2169–2171). No other add/delete path exists: the remaining `openings` writers are the `resize-wall` rebuild (3780) and `loadScene` (8730), both out of scope.
+- Autosave path for add/remove is reached: `pushHistory` (320) → `scheduleDraftAutosave()` (326) → 1000 ms debounce → `serialiseScene()` writes `openings` per wall (8539) → `localStorage` `bbk_draft_autosave`. Only guards are `readOnlyMode` / `?share=`. The data-loss half of C10 is closed at code level.
+- Helpers are reachable from `executeUndo`: `drawElevation` (2558), `clearElevSelection` (3223), `syncOpeningsTo3D` (3550) are module-level with legacy 2-space indentation (A checked the column-0 brace boundaries; `drawRuler` closes at 2556, no enclosing block). `clearOpening3DSelection` (9372) nulls `opDim3D.sel` / `.mesh` and disposes helper + group.
+- Brief §3b step 3 (stale `elevOpenings`): `openWallElevation` takes a **copy** (2926), so the brief's §5 step 4a scenario is real; `refreshOpeningHistory` re-aliases `elevOpenings = wallObj.openings` when `elevWall === wallObj` (572). Correct.
+- O's "not exercised in a browser" is **true**. A ran `npm run build` on the `822126d` tree independently: exit 0, `dist/` gitignored, nothing written to the repo. A build pass is syntax only; brief §5 is wholly owed to H on the live site after push.
+
+**Nits (none blocking):**
+1. The two removal branches call `wallObj.openings.indexOf(op)` without the `if (!wallObj.openings)` guard the two reinsertion branches have. Unreachable in practice (the array exists at push time; a rebuilt wall fails `walls.includes`; load clears the stack at 8667). Do not reopen the unit for it; optional one-liner if the code is ever touched again.
+2. `refreshOpeningHistory`'s `removed` branch calls `clearElevSelection()`, which touches `#elev-opening-editor` even when the panel is closed. Harmless (element always exists); the brief asked for exactly this.
+
+**Observation — pre-existing, NOT a C10 finding, for the `C13` scope note:** because `openWallElevation` copies the array (2926), the non-undo version of scenario 4a is a live bug today: panel open on wall W → popup `＋ Door` (pushes to `W.openings`) → panel `＋ Power Point` (pushes to the stale copy, then `elevWall.openings = elevOpenings`) silently drops the popup door from the wall and its mesh. C10 does not cause or worsen it; its handlers are idempotent so undo/redo stays consistent around it. Needs H's yes like the rest of C13.
+
+**Docs honesty:**
+- `12820af` (C9 ✅) — **PASS.** The board's C9 line states both limits H asked about: step 11 was Chrome device mode at 400×842, not a physical phone, badge and dialog body not in the screenshot; step 12 was the planner URL with `?embed=1`, not inside a storefront iframe, risk 1 (sandboxed `confirm()`) not exercised. The PASS (4, 5, 6, 10) vs **confirmed** (11, 12) distinction is kept. PROGRESS and the F table point at the board for the limits rather than softening them. The step-11 relay entry correctly keeps the incidental "34 store-only hidden" console figure off the board (register item 7). No finding.
+- `822126d` (C10 record) — **PASS.** `C10` stays `- [ ] ⬜` (a status sub-line only); F table row 2, register row 12, PROGRESS and the RELAY entry all say built / not pushed / not verified, author-tagged, claim level stated, two-commit rule honoured, base `12820af` correct (parent of `394897a`).
+
+**Owner→PM note (H may send verbatim):** "A audit of `394897a` (C10, M2): PASS-WITH-NITS, push released. No code change required. Record A's nit 1 (asymmetric `openings` guard, unreachable) as optional. Add to the C13 candidate's scope note: the pre-existing stale-copy bug in `openWallElevation` (line 2926) — popup add then panel add on the same open wall drops the popup opening; C10 does not cause it. Flip C10 to ⏳ only on push."
+
+**Next owner:** **H** — push `394897a` + `12820af` + `822126d` (+ this record) to `origin/main`; then live-verify brief §5 (steps 2, 3, 4a, 5, 6 matter most, plus one touch pass). **O** — on push, flip `C10` to `- [ ] ⏳`; add the observation above to the `C13` candidate text. ✅ only on H's live report.
+
+---
 
 ### 2026-10-15 · O → A (cc H) · M2: C10 built by S, reviewer "ship" — built, NOT pushed, NOT verified
 
