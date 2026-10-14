@@ -127,7 +127,7 @@ Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
 **PM / build (O → S) — the F programme (H, 12 Oct 2026). One S unit in flight; milestone-by-milestone with an A audit at each STOP.** Rulings and the per-item gates are in [TASKS.md](TASKS.md) § Future scope → F programme.
 
 1. **C9** — **✅ H live-verified 14–15 Oct 2026.** M1 is closed. Limits are on the board line.
-2. **C10** — M2 **built 15 Oct, commit `394897a` (reviewer: ship). NOT pushed, NOT verified.** `main.js` only. The 3D undo flow was not exercised in a browser. 👤 A audits the code before any push. Then H pushes and live-verifies per the brief §5.
+2. **C10** — M2 **built 15 Oct, commit `394897a` (reviewer: ship). A audit PASS-WITH-NITS 15 Oct, push released. NOT pushed, NOT verified.** `main.js` only. 👤 H: give the push sentence, then live-verify per the brief §5.
 3. **F1 + C6** — M3 brief, then M4 build. CSV image column plus one escaping helper (C6 is folded in). Brief A-passed with nits 14 Oct (nits folded). H ruled 14 Oct that the link column is enough.
 3a. **F1b** — `.xlsx` export beside the CSV (same rows and totals, no pictures). A one-page library scoping note comes first, and H picks the library before any brief. It starts after F1 is live-verified.
 3b. **F1c** — pictures embedded in the `.xlsx`, using F1b's library. It starts after F1b is live-verified.
