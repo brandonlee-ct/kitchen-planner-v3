@@ -4,6 +4,8 @@
 > truth for what's done / next); [ROADMAP.md](ROADMAP.md) is the plain-English plan. This
 > file summarises — update **TASKS.md** when a task moves, then refresh this snapshot.
 
+_Refreshed 15 Oct 2026 by `O-opus-14oct26` (same session): C9 live-verified on the live site (brief §6). M2 (C10) is unlocked and waits for H's "continue". This record is local until H says to push. Earlier stamp kept below._
+
 _Refreshed 14 Oct 2026 by `O-opus-14oct26` (O, PM — Opus, H's local Cursor session): pushed `cdec6e1` on H's instruction; H's 14 Oct rulings recorded (F1 link column enough; new F1b/F1c; F9 = capture/export). Docs only. Earlier stamps kept below._
 
 _Refreshed 12 Oct 2026 by `O-opus-12oct26` (O, PM — Opus, H's local Cursor session), F programme M0: H's 12 Oct rulings are on the board, and "What's next" now follows the F programme order. Before this commit, `origin/main` = local `main` = `b343090` (`git ls-remote`, 12 Oct). O did not re-check the live bundle; this is a docs-only change. This commit is 1 ahead until H pushes. Earlier stamps kept below._
@@ -97,7 +99,7 @@ Phase 1 at [planner.brownboxkit.co.nz](https://planner.brownboxkit.co.nz), Shopi
 ## Blockers & live defects (customer-facing)
 
 - **C12** — **H ruled 6 Oct:** bathroom products are in scope (a vanity = one product, one GLB). **H reports the 6 bathroom accessories tagged `store-only`, 7 Oct.** 👤 H: read the live `?catalogaudit=1` store-only line and send the number. C12 then closes with no code change. Do **not** blanket-hide `kitchen hardware`.
-- **C9** (live revenue risk) — no out-of-stock warning before checkout; A granted options 1+2; brief ready 6 Oct. **Scheduled first by H, 12 Oct (F programme M1).** Built 12 Oct (`82cb385`); deployed 12 Oct 04:11. Awaiting H live verification.
+- **C9** — **✅ H live-verified 14–15 Oct 2026** (desktop Chrome; brief §6 steps 4, 5, 10 and 6 pass; 11 and 12 confirmed, with the limits on the board). No longer a live defect.
 
 _C11 was closed 6 Oct 2026 by H ruling: `(drft)` products are intentionally visible for live testing, and they are customer-visible during the test period by owner decision. It is not a defect._
 
@@ -122,8 +124,8 @@ Step-by-step: [RELAY.md](RELAY.md) § **R9** (6 Oct owner asks).
 
 **PM / build (O → S) — the F programme (H, 12 Oct 2026). One S unit in flight; milestone-by-milestone with an A audit at each STOP.** Rulings and the per-item gates are in [TASKS.md](TASKS.md) § Future scope → F programme.
 
-1. **C9** — M1 S build. OOS badge + pre-cart warning. Brief A-passed: [briefs/C9-oos-badge-and-precart-warning.md](briefs/C9-oos-badge-and-precart-warning.md). **Built 12 Oct, commit `82cb385` (reviewer: ship). ⏳ Pushed + deployed 12 Oct 04:11 (bundle `index-BytXTjAb.js`). Not live-verified.** 👤 H: live-verify per the brief §6. A's M1 audit is still owed.
-2. **C10** — M2 S build, after C9 is live-verified. Openings add/delete → undo/redo + autosave. Brief A-passed: [briefs/C10-opening-history.md](briefs/C10-opening-history.md).
+1. **C9** — **✅ H live-verified 14–15 Oct 2026.** M1 is closed. Limits are on the board line.
+2. **C10** — M2 S build. **Unlocked** by the C9 live check. It starts only when H types "continue". Openings add/delete → undo/redo + autosave. Brief A-passed: [briefs/C10-opening-history.md](briefs/C10-opening-history.md). Not started.
 3. **F1 + C6** — M3 brief, then M4 build. CSV image column plus one escaping helper (C6 is folded in). Brief A-passed with nits 14 Oct (nits folded). H ruled 14 Oct that the link column is enough.
 3a. **F1b** — `.xlsx` export beside the CSV (same rows and totals, no pictures). A one-page library scoping note comes first, and H picks the library before any brief. It starts after F1 is live-verified.
 3b. **F1c** — pictures embedded in the `.xlsx`, using F1b's library. It starts after F1b is live-verified.

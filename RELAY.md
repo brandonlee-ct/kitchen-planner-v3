@@ -109,11 +109,148 @@ Never reuse another session's tag.
 | 19 | Delete branch `cursor/a-audit-relay-entries` after #9 is on GitHub | none | **H** | `AGENTS.md`: merge or delete feature branches the same day the work is accepted |
 | 20 | Staff guide `public/shopify-planner-guide.html` | Setup "Catalogue setup guide" | **CLOSED 10 Oct** (H: "do it") | **10 Oct (`O-opus-07oct26`):** committed as a sub-line under Setup, linked from `public/catalog-setup.html`. §6 checked against ADD-ON and the 6 Oct bathroom ruling; three stale sentences corrected (see the log). The plan file was never committed; it is deleted from the working tree |
 | 21 | C12 — confirm the remaining `kitchen hardware` products are customer-placeable | `C12` | **H — read the `?catalogaudit=1` store-only line** (R9 step 3.4) | Added by `O-opus-06oct26`. **7 Oct (`O-opus-07oct26`): H RULED 6 Oct** (bathroom in scope; 5 kitchen items stay placeable; 6 accessories go `store-only`). **Same evening: H reports the 6 tagged.** O's read-only Storefront check agrees. C12 closes, with no code change, when H reports the audit line. The UNIT-SKU-PLAN.md scope note is awaiting H sign-off |
-| 22 | C9 OOS badge + pre-cart warning — S build; **then C10 S build** | `C9`, `C10` | **12 Oct (`O-opus-12oct26`): SCHEDULED by H ruling (a)** as F programme M1 (C9) and M2 (C10). Next owner: **O runs S at M1**, after A audits M0 and H types "continue". Earlier text: **H** — schedule the S builds: **C9 first** (revenue path), **then C10** (both briefs cleared by A, 6 Oct) | **7 Oct (`O-opus-07oct26`): C10 added to this row** — brief `briefs/C10-opening-history.md`, gate released by A 6 Oct, nits folded 7 Oct. O has started neither build. | Added by `O-opus-06oct26`. Brief: `briefs/C9-oos-badge-and-precart-warning.md`. A granted options 1+2 on 21 Aug; sequencing condition met. Live revenue risk: per A's 6 Oct observation, most products are unavailable |
+| 22 | C9 OOS badge + pre-cart warning — S build; **then C10 S build** | `C9`, `C10` | **15 Oct (`O-opus-14oct26`): C9 ✅ H live-verified.** Next owner: **H types "continue"**, then O runs the C10 S build (M2). Not started. Earlier text: **12 Oct (`O-opus-12oct26`): SCHEDULED by H ruling (a)** as F programme M1 (C9) and M2 (C10). Next owner: **O runs S at M1**, after A audits M0 and H types "continue". Earlier text: **H** — schedule the S builds: **C9 first** (revenue path), **then C10** (both briefs cleared by A, 6 Oct) | **7 Oct (`O-opus-07oct26`): C10 added to this row** — brief `briefs/C10-opening-history.md`, gate released by A 6 Oct, nits folded 7 Oct. O has started neither build. | Added by `O-opus-06oct26`. Brief: `briefs/C9-oos-badge-and-precart-warning.md`. A granted options 1+2 on 21 Aug; sequencing condition met. Live revenue risk: per A's 6 Oct observation, most products are unavailable |
 
 ---
 
 # Log (newest first)
+
+### 2026-10-15 · O → A (cc H) · C9 live check, brief §6 step 12 (`?embed=1`) — H's result; C9 ticked
+
+**Author:** `O-opus-14oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C9` (register row 22)
+**Claim level:** **verified-live**, on H's report. This commit records the whole check (steps 4, 5, 10, 6, 11, 12) and ticks `C9` on the board. **Not pushed.** H's session rule: do not push again without H's word.
+**Relaying work by:** H, on the live site.
+
+**H, verbatim (step 12):** "after click Cancel in chinese, back to planner with green Send to Cart button."
+
+**O's reading, separate from H's words:** Cancel existing means the `confirm()` dialog appeared. Chinese buttons are the browser's, as in step 4. After Cancel, H was back in the planner with a green `Send to Cart` button. That is what step 12 asks for. H did not quote the dialog body and did not attach a screenshot for this step. **Limit:** this was `https://planner.brownboxkit.co.nz/?embed=1` opened directly. It was not the planner inside a storefront iframe, so risk 1 (a sandbox making `confirm()` return false) stays unexercised and latent, as A's 14 Oct audit already said.
+
+**Check result, which gates the tick:**
+- Step 4 Cancel — pass (H: "all normal as per screenshot.")
+- Step 5 OK — pass (H: "this is the first dialog at checkout page")
+- Step 10 Back — pass (H: "pressed Back button. send to cart in green visible.")
+- Step 6 in stock — pass (H: "no "out of stock' dialog appeared. see screenshot.")
+- Step 11 touch — **confirmed**, Chrome device mode 400×842, not a physical phone (H: "send to cart visible after press Back button.")
+- Step 12 `?embed=1` — **confirmed**, with the limit above.
+
+`C9` is now `- [x] ✅` on the board. **M2 (C10 build) is unlocked. O did not start it.** It waits for H's "continue". M4 (F1 build) also waits; it needs C10 live-verified as well, and it was not started.
+**Blocked on:** H — "continue" before M2. H — the word to push this record.
+
+---
+
+### 2026-10-15 · O → A (cc H) · C9 live check, brief §6 step 11 (touch) — H's result
+
+**Author:** `O-opus-14oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C9`
+**Claim level:** H's live result, recorded verbatim. Narrow-window path **confirmed**. Not a physical iPhone or iPad. Not committed, not pushed.
+**Relaying work by:** H, desktop Chrome device mode, live site.
+
+**H, verbatim:** "send to cart visible after press Back button."
+
+**What the screenshot shows:** Chrome device toolbar, **400 × 842**, `planner.brownboxkit.co.nz`. Quote panel: `6. B1-100-B600TMB-S100STN-STD (drft)`, `Standard · $25.91`, total `$25.91`. Green button `🛒 Send to Cart`. Console, in order: `[catalogue] 34 store-only product(s) hidden from the panel`, `[send-to-cart] 1 line(s) may be out of stock`, `[analytics] send_to_cart`, then a Clear-Site-Data note that prefetch and prerender caches were cleared.
+
+**O's reading, separate from H's words:** the button after Back is the step 10 result at phone width. The `send-to-cart` console line is written immediately before `confirm()` (`main.js` 6031). `trackEvent('send_to_cart')` (6076) runs only after `confirm()` returns true and `cartCreate` succeeds. So H accepted the warning, reached checkout, pressed Back, and the button was not stuck. The badge and the dialog body are **not in the screenshot**. Width was 400px, not 390px. No physical device.
+**Incidental, not a C9 result:** the console says **34** store-only products hidden. The board's last H reading is 22 (6 Oct), and O's 7 Oct expectation after the 6 bathroom tags was 28. This 34 is an agent-side console line only. It does not change `C12` or `1.15c`. It waits for a clean dated `?catalogaudit=1` reading from H.
+**Still to run:** step 12 (`?embed=1`).
+
+---
+
+### 2026-10-14 · O → A (cc H) · C9 live check, brief §6 step 6 (no warning when in stock) — H's result
+
+**Author:** `O-opus-14oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C9`
+**Claim level:** H's live result, recorded verbatim. Not committed, not pushed. C9 stays `- [ ] ⏳` until steps 11 and 12 are recorded (confirmed or "not run") and the record is committed.
+**Relaying work by:** H, on the live site, desktop Chrome.
+
+**H, verbatim:** "no "out of stock' dialog appeared. see screenshot."
+
+**What the screenshots show:**
+1. The planner's own Restart box: `Restart Planner?` / `This reloads the planner back to a blank start.` / `Restart — discard work` / `Cancel`. (This is the not-dirty wording. The unsaved-changes wording did not show.)
+2. The Shopify checkout at `checkout.brownboxkit.co.nz`, a normal checkout (PayPal, Contact, Delivery). No "Out of stock" dialog. Lines visible: `INSTALL QUOTE REQUEST` `FREE`, and `#12 Base cabinet 900mm (Corner) (Drft)` `$754.66`. The subtotal line reads `Subtotal · 3 items` and `NZD $754.66`. A third line is not in the screenshot. The checkout URL is omitted here; it carries a session token.
+
+**O's reading, separate from H's words:** no planner "may be out of stock" dialog, and no Shopify sold-out dialog. That is what step 6 asks for. O cannot see from these two images whether every placed product lacked the badge; the pass rests on H's report plus the checkout that completed.
+**Still to run:** steps 11 (touch), 12 (`?embed=1`).
+
+---
+
+### 2026-10-14 · O → A (cc H) · C9 live check, brief §6 step 10 (Back) — H's result
+
+**Author:** `O-opus-14oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C9`
+**Claim level:** H's live result, recorded verbatim. Steps 4, 5 and 10 are now all in. **Not ticked yet** — steps 6, 11 and 12 are still to run, and the record is not committed. Not pushed.
+**Relaying work by:** H, on the live site, desktop Chrome. H used the browser Back button, not Shopify's "Return to cart".
+
+**H, verbatim:** "pressed Back button. send to cart in green visible."
+
+**What the screenshot shows:** the quote panel. `Total` `$1261.97`. A green button reading `🛒 Send to Cart`. It does not read `Adding to cart…`.
+
+**O's reading, separate from H's words:** this is what brief §6 step 10 asks for, and it is the C3 failure mode absent. H did not click the button again; the evidence is the label and the green (enabled) state. Step 10 passes on this evidence. Together with steps 4 and 5, the three results that gate the C9 tick are in.
+**Still to run:** steps 6 (no warning when in stock), 11 (touch), 12 (`?embed=1`).
+
+---
+
+### 2026-10-14 · O → A (cc H) · C9 live check, brief §6 step 5 (OK) — H reached checkout
+
+**Author:** `O-opus-14oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C9`
+**Claim level:** H's live result, recorded verbatim. Step 5 done. Not committed, not pushed. C9 stays `- [ ] ⏳` until step 10 is in as well.
+**Relaying work by:** H, on the live site. H clicked `离开` on the browser leave-site dialog, then landed on checkout.
+
+**H, verbatim:** "this is the first dialog at checkout page"
+
+**What the screenshot shows:** a Shopify dialog, not the planner's.
+`Out of stock`
+`Some items are no longer available and will be removed from your cart.`
+`#13 Base cabinet 600mm (Hob/Oven)` — `SOLD OUT`
+`#10 Base cabinet 660mm (Corner) (drft)` — `SOLD OUT`
+Links/buttons: `Return to cart` and `Continue checkout`.
+
+**O's reading, separate from H's words:** this is what brief §6 step 5 asks for. Shopify is the authority, and it named the same two cabinets the planner warned about. Step 5 passes on this evidence.
+**Still to run:** steps 10 (Back), 6 (no warning when in stock), 11 (touch), 12 (`?embed=1`).
+
+---
+
+### 2026-10-14 · O → A (cc H) · C9 live check, brief §6 step 5 — a second dialog appeared after OK
+
+**Author:** `O-opus-14oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C9`
+**Claim level:** H's live observation, recorded verbatim. **Step 5 is not finished** — H has not reached checkout yet. Not committed, not pushed.
+**Relaying work by:** H, on the live site, desktop Chrome.
+
+**H, verbatim:** "after i click ok in step 2. the is another dialog, see screenshot."
+
+**What the screenshot shows:** still on the planner, quote total `$1261.97`. A second dialog, Chrome's own chrome, not the planner's out-of-stock copy:
+`离开此网站?`
+`系统可能不会保存您所做的更改。`
+Buttons: `离开` and `取消`.
+
+**O's reading, separate from H's words:** this is the pre-existing `beforeunload` handler (`main.js` ~10508: if `sceneDirty`, `preventDefault` + `e.returnValue = ''`). Chrome ignores the custom text and shows its own "Leave this site? / Changes you made may not be saved", here in Chinese. It fires because OK on the out-of-stock dialog continues into the checkout redirect while the design is unsaved. It predates C9 (1.16b). It is not a second C9 warning. O asked H to click `离开` (Leave) so the redirect can finish and the checkout's own out-of-stock message can be read.
+
+---
+
+### 2026-10-14 · O → A (cc H) · C9 live check, brief §6 step 4 (Cancel) — H's result
+
+**Author:** `O-opus-14oct26` — O, PM (Opus, H's local Cursor session)
+**Board item:** `C9` (F programme M1, register row 22)
+**Claim level:** **H's live result, recorded verbatim.** Not a tick. C9 stays `- [ ] ⏳` until steps 4, 5 and 10 are all in. Not committed yet — the check record commits once, when the run finishes. Not pushed.
+**Relaying work by:** H, on the live site, desktop Chrome.
+
+**H, verbatim:** "all normal as per screenshot."
+
+**What the two screenshots show** (transcribed so the record stands without the images):
+1. The dialog, titled `planner.brownboxkit.co.nz 显示` (Chrome's Chinese locale chrome). Body, as shown:
+   `2 items may be out of stock:`
+   `• #10 Base cabinet 660mm (Corner) (drft) (×1)`
+   `• #13 Base cabinet 600mm (Hob/Oven) (×1)`
+   `Stock is confirmed at checkout. Continue to checkout anyway?`
+   Buttons: `确定` and `取消`. The catalogue behind it shows `out of stock` badges. The quote total behind it reads `$1261.97`.
+2. After Cancel: still in the planner. The button is green and reads `🛒 Send to Cart`. The quote total is still `$1261.97`. The placed cabinets are still there.
+
+**O's reading, separate from H's words:** the brief's step 4 example says `1 item` because it assumes one cabinet. H placed two, and the dialog correctly said `2 items` and named both. The ending sentence matches the brief word for word. `确定` / `取消` are the browser's own buttons for this locale; the planner's copy is the English body.
+**Still to run:** steps 5 (OK), 10 (Back), 6 (no warning when in stock), 11 (touch), 12 (`?embed=1`).
+
+---
 
 ### 2026-10-14 · O → A (cc H) · Pushed cdec6e1 on H's instruction; H's 14 Oct rulings recorded (F1 unchanged, F1b/F1c added, F9 = capture/export)
 
