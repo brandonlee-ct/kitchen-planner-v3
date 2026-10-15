@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Brown Box Kit — Adding Products to the Planner (SOP)</title>
+<style>
+  :root {
+    --bbk-orange: #ff9500;
+    --bbk-brown: #5a3d28;
+    --ink: #222;
+    --muted: #666;
+    --line: #e3e3e3;
+    --bg-soft: #faf7f3;
+    --bg-warn: #fff6e6;
+    --bg-good: #eef8ef;
+    --bg-info: #eef3fb;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.55;
+    background: #f4f1ec;
+  }
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 40px 48px 64px;
+    box-shadow: 0 1px 12px rgba(0,0,0,.08);
+  }
+  header.masthead {
+    border-bottom: 4px solid var(--bbk-orange);
+    padding-bottom: 18px;
+    margin-bottom: 8px;
+  }
+  .brand {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--bbk-orange);
+  }
+  h1 {
+    font-size: 28px;
+    margin: 6px 0 4px;
+    color: var(--bbk-brown);
+  }
+  .subtitle { color: var(--muted); font-size: 15px; margin: 0; }
+  .meta { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  h2 {
+    font-size: 20px;
+    color: var(--bbk-brown);
+    margin-top: 38px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  h3 { font-size: 16px; margin-top: 26px; color: #333; }
+  p { margin: 10px 0; }
+  ol, ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 6px 0; }
+  code {
+    background: #f2efe9;
+    border: 1px solid #e0dcd3;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: #8a4b00;
+    white-space: nowrap;
+  }
+  .callout {
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    border: 1px solid transparent;
+  }
+  .callout .label {
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .callout.golden { background: var(--bg-warn); border-color: #ffd98a; }
+  .callout.golden .label { color: #b06f00; }
+  .callout.warn { background: #fdeeee; border-color: #f3c2c2; }
+  .callout.warn .label { color: #b23b3b; }
+  .callout.info { background: var(--bg-info); border-color: #cdd9ee; }
+  .callout.info .label { color: #355a9e; }
+  .callout.good { background: var(--bg-good); border-color: #c4e3c6; }
+  .callout.good .label { color: #2c7a33; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 9px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--bg-soft);
+    color: var(--bbk-brown);
+    font-weight: 700;
+  }
+  tbody tr:nth-child(even) { background: #fbfaf8; }
+  .step-card {
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--bbk-orange);
+    border-radius: 8px;
+    padding: 4px 20px 16px;
+    margin: 16px 0;
+    background: #fff;
+  }
+  .step-card h3 { margin-top: 16px; }
+  .toc {
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 22px;
+    margin: 22px 0;
+  }
+  .toc h3 { margin: 0 0 6px; font-size: 14px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .toc ol { margin: 0; }
+  .toc a { color: var(--bbk-brown); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .pill.live { background: #e2f3e4; color: #2c7a33; }
+  .pill.soon { background: #eef3fb; color: #355a9e; }
+  .print-hint {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 24px;
+  }
+  .print-btn {
+    display: inline-block;
+    background: var(--bbk-orange);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  footer.foot {
+    margin-top: 46px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  @media (max-width: 600px) {
+    .page { padding: 24px 18px 40px; }
+    h1 { font-size: 23px; }
+    table { font-size: 13px; }
+    th, td { padding: 7px 8px; }
+  }
+  @media print {
+    body { background: #fff; }
+    .page { box-shadow: none; max-width: none; padding: 0; }
+    .no-print { display: none !important; }
+    h2 { page-break-after: avoid; }
+    .step-card, table, .callout { page-break-inside: avoid; }
+    a { color: var(--ink); text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <div class="brand">Brown Box Kit</div>
+    <h1>Adding &amp; Maintaining Products in the Planner</h1>
+    <p class="subtitle">A step-by-step guide — no coding needed.</p>
+    <p class="meta">Standard Operating Procedure · For Shopify product setup · Brown Box Kit 3D Kitchen Planner</p>
+  </header>
+
+  <p class="print-hint no-print">
+    Tip: to save this as a PDF, click the button or use your browser's Print and choose “Save as PDF”.<br />
+    <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+  </p>
+
+  <div class="callout golden">
+    <span class="label">The golden rule</span>
+    The planner is a <strong>live mirror</strong> of the Shopify shop — there is <strong>no “upload to the planner”</strong>.
+    You set the product up correctly in Shopify, then <strong>reload the planner</strong> and it appears.
+    If something looks wrong in the planner, the fix is almost always in the Shopify product — change it, then reload.
+  </div>
+
+  <div class="toc no-print">
+    <h3>What's inside</h3>
+    <ol>
+      <li><a href="#how">How the planner sees your shop (plain English)</a></li>
+      <li><a href="#partA">Part A — Make a product show up correctly <span class="pill live">Do now</span></a></li>
+      <li><a href="#partB">Part B — Record each cabinet's parts list <span class="pill soon">Prep for later</span></a></li>
+      <li><a href="#trouble">Quick troubleshooting</a></li>
+    </ol>
+  </div>
+
+  <h2 id="how">1. How the planner sees your shop</h2>
+  <p>
+    Think of the planner as a <strong>live mirror</strong> of the Brown Box Kit Shopify shop, not a separate copy.
+    Every time a customer opens the planner, it asks Shopify “what products do you have right now?” and shows whatever
+    comes back. So you never push or sync anything — you just make sure each product is set up correctly in Shopify,
+    then reload the planner.
+  </p>
+  <p>For a product to appear <em>and look right</em>, it needs three things in Shopify:</p>
+  <ul>
+    <li><strong>Be switched on for the planner</strong> (the right sales channel).</li>
+    <li><strong>Have a final title</strong> (no “(Draft)” in the name).</li>
+    <li><strong>Have its five size fields filled in</strong> (the <code>planner</code> metafields), plus a price.</li>
+  </ul>
+
+  <div class="callout info">
+    <span class="label">Industry note (why we do it this way)</span>
+    The big flat-pack planners work the same way. <strong>Kaboodle (Bunnings)</strong> treats cabinets, doors, panels and
+    benchtops as separate products that combine into one item list. <strong>IKEA</strong> treats a cabinet as a frame and
+    auto-adds the matching parts (doors, hinges, legs). We're following the same proven model — a cabinet on screen is
+    really a small kit of real products.
+  </div>
+
+  <h2 id="partA">2. Part A — Make a product show up correctly <span class="pill live">Do this now</span></h2>
+  <p>Do these five steps for <strong>every</strong> product you want in the planner.</p>
+
+  <div class="step-card">
+    <h3>Step 1 — Publish it to the planner's sales channel</h3>
+    <ol>
+      <li>In Shopify admin, open the product.</li>
+      <li>Find the <strong>Publishing / Sales channels</strong> box on the right.</li>
+      <li>Make sure the channel the planner uses is <strong>ticked</strong>. (Confirm the exact channel name with Brandon once — it's the same for every product.)</li>
+      <li><strong>To do many at once:</strong> Products list → tick the products → <strong>More actions → Add available channel</strong> → choose that channel.</li>
+    </ol>
+    <p style="margin-bottom:4px;color:var(--muted);font-size:13px;">This is the #1 reason a new product doesn't appear.</p>
+  </div>
+
+  <div class="step-card">
+    <h3>Step 2 — Make the title final (no “Draft”)</h3>
+    <p>The planner <strong>hides</strong> any product with <code>(Draft)</code> in its title, so works-in-progress stay
+    out of the customer's view. When the product is ready, remove “(Draft)” from the title.</p>
+  </div>
+
+  <div class="step-card">
+    <h3>Step 3 — Fill in the five planner size fields (metafields)</h3>
+    <p>On the product page, scroll to <strong>Metafields</strong> and set all five fields in the <code>planner</code>
+    group. Take the numbers from the cabinet spec sheet, measured in <strong>millimetres</strong>.</p>
+    <table>
+      <thead>
+        <tr><th>Field</th><th>What to enter</th><th>Example</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>planner.glb_url</code></td><td>Web link to the 3D model file</td><td>https://…/base-600.glb</td></tr>
+        <tr><td><code>planner.width_mm</code></td><td>Width in mm (number only)</td><td>600</td></tr>
+        <tr><td><code>planner.height_mm</code></td><td>Height in mm (number only)</td><td>720</td></tr>
+        <tr><td><code>planner.depth_mm</code></td><td>Depth in mm (number only)</td><td>560</td></tr>
+        <tr><td><code>planner.category</code></td><td>Cabinet type</td><td>base, wall, tall, corner, island</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn" style="margin-top:12px;">
+      <span class="label">Important</span>
+      If you leave the size fields blank, the planner <strong>guesses 600 × 580 × 720&nbsp;mm</strong> and shows a plain
+      box. A cabinet that looks the wrong size means these numbers are missing or wrong — fix them and reload.
+    </div>
+  </div>
+
+  <div class="step-card">
+    <h3>Step 4 — Check the price and SKU</h3>
+    <p>The product (or its variant) needs a <strong>price in NZD</strong> and a <strong>SKU code</strong>. The planner
+    shows the price and uses the SKU/variant when the customer sends the design to the cart.</p>
+  </div>
+
+  <div class="step-card">
+    <h3>Step 5 — Verify in the planner</h3>
+    <ol>
+      <li>Open the planner and <strong>reload the page</strong> (Ctrl + R on computer, or pull-to-refresh on mobile).</li>
+      <li>Find the product in the catalog list.</li>
+      <li>Confirm: correct <strong>name</strong>, correct <strong>size</strong> (e.g. <code>600 × 560 × 720mm</code>),
+        a <strong>price</strong>, and a real 3D model (not “⬜ placeholder model”).</li>
+      <li>Place it in a test plan and check it looks right. If it's wrong, go back to the matching field in Step 3.</li>
+    </ol>
+  </div>
+
+  <h2 id="partB">3. Part B — Record each cabinet's parts list <span class="pill soon">Prep for later</span></h2>
+  <p>
+    Goal: each cabinet should eventually pull in its <strong>door, benchtop and hardware automatically</strong> — like
+    Kaboodle's full item list — so customers get a complete, honest shopping list. That feature isn't switched on yet,
+    so for now <strong>start gathering the data</strong> in a simple spreadsheet. When the feature ships, we drop this
+    straight in and it works immediately.
+  </p>
+  <p>For each <strong>cabinet (carcase)</strong> product, record:</p>
+  <table>
+    <thead>
+      <tr><th>Column</th><th>What to put</th><th>Example</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Cabinet name</td><td>The carcase product</td><td>600 Base Cabinet</td></tr>
+      <tr><td>Cabinet SKU</td><td>Its product/variant code</td><td>BBK-BASE-600</td></tr>
+      <tr><td>Door SKU</td><td>The matching door panel's code</td><td>BBK-DOOR-600</td></tr>
+      <tr><td>Door qty</td><td>Usually 1 per cabinet</td><td>1</td></tr>
+      <tr><td>Hardware SKU(s)</td><td>Hinges / handles, if sold separately</td><td>BBK-HINGE ×2</td></tr>
+      <tr><td>Benchtop SKU</td><td>The benchtop product code</td><td>BBK-BENCH-LAM</td></tr>
+      <tr><td>Benchtop rule</td><td><strong>By length</strong> — note this; it's not 1 each</td><td>per metre of cabinet width</td></tr>
+    </tbody>
+  </table>
+  <div class="callout good">
+    <span class="label">How the quantities work</span>
+    <ul style="margin:6px 0 0;">
+      <li><strong>Doors &amp; hardware</strong> = a fixed number per cabinet (simple — this is the first thing we'll switch on).</li>
+      <li><strong>Benchtop</strong> = by length, never “one per cabinet”. Three 600&nbsp;mm cabinets in a row share one 1800&nbsp;mm benchtop. We're finalising exactly how the planner measures benchtop length before automating it — the same way IKEA and Kaboodle always have a person confirm the benchtop.</li>
+    </ul>
+  </div>
+
+  <h2 id="trouble">4. Quick troubleshooting</h2>
+  <table>
+    <thead>
+      <tr><th>What you see</th><th>Most likely cause</th><th>Fix</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>New product not in the planner at all</td><td>Not ticked for the planner's sales channel</td><td>Part A, Step 1, then reload</td></tr>
+      <tr><td>Product missing even though it's published</td><td>“(Draft)” is in the title</td><td>Remove it, then reload</td></tr>
+      <tr><td>Cabinet is the wrong size / shows a plain box</td><td>Size metafields blank or wrong</td><td>Part A, Step 3, then reload</td></tr>
+      <tr><td>No price shown</td><td>Variant has no NZD price</td><td>Set the price</td></tr>
+      <tr><td>Change made but the planner looks the same</td><td>Browser is showing the old page</td><td>Hard-reload (Ctrl + Shift + R)</td></tr>
+    </tbody>
+  </table>
+
+  <footer class="foot">
+    Brown Box Kit — internal SOP for Shopify product setup. Questions about the sales-channel name, GLB model links,
+    or benchtop rules go to Brandon. This guide describes the planner's behaviour as built; Part B's auto-add of doors
+    and benchtops is planned and not live yet.
+  </footer>
+
+</div>
+</body>
+</html>
